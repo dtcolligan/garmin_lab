@@ -4,4 +4,5 @@ __pycache__/
 .ipynb_checkpoints/
 *.csv
 *.json
-*.jsonl.DS_Store
+*.jsonl
+.DS_Store
