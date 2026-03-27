@@ -170,6 +170,14 @@
     margin-bottom: 20px;
     transition: opacity 0.3s;
   }
+  .coach-card { background: var(--card); border-radius: var(--radius); padding: 16px; margin-bottom: 16px; box-shadow: var(--shadow); }
+  .coach-title { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text3); font-weight: 700; margin-bottom: 8px; }
+  .coach-badge { display:inline-block; padding: 4px 10px; border-radius: 999px; font-size: 0.72rem; font-weight: 700; margin-bottom: 8px; }
+  .coach-badge.GREEN { background:#34c75915; color:#248a3d; }
+  .coach-badge.AMBER { background:#ff950015; color:#b26a00; }
+  .coach-badge.RED { background:#ff3b3015; color:#b42318; }
+  .coach-score { font-size: 1.5rem; font-weight: 800; margin-bottom: 6px; }
+  .coach-summary { color: var(--text2); font-size: 0.9rem; line-height: 1.45; }
 
   /* --- Status --- */
   .status-msg {
@@ -728,6 +736,11 @@
 
   <!-- Motivation -->
   <div class="motivation" id="motivation"></div>
+
+<div class="coach-card" id="coach-card" style="display:none;">
+  <div class="coach-title">Daily Coaching</div>
+  <div id="coach-content"></div>
+</div>
 
   </div><!-- /foodTab -->
 

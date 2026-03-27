@@ -131,6 +131,14 @@
     background: var(--bg);
     color: var(--muted);
   }
+  .readiness-pill { display:inline-block; padding:4px 10px; border-radius:999px; font-size:0.75rem; font-weight:700; margin-bottom:10px; }
+  .readiness-pill.GREEN { background:#34c75918; color:#248a3d; }
+  .readiness-pill.AMBER { background:#ff950018; color:#b26a00; }
+  .readiness-pill.RED { background:#ff3b3018; color:#b42318; }
+  .readiness-score { font-size:2rem; font-weight:800; margin-bottom:6px; }
+  .readiness-text { color:var(--text2); margin-bottom:10px; }
+  .driver-list { margin-top:10px; padding-left:18px; color:var(--text2); }
+  .driver-list li { margin-bottom:4px; }
   .back-link {
     display: inline-block;
     margin-bottom: 16px;
@@ -148,6 +156,11 @@
 <p class="subtitle" id="subtitle">Loading...</p>
 
 <div class="stats-row" id="stats-row"></div>
+
+<div class="card" id="readiness-card" style="margin-bottom:24px;">
+  <h2>Today's Readiness</h2>
+  <div id="readiness-summary" class="no-data">Readiness data will appear here.</div>
+</div>
 
 <div class="section-title">Sleep & Recovery</div>
 <div class="grid">
