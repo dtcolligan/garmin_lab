@@ -152,3 +152,5 @@ This repo is not just a notebook or toy model. It demonstrates:
 - Add richer coaching logic on top of readiness scoring and subjective recovery signals
 - Improve food logging UX and input flexibility
 - Tighten deployment/dev setup for easier reproducibility
+
+- Wave-1 work-lane proof executed on 2026-04-08 14:46 BST.
