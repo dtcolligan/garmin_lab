@@ -31,6 +31,7 @@
   h1 { margin: 12px 0 6px; font-size: 2rem; }
   .subtitle { color: var(--muted); margin: 0 0 24px; }
   .grid { display: grid; gap: 18px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+  .proof-grid { display: grid; gap: 18px; grid-template-columns: 1.3fr 0.9fr; }
   .card {
     background: var(--card);
     border: 1px solid var(--border);
@@ -54,9 +55,11 @@
   .section-title { margin: 30px 0 12px; font-size: 1rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
   .chart-card { min-height: 320px; }
   .chart-wrap { position: relative; height: 240px; }
+  .callout { padding: 14px; border-radius: 16px; background: linear-gradient(135deg, rgba(59,130,246,0.08), rgba(22,163,74,0.08)); border: 1px solid var(--border); }
+  .callout strong { display:block; margin-bottom: 6px; }
   .small { font-size: 0.88rem; color: var(--muted); }
   .empty { color: var(--muted); font-style: italic; }
-  @media (max-width: 860px) { .hero { grid-template-columns: 1fr; } }
+  @media (max-width: 860px) { .hero, .proof-grid { grid-template-columns: 1fr; } }
 </style>
 </head>
 <body>
@@ -72,7 +75,7 @@
     </div>
     <div class="card">
       <div class="metric-label">Why this view exists</div>
-      <p class="headline">A first product-facing layer over the normalized Garmin export, turning raw rows into a readable training and recovery snapshot.</p>
+      <p class="headline">A product-style proof surface over the normalized Garmin export, designed to feel plausible both as a future mission-control widget and as flagship portfolio evidence.</p>
       <p class="small">This page reads runtime artifacts only. No raw export data is committed into the repo.</p>
       <div class="mini-grid" id="coverage-grid"></div>
     </div>
@@ -87,7 +90,12 @@
   </div>
 
   <div class="section-title">Running signals</div>
-  <div class="grid">
+  <div class="proof-grid">
+    <div class="card chart-card"><div class="metric-label">Weekly running proof</div><div class="chart-wrap"><canvas id="weeklyRunVolumeChart"></canvas></div></div>
+    <div class="card" id="mission-control-card"></div>
+  </div>
+
+  <div class="grid" style="margin-top:18px;">
     <div class="card chart-card"><div class="metric-label">Recent runs</div><div class="chart-wrap"><canvas id="runningChart"></canvas></div></div>
     <div class="card" id="run-summary-card"></div>
   </div>
@@ -120,6 +128,7 @@ function render(summary) {
   const visuals = summary.visuals || {};
   const bestRun = summary.activity_summary?.best_run || {};
   const latestRun = summary.activity_summary?.latest_run || {};
+  const latestRunContext = interpretation.latest_run_context || latestRun || {};
 
   document.getElementById('subtitle').textContent = `${summary.date_range.start} to ${summary.date_range.end} • ${summary.date_range.days} days of normalized export coverage`;
 
@@ -128,6 +137,7 @@ function render(summary) {
     <p class="headline">${interpretation.headline || 'No interpretation available yet.'}</p>
     <div class="mini-grid">
       <div class="mini"><div class="metric-label">Latest day</div><div><strong>${latest.date || '—'}</strong><br>${latest.training_readiness_level || 'Unknown'} readiness, sleep ${latest.sleep_score_overall ?? '—'}, battery ${latest.body_battery ?? '—'}</div></div>
+      <div class="mini"><div class="metric-label">Load context</div><div><strong>${latest.training_status || 'Unknown'}</strong> status<br>recovery ${latest.training_recovery_time_hours ? Math.round(latest.training_recovery_time_hours) + 'h' : '—'}</div></div>
       <div class="mini"><div class="metric-label">Weekly baseline</div><div><strong>${avg7.steps ?? '—'}</strong> avg steps<br><strong>${avg7.sleep_score_overall ?? '—'}</strong> avg sleep score</div></div>
     </div>
     <ul class="bullets">
@@ -151,9 +161,22 @@ function render(summary) {
     metricCard('7-day resting HR', avg7.resting_hr, fmtDelta(delta.resting_hr_delta, true)),
   ].join('');
 
+  document.getElementById('mission-control-card').innerHTML = `
+    <div class="metric-label">Mission-control widget direction</div>
+    <p class="headline">This overview is now close to a compact operator panel: current readiness, residual recovery debt, and weekly run volume in one surface.</p>
+    <div class="callout">
+      <strong>Flagship proof angle</strong>
+      A hiring reviewer can see a clear product story here: raw export ingestion, normalized analysis, conservative interpretation, and a dashboard layer that looks ready to harden into a real widget.
+    </div>
+    <div class="mini-grid">
+      <div class="mini"><div class="metric-label">Latest run context</div><div><strong>${latestRunContext.distance_km ?? '—'} km</strong><br>${latestRunContext.date || 'Recent'} • load ${latestRunContext.training_load ?? '—'}</div></div>
+      <div class="mini"><div class="metric-label">Coverage window</div><div><strong>${summary.date_range?.days ?? '—'} days</strong><br>${summary.coverage?.running_activity_rows ?? '—'} running activities</div></div>
+    </div>
+  `;
+
   document.getElementById('run-summary-card').innerHTML = `
     <div class="metric-label">Running interpretation</div>
-    <p class="headline">The export already supports a usable running block view, with recency and best-effort context rather than just activity rows.</p>
+    <p class="headline">The export already supports a usable running block view, with recency, load context, and enough weekly structure to justify a real training-status summary rather than a raw activity list.</p>
     <div class="mini-grid">
       <div class="mini"><div class="metric-label">Latest run</div><div><strong>${latestRun.distance_km ?? '—'} km</strong><br>${latestRun.date || '—'} • ${latestRun.duration_min ?? '—'} min</div></div>
       <div class="mini"><div class="metric-label">Best run in export</div><div><strong>${bestRun.distance_km ?? '—'} km</strong><br>${bestRun.date || '—'} • load ${bestRun.training_load ?? '—'}</div></div>
@@ -165,6 +188,7 @@ function render(summary) {
 
   const dailyPoints = visuals.daily_points || [];
   const runPoints = visuals.running_points || [];
+  const weeklyRunPoints = visuals.weekly_running_points || [];
 
   charts.push(new Chart(document.getElementById('recoveryChart'), {
     type: 'line',
@@ -188,6 +212,17 @@ function render(summary) {
       ]
     },
     options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true }, y1: { position: 'right', beginAtZero: false, grid: { drawOnChartArea: false } } } }
+  }));
+
+  charts.push(new Chart(document.getElementById('weeklyRunVolumeChart'), {
+    data: {
+      labels: weeklyRunPoints.map(p => p.week_start),
+      datasets: [
+        { type: 'bar', label: 'Weekly distance (km)', data: weeklyRunPoints.map(p => p.distance_km), backgroundColor: 'rgba(59,130,246,0.24)', borderColor: '#3b82f6' },
+        { type: 'line', label: 'Weekly training load', data: weeklyRunPoints.map(p => p.training_load), borderColor: '#d97706', backgroundColor: 'rgba(217,119,6,0.12)', yAxisID: 'y1', tension: 0.35 }
+      ]
+    },
+    options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true }, y1: { position: 'right', beginAtZero: true, grid: { drawOnChartArea: false } } } }
   }));
 
   charts.push(new Chart(document.getElementById('runningChart'), {

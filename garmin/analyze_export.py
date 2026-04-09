@@ -60,13 +60,15 @@ def _delta(current, previous):
     return round(current - previous, 2)
 
 
-def _classify_snapshot(latest_day: dict, recent_7_day_averages: dict) -> dict:
+def _classify_snapshot(latest_day: dict, recent_7_day_averages: dict, running: pd.DataFrame) -> dict:
     readiness = (latest_day.get("training_readiness_level") or "UNKNOWN").upper()
     sleep_score = latest_day.get("sleep_score_overall")
     body_battery = latest_day.get("body_battery")
     steps = latest_day.get("steps")
     rolling_steps = recent_7_day_averages.get("steps")
-    training_status = latest_day.get("training_status")
+    training_status = (latest_day.get("training_status") or "UNKNOWN").upper()
+    recovery_hours = safe_float(latest_day.get("training_recovery_time_hours"))
+    latest_date = pd.to_datetime(latest_day.get("date"), errors="coerce")
 
     positives = []
     cautions = []
@@ -74,38 +76,82 @@ def _classify_snapshot(latest_day: dict, recent_7_day_averages: dict) -> dict:
     if sleep_score is not None and sleep_score >= 80:
         positives.append("sleep score is in a solid range")
     elif sleep_score is not None and sleep_score < 70:
-        cautions.append("sleep score is soft enough to avoid calling this a hard-push day")
+        cautions.append("sleep score is soft enough that this should not be framed as a push day")
 
     if body_battery is not None and body_battery >= 60:
         positives.append("body battery suggests good available energy")
-    elif body_battery is not None and body_battery < 40:
-        cautions.append("body battery is subdued, so recovery may still be incomplete")
+    elif body_battery is not None and body_battery < 45:
+        cautions.append("body battery is still muted, so recovery may be only partial")
 
     if steps is not None and rolling_steps is not None and steps >= rolling_steps:
         positives.append("movement stayed at or above the recent weekly baseline")
 
-    if training_status and str(training_status).upper() == "PRODUCTIVE":
-        positives.append("Garmin marks the broader block as productive")
+    same_day_run = None
+    latest_run = None
+    if not running.empty:
+        ordered_runs = running.sort_values("start_time_local").copy()
+        latest_run_row = ordered_runs.iloc[-1]
+        latest_run = {
+            "date": latest_run_row["start_time_local"].strftime("%Y-%m-%d") if pd.notna(latest_run_row["start_time_local"]) else None,
+            "distance_km": round(float(latest_run_row["distance_m"]) / 1000, 2) if pd.notna(latest_run_row.get("distance_m")) else None,
+            "training_load": safe_float(latest_run_row.get("activity_training_load")),
+        }
+        if pd.notna(latest_date):
+            same_day = ordered_runs[ordered_runs["start_time_local"].dt.strftime("%Y-%m-%d") == latest_date.strftime("%Y-%m-%d")]
+            if not same_day.empty:
+                row = same_day.iloc[-1]
+                same_day_run = {
+                    "distance_km": round(float(row["distance_m"]) / 1000, 2) if pd.notna(row.get("distance_m")) else None,
+                    "training_load": safe_float(row.get("activity_training_load")),
+                }
+
+    if training_status == "PRODUCTIVE":
+        positives.append("Garmin marks the wider block as productive")
+    elif training_status in {"RECOVERY", "UNPRODUCTIVE", "STRAINED", "OVERREACHING"}:
+        cautions.append(f"training status is {training_status.lower()}, which supports a more conservative read of the day")
 
     if readiness in {"VERY_LOW", "LOW"}:
-        cautions.append("training readiness is low, so intensity should stay conservative")
+        if training_status == "PRODUCTIVE":
+            cautions.append("readiness is low even though the broader block is productive, which usually means fitness may be building but today is not the day to force extra intensity")
+        else:
+            cautions.append("training readiness is low, so intensity should stay conservative")
 
-    if readiness in {"HIGH", "PRIMED"} and sleep_score is not None and sleep_score >= 80:
+    if recovery_hours is not None:
+        if recovery_hours >= 24:
+            cautions.append(f"recovery time is still about {recovery_hours:.0f} hours, so this reads as residual load rather than a green light")
+        elif recovery_hours >= 12:
+            cautions.append(f"recovery time still shows about {recovery_hours:.0f} hours, so another hard session would need a strong reason")
+        else:
+            positives.append(f"recovery time is relatively low at about {recovery_hours:.0f} hours")
+
+    if same_day_run:
+        cautions.append(
+            f"the latest day already contains a {same_day_run['distance_km'] or 'recent'} km run with load {same_day_run['training_load'] or 'n/a'}, so low readiness may reflect absorbed work rather than a system failure"
+        )
+    elif latest_run and latest_date is not None and latest_run.get("date"):
+        run_date = pd.to_datetime(latest_run["date"], errors="coerce")
+        if pd.notna(run_date):
+            days_since_run = (latest_date - run_date).days
+            if days_since_run <= 2:
+                positives.append(f"recent running context is still current, with the last run {days_since_run} day{'s' if days_since_run != 1 else ''} ago")
+
+    if readiness in {"HIGH", "PRIMED"} and sleep_score is not None and sleep_score >= 80 and (recovery_hours is None or recovery_hours < 18):
         label = "build-ready"
-        headline = "Recovery looks supportive for normal training, with no obvious red flags in the latest snapshot."
-    elif readiness in {"VERY_LOW", "LOW"}:
+        headline = "Recovery looks supportive for normal training, with multiple signals aligned and no obvious near-term recovery debt."
+    elif readiness in {"VERY_LOW", "LOW"} or (recovery_hours is not None and recovery_hours >= 24):
         label = "absorb-and-maintain"
-        headline = "The latest day reads more like an absorb-the-work snapshot than a signal to push harder."
+        headline = "The latest day reads like an absorb-the-work snapshot, where productive fitness can coexist with a short-term signal to keep the next move conservative."
     else:
         label = "steady"
-        headline = "The latest day looks broadly steady, with enough support for normal training if effort stays sensible."
+        headline = "The latest day looks broadly steady, with enough support for normal training if intensity stays earned rather than assumed."
 
     return {
         "label": label,
         "headline": headline,
         "positives": positives,
         "cautions": cautions,
-        "disclaimer": "Conservative interpretation only, this is a descriptive training cue rather than medical advice.",
+        "latest_run_context": latest_run,
+        "disclaimer": "Conservative interpretation only. This view describes training signals and recovery context, not medical status or injury risk.",
     }
 
 
@@ -129,6 +175,7 @@ def _build_visual_payload(daily: pd.DataFrame, running: pd.DataFrame) -> dict:
         })
 
     running_points = []
+    weekly_running_points = []
     if not running.empty:
         ordered_runs = running.sort_values("start_time_local").copy()
         for _, row in ordered_runs.tail(12).iterrows():
@@ -142,9 +189,25 @@ def _build_visual_payload(daily: pd.DataFrame, running: pd.DataFrame) -> dict:
                 "training_load": safe_float(row.get("activity_training_load")),
             })
 
+        runs_for_week = ordered_runs.dropna(subset=["start_time_local"]).copy()
+        runs_for_week["week_start"] = runs_for_week["start_time_local"].dt.to_period("W-MON").apply(lambda p: p.start_time)
+        weekly = runs_for_week.groupby("week_start", as_index=False).agg(
+            total_distance_m=("distance_m", "sum"),
+            total_training_load=("activity_training_load", "sum"),
+            run_count=("activity_id", "count"),
+        )
+        for _, row in weekly.tail(8).iterrows():
+            weekly_running_points.append({
+                "week_start": row["week_start"].strftime("%Y-%m-%d"),
+                "distance_km": round(float(row["total_distance_m"]) / 1000, 2) if pd.notna(row.get("total_distance_m")) else None,
+                "training_load": safe_float(row.get("total_training_load")),
+                "run_count": safe_int(row.get("run_count")),
+            })
+
     return {
         "daily_points": daily_points,
         "running_points": running_points,
+        "weekly_running_points": weekly_running_points,
     }
 
 
@@ -206,6 +269,7 @@ def build_summary(export_dir: Path) -> dict:
             "steps": safe_int(latest.get("steps")),
             "sleep_score_overall": safe_int(latest.get("sleep_score_overall")),
             "training_readiness_level": latest.get("training_readiness_level"),
+            "training_recovery_time_hours": safe_float(latest.get("training_recovery_time_hours")),
             "body_battery": safe_int(latest.get("body_battery")),
             "training_status": latest.get("training_status"),
         },
@@ -236,7 +300,7 @@ def build_summary(export_dir: Path) -> dict:
             "hydration_events_with_estimated_sweat_loss": int(hydration["estimated_sweat_loss_ml"].fillna(0).gt(0).sum()),
         },
     }
-    summary["interpretation"] = _classify_snapshot(summary["latest_day"], summary["recent_7_day_averages"])
+    summary["interpretation"] = _classify_snapshot(summary["latest_day"], summary["recent_7_day_averages"], running)
     summary["visuals"] = _build_visual_payload(daily, running)
     return summary
 
