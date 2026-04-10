@@ -432,6 +432,15 @@ def _validate_manual_completeness(entry: ManualLogEntryModel, index: int) -> lis
                     f"{path}.completeness_state",
                 )
             )
+    if entry.log_type is ManualLogType.MEAL and entry.completeness_state is CompletenessState.COMPLETE:
+        if "notes" not in entry.payload and "items" not in entry.payload:
+            issues.append(
+                _issue(
+                    "manual_completeness_mismatch",
+                    "meal entries marked complete must include notes or items so nutrition capture stays explicit and honest.",
+                    f"{path}.completeness_state",
+                )
+            )
 
     return issues
 

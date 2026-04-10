@@ -1,0 +1,63 @@
+{
+  "source_artifacts": [
+    {
+      "artifact_id": "artifact_01JQZHMANUALH1",
+      "user_id": "user_dom",
+      "source_type": "manual",
+      "source_name": "manual_hydration_log",
+      "collected_at": "2026-04-10T18:42:00+01:00",
+      "ingested_at": "2026-04-10T18:42:03+01:00",
+      "raw_location": "healthlab://manual/hydration/2026-04-10",
+      "raw_format": "json",
+      "parser_version": "manual-form@0.1.0"
+    }
+  ],
+  "input_events": [
+    {
+      "event_id": "event_01JQZHMANUALH1",
+      "user_id": "user_dom",
+      "source_type": "manual",
+      "source_name": "manual_hydration_log",
+      "source_record_id": "manual_hydration_2026-04-10_1",
+      "capture_mode": "derived",
+      "domain": "hydration",
+      "metric_name": "hydration_amount_ml",
+      "value_type": "number",
+      "value_number": 600,
+      "unit": "ml",
+      "event_start_at": null,
+      "event_end_at": null,
+      "effective_date": "2026-04-10",
+      "ingested_at": "2026-04-10T18:42:03+01:00",
+      "confidence_label": "high",
+      "confidence_score": 0.99,
+      "missingness_state": "present",
+      "provenance": {
+        "artifact_id": "artifact_01JQZHMANUALH1",
+        "derivation_method": "manual_form_normalization",
+        "supporting_refs": [
+          "manual_log_entry:manual_01JQZHMANUALH1"
+        ],
+        "parser_version": "manual-form@0.1.0",
+        "conflict_status": "none"
+      }
+    }
+  ],
+  "subjective_daily_entries": [],
+  "manual_log_entries": [
+    {
+      "entry_id": "manual_01JQZHMANUALH1",
+      "user_id": "user_dom",
+      "date": "2026-04-10",
+      "log_type": "hydration",
+      "payload": {
+        "amount_ml": 600,
+        "beverage_type": "water"
+      },
+      "source_artifact_id": "artifact_01JQZHMANUALH1",
+      "completeness_state": "complete",
+      "confidence_label": "high",
+      "confidence_score": 0.99
+    }
+  ]
+}

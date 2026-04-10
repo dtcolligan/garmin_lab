@@ -1,0 +1,35 @@
+{
+  "source_artifacts": [
+    {
+      "artifact_id": "artifact_01JQZHMANUALG1",
+      "user_id": "user_dom",
+      "source_type": "manual",
+      "source_name": "manual_gym_log",
+      "collected_at": "2026-04-10T19:12:00+01:00",
+      "ingested_at": "2026-04-10T19:12:04+01:00",
+      "raw_location": "healthlab://manual/gym/2026-04-10",
+      "raw_format": "json",
+      "parser_version": "manual-form@0.1.0"
+    }
+  ],
+  "input_events": [],
+  "subjective_daily_entries": [],
+  "manual_log_entries": [
+    {
+      "entry_id": "manual_01JQZHMANUALG1",
+      "user_id": "user_dom",
+      "date": "2026-04-10",
+      "log_type": "exercise_set",
+      "payload": {
+        "exercise_name": "front squat",
+        "set_index": 1,
+        "reps": 5,
+        "weight_kg": 80
+      },
+      "source_artifact_id": "artifact_01JQZHMANUALG1",
+      "completeness_state": "complete",
+      "confidence_label": "high",
+      "confidence_score": 0.99
+    }
+  ]
+}

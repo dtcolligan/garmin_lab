@@ -1,0 +1,34 @@
+{
+  "source_artifacts": [
+    {
+      "artifact_id": "artifact_01JQZHMANUALN1",
+      "user_id": "user_dom",
+      "source_type": "manual",
+      "source_name": "manual_nutrition_note",
+      "collected_at": "2026-04-10T12:31:00+01:00",
+      "ingested_at": "2026-04-10T12:31:04+01:00",
+      "raw_location": "healthlab://manual/nutrition/2026-04-10",
+      "raw_format": "json",
+      "parser_version": "manual-form@0.1.0"
+    }
+  ],
+  "input_events": [],
+  "subjective_daily_entries": [],
+  "manual_log_entries": [
+    {
+      "entry_id": "manual_01JQZHMANUALN1",
+      "user_id": "user_dom",
+      "date": "2026-04-10",
+      "log_type": "meal",
+      "payload": {
+        "meal_label": "lunch",
+        "estimated": true,
+        "notes": "Turkey sandwich, yogurt, and an apple. Portions are approximate."
+      },
+      "source_artifact_id": "artifact_01JQZHMANUALN1",
+      "completeness_state": "complete",
+      "confidence_label": "high",
+      "confidence_score": 0.99
+    }
+  ]
+}

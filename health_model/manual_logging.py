@@ -76,6 +76,37 @@ def build_hydration_manual_log_entry(
     }
 
 
+def build_nutrition_text_note_manual_log_entry(
+    *,
+    entry_id: str,
+    user_id: str,
+    date: str,
+    source_artifact_id: str,
+    note_text: str,
+    completeness_state: str,
+    confidence_score: float,
+    meal_label: str | None = None,
+    estimated: bool | None = True,
+) -> dict[str, Any]:
+    payload: dict[str, Any] = {"notes": note_text}
+    if meal_label is not None:
+        payload["meal_label"] = meal_label
+    if estimated is not None:
+        payload["estimated"] = estimated
+
+    return {
+        "entry_id": entry_id,
+        "user_id": user_id,
+        "date": date,
+        "log_type": ManualLogType.MEAL.value,
+        "payload": payload,
+        "source_artifact_id": source_artifact_id,
+        "completeness_state": completeness_state,
+        "confidence_label": _confidence_label_for_score(confidence_score),
+        "confidence_score": confidence_score,
+    }
+
+
 def build_exercise_set_manual_log_entry(
     *,
     entry_id: str,
@@ -115,6 +146,33 @@ def build_exercise_set_manual_log_entry(
         "confidence_label": _confidence_label_for_score(confidence_score),
         "confidence_score": confidence_score,
     }
+
+
+def build_simple_gym_set_manual_log_entry(
+    *,
+    entry_id: str,
+    user_id: str,
+    date: str,
+    source_artifact_id: str,
+    exercise_name: str,
+    set_index: int,
+    reps: int,
+    weight_kg: float,
+    completeness_state: str,
+    confidence_score: float,
+) -> dict[str, Any]:
+    return build_exercise_set_manual_log_entry(
+        entry_id=entry_id,
+        user_id=user_id,
+        date=date,
+        source_artifact_id=source_artifact_id,
+        exercise_name=exercise_name,
+        set_index=set_index,
+        reps=reps,
+        weight_kg=weight_kg,
+        completeness_state=completeness_state,
+        confidence_score=confidence_score,
+    )
 
 
 def build_hydration_input_event(
