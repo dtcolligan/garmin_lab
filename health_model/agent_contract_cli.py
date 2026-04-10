@@ -330,6 +330,51 @@ def _contract_payload() -> dict[str, Any]:
                     },
                 ],
             },
+            "recommendation.create": {
+                "module": "health_model.agent_recommendation_cli",
+                "command": "create",
+                "mode": "write",
+                "description": "Write one validated day-scoped recommendation artifact grounded in one scoped daily context artifact.",
+                "args": [
+                    {
+                        "name": "output_dir",
+                        "flag": "--output-dir",
+                        "type": "string",
+                        "required": True,
+                        "description": "Directory where dated and latest recommendation artifacts are written.",
+                    },
+                    {
+                        "name": "payload_json",
+                        "flag": "--payload-json",
+                        "type": "json_object",
+                        "required": False,
+                        "description": "Recommendation payload JSON object string. Exactly one of --payload-json or --payload-path is required.",
+                    },
+                    {
+                        "name": "payload_path",
+                        "flag": "--payload-path",
+                        "type": "string",
+                        "required": False,
+                        "description": "Path to one recommendation payload JSON file. Exactly one of --payload-json or --payload-path is required.",
+                    },
+                ],
+                "consumes": ["agent_readable_daily_context"],
+                "produces": ["agent_recommendation_dated", "agent_recommendation_latest"],
+                "payload_shape": {
+                    "required_fields": [
+                        "user_id",
+                        "date",
+                        "context_artifact_path",
+                        "context_artifact_id",
+                        "recommendation_id",
+                        "summary",
+                        "rationale",
+                        "evidence_refs",
+                        "confidence_score",
+                    ],
+                    "notes": "All evidence_refs must already exist in the referenced agent_readable_daily_context and the payload user_id/date must match that context scope.",
+                },
+            },
         },
         "accepted_enums": {
             "bundle_commands": ["init"],
@@ -337,6 +382,8 @@ def _contract_payload() -> dict[str, Any]:
             "voice_note_commands": ["submit"],
             "voice_note_payload_inputs": ["payload_json", "payload_path"],
             "context_commands": ["get", "get-latest"],
+            "recommendation_commands": ["create"],
+            "recommendation_payload_inputs": ["payload_json", "payload_path"],
             "contract_commands": ["describe"],
             "completeness_state": ["partial", "complete", "corrected"],
             "estimated": ["true", "false"],
@@ -370,6 +417,14 @@ def _contract_payload() -> dict[str, Any]:
                         "{output_dir}/agent_readable_daily_context_latest.json",
                     ],
                     "notes": "submit.hydration, submit.meal, and submit.voice_note regenerate both the dated and latest artifacts on success.",
+                },
+                {
+                    "artifact_type": "agent_recommendation",
+                    "paths": [
+                        "{output_dir}/agent_recommendation_{date}.json",
+                        "{output_dir}/agent_recommendation_latest.json",
+                    ],
+                    "notes": "recommendation.create writes exactly one day-scoped recommendation artifact and fails closed on malformed payloads, scope mismatches, invalid context artifacts, or ungrounded evidence refs.",
                 }
             ],
         },
@@ -377,6 +432,8 @@ def _contract_payload() -> dict[str, Any]:
             "bundle_path": "{output_dir}/shared_input_bundle_{date}.json",
             "dated_context_artifact": "{output_dir}/agent_readable_daily_context_{date}.json",
             "latest_context_artifact": "{output_dir}/agent_readable_daily_context_latest.json",
+            "dated_recommendation_artifact": "{output_dir}/agent_recommendation_{date}.json",
+            "latest_recommendation_artifact": "{output_dir}/agent_recommendation_latest.json",
         },
         "response_envelopes": {
             "bootstrap.init": {
@@ -394,6 +451,10 @@ def _contract_payload() -> dict[str, Any]:
             "context": {
                 "success_keys": ["ok", "artifact_path", "context", "validation", "error"],
                 "error_keys": ["ok", "artifact_path", "context", "validation", "error"],
+            },
+            "recommendation.create": {
+                "success_keys": ["ok", "artifact_path", "latest_artifact_path", "recommendation", "validation", "error"],
+                "error_keys": ["ok", "artifact_path", "latest_artifact_path", "recommendation", "validation", "error"],
             },
         },
     }

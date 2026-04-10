@@ -13,7 +13,7 @@ VOICE_NOTE_FIXTURE = REPO_ROOT / "tests" / "fixtures" / "voice_note_intake" / "d
 
 
 class AgentContractCliIntegrationTest(unittest.TestCase):
-    def test_describe_returns_machine_readable_contract_for_bootstrap_submit_and_context_loop(self) -> None:
+    def test_describe_returns_machine_readable_contract_for_bootstrap_submit_context_and_recommendation_loop(self) -> None:
         result = self._run_cli(["describe"])
 
         self.assertTrue(result["ok"], msg=result)
@@ -29,6 +29,8 @@ class AgentContractCliIntegrationTest(unittest.TestCase):
         self.assertEqual(contract["accepted_enums"]["voice_note_commands"], ["submit"])
         self.assertEqual(contract["accepted_enums"]["voice_note_payload_inputs"], ["payload_json", "payload_path"])
         self.assertEqual(contract["accepted_enums"]["context_commands"], ["get", "get-latest"])
+        self.assertEqual(contract["accepted_enums"]["recommendation_commands"], ["create"])
+        self.assertEqual(contract["accepted_enums"]["recommendation_payload_inputs"], ["payload_json", "payload_path"])
         self.assertEqual(contract["accepted_enums"]["completeness_state"], ["partial", "complete", "corrected"])
         self.assertEqual(contract["accepted_enums"]["estimated"], ["true", "false"])
         self.assertEqual(
@@ -38,6 +40,14 @@ class AgentContractCliIntegrationTest(unittest.TestCase):
         self.assertEqual(
             contract["path_conventions"]["latest_context_artifact"],
             "{output_dir}/agent_readable_daily_context_latest.json",
+        )
+        self.assertEqual(
+            contract["path_conventions"]["dated_recommendation_artifact"],
+            "{output_dir}/agent_recommendation_{date}.json",
+        )
+        self.assertEqual(
+            contract["path_conventions"]["latest_recommendation_artifact"],
+            "{output_dir}/agent_recommendation_latest.json",
         )
 
         bootstrap_init = contract["supported_operations"]["bootstrap.init"]
@@ -76,6 +86,30 @@ class AgentContractCliIntegrationTest(unittest.TestCase):
         self.assertEqual(context_get["command"], "get")
         self.assertEqual([arg["name"] for arg in context_get["args"]], ["artifact_path", "user_id", "date"])
 
+        recommendation_create = contract["supported_operations"]["recommendation.create"]
+        recommendation_args = {arg["name"]: arg for arg in recommendation_create["args"]}
+        self.assertEqual(recommendation_create["module"], "health_model.agent_recommendation_cli")
+        self.assertEqual(recommendation_create["command"], "create")
+        self.assertEqual(recommendation_create["consumes"], ["agent_readable_daily_context"])
+        self.assertEqual(recommendation_create["produces"], ["agent_recommendation_dated", "agent_recommendation_latest"])
+        self.assertEqual(
+            recommendation_create["payload_shape"]["required_fields"],
+            [
+                "user_id",
+                "date",
+                "context_artifact_path",
+                "context_artifact_id",
+                "recommendation_id",
+                "summary",
+                "rationale",
+                "evidence_refs",
+                "confidence_score",
+            ],
+        )
+        self.assertEqual(recommendation_args["payload_json"]["type"], "json_object")
+        self.assertFalse(recommendation_args["payload_json"]["required"])
+        self.assertFalse(recommendation_args["payload_path"]["required"])
+
         consumed = contract["artifact_types"]["consumed"]
         self.assertEqual(consumed[2]["artifact_type"], "voice_note_submission_payload")
         self.assertIn("--payload-path", consumed[2]["shape"])
@@ -86,9 +120,16 @@ class AgentContractCliIntegrationTest(unittest.TestCase):
         self.assertEqual(produced[1]["artifact_type"], "agent_readable_daily_context")
         self.assertIn("{output_dir}/agent_readable_daily_context_latest.json", produced[1]["paths"])
         self.assertIn("submit.voice_note", produced[1]["notes"])
+        self.assertEqual(produced[2]["artifact_type"], "agent_recommendation")
+        self.assertIn("{output_dir}/agent_recommendation_latest.json", produced[2]["paths"])
+        self.assertIn("recommendation.create", produced[2]["notes"])
         self.assertEqual(
             contract["response_envelopes"]["bootstrap.init"]["success_keys"],
             ["ok", "bundle_path", "bundle", "validation", "error"],
+        )
+        self.assertEqual(
+            contract["response_envelopes"]["recommendation.create"]["success_keys"],
+            ["ok", "artifact_path", "latest_artifact_path", "recommendation", "validation", "error"],
         )
 
     def test_contract_describe_bootstrap_voice_note_submit_and_context_get_prove_external_agent_loop(self) -> None:

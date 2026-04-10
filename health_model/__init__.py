@@ -1,5 +1,6 @@
 """Canonical Health Lab daily snapshot core."""
 
+from health_model.agent_readable_daily_context import build_agent_readable_daily_context
 from health_model.manual_logging import (
     build_exercise_set_manual_log_entry,
     build_hydration_input_event,
@@ -19,6 +20,7 @@ from health_model.voice_note_intake import (
 )
 
 __all__ = [
+    "build_agent_readable_daily_context",
     "build_exercise_set_manual_log_entry",
     "build_subjective_daily_entry_from_voice_note",
     "build_hydration_input_event",
