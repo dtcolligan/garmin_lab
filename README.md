@@ -318,6 +318,25 @@ The read CLI returns a machine-readable JSON envelope with:
 
 It fails closed with a non-zero exit code and the same JSON envelope for missing files, invalid JSON, artifact type mismatch, and user/date scope mismatches.
 
+## CLI-driven contract discovery
+
+External agents can discover the current Health Lab contract from the CLI alone, without scraping this README or importing Python modules:
+
+```bash
+python3 -m health_model.agent_contract_cli describe
+```
+
+The discovery output is stable machine-readable JSON and includes:
+
+- `contract_id` and `contract_version`
+- supported operations for `health_model.agent_submit_cli`, `health_model.agent_context_cli`, and the discovery CLI itself
+- required arguments and accepted enum values
+- consumed and produced artifact types
+- default path conventions for the shared input bundle and generated daily context artifacts
+- response envelope keys for success and fail-closed errors
+
+The contract discovery CLI is read-only and currently supports one bounded command, `describe`.
+
 ## Voice-note intake proof
 
 The repo also includes a bounded voice-note intake path in `health_model/voice_note_intake.py`.
