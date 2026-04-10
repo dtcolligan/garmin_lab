@@ -222,6 +222,48 @@ Run:
 python3 -m unittest tests.test_voice_note_intake
 ```
 
+## Canonical manual intake to daily context flow
+
+For the bounded manual nutrition + hydration golden path, use `health_model.agent_interface` to submit same-day fragments, merge them, then build the agent-facing daily artifact:
+
+```python
+from health_model.agent_interface import (
+    build_daily_context,
+    merge_bundle_fragments,
+    submit_hydration_log,
+    submit_nutrition_text_note,
+)
+
+hydration = submit_hydration_log(
+    user_id="user_1",
+    date="2026-04-09",
+    amount_ml=750,
+    beverage_type="water",
+    completeness_state="complete",
+    collected_at="2026-04-09T18:20:00+01:00",
+    ingested_at="2026-04-09T18:20:03+01:00",
+    raw_location="healthlab://manual/hydration/2026-04-09/evening",
+    confidence_score=0.98,
+)
+meal = submit_nutrition_text_note(
+    user_id="user_1",
+    date="2026-04-09",
+    note_text="Chicken rice bowl and fruit after run.",
+    meal_label="dinner",
+    estimated=True,
+    completeness_state="complete",
+    collected_at="2026-04-09T20:10:00+01:00",
+    ingested_at="2026-04-09T20:10:04+01:00",
+    raw_location="healthlab://manual/nutrition/2026-04-09/dinner",
+    confidence_score=0.94,
+)
+
+bundle = merge_bundle_fragments(existing_bundle, hydration["bundle_fragment"], meal["bundle_fragment"])
+context = build_daily_context(bundle=bundle, user_id="user_1", date="2026-04-09")
+```
+
+The resulting `agent_readable_daily_context` keeps same-day scoping, preserves provenance IDs in `generated_from`, and exposes grounded nutrition and hydration signals with explicit evidence refs.
+
 ## Next steps
 
 - Improve the dashboard and daily readiness views

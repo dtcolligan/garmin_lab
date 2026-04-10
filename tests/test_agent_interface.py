@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from health_model.agent_interface import (
     build_daily_context,
@@ -268,6 +269,57 @@ class AgentInterfaceTest(unittest.TestCase):
                 same_day_hydration["entry"]["entry_id"],
             ],
         )
+
+    def test_canonical_manual_intake_flow_snapshots_same_day_daily_context(self) -> None:
+        bundle = json.loads((FIXTURE_DIR / "fixture_multi_day_bundle.json").read_text())
+        expected = json.loads((FIXTURE_DIR / "generated_manual_intake_same_day_context.json").read_text())
+
+        deterministic_ids = iter(
+            [
+                "artifact_hydration_same_day",
+                "manual_hydration_same_day",
+                "event_hydration_same_day",
+                "artifact_meal_same_day",
+                "manual_meal_same_day",
+                "event_meal_same_day",
+            ]
+        )
+
+        with patch("health_model.agent_interface._new_id", side_effect=lambda prefix: next(deterministic_ids)):
+            hydration = submit_hydration_log(
+                user_id="user_1",
+                date="2026-04-09",
+                amount_ml=750,
+                beverage_type="water",
+                completeness_state="complete",
+                collected_at="2026-04-09T18:20:00+01:00",
+                ingested_at="2026-04-09T18:20:03+01:00",
+                raw_location="healthlab://manual/hydration/2026-04-09/evening",
+                confidence_score=0.98,
+                notes="Evening refill after training.",
+            )
+            meal = submit_nutrition_text_note(
+                user_id="user_1",
+                date="2026-04-09",
+                note_text="Chicken rice bowl and fruit after run.",
+                meal_label="dinner",
+                estimated=True,
+                completeness_state="complete",
+                collected_at="2026-04-09T20:10:00+01:00",
+                ingested_at="2026-04-09T20:10:04+01:00",
+                raw_location="healthlab://manual/nutrition/2026-04-09/dinner",
+                confidence_score=0.94,
+            )
+
+        merged_bundle = merge_bundle_fragments(
+            bundle,
+            hydration["bundle_fragment"],
+            meal["bundle_fragment"],
+        )
+
+        context = build_daily_context(bundle=merged_bundle, user_id="user_1", date="2026-04-09")
+
+        self.assertEqual(context, expected)
 
     def test_duplicate_same_day_hydration_replay_does_not_inflate_daily_total(self) -> None:
         bundle = json.loads((FIXTURE_DIR / "fixture_multi_day_bundle.json").read_text())
