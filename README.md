@@ -14,8 +14,15 @@ That loop is implemented under `health_model/`, covered by CLI integration tests
 
 ## Canonical sample demo path
 
+Start with the one-command canonical public demo from repo root:
+
+```bash
+python3 scripts/run_canonical_public_demo.py
+```
+
 The canonical public demo surface for this slice is:
-- walkthrough doc: `docs/health_lab_canonical_public_demo.md`
+- one-command walkthrough doc: `docs/health_lab_canonical_public_demo.md`
+- disposable generated runtime outputs: `artifacts/public_demo/generated/`
 - checked-in public demo bundle: `artifacts/public_demo/captured/`
 - audited flagship proof bundle: `artifacts/flagship_loop_proof/2026-04-09/`
 
@@ -29,7 +36,7 @@ The checked-in public demo bundle includes:
 - `artifacts/public_demo/captured/recommendation_rejection_envelope_bad_evidence.json`
 - `artifacts/public_demo/captured/recommendation_rejection_non_mutation_proof.json`
 
-Use the doc for the exact repo-root command lineage and inspect the captured bundle for the frozen public-safe proof, including explicit non-mutation evidence for the fail-closed rejection case.
+Use the one-command wrapper for a fresh disposable run, then inspect the captured bundle for the frozen public-safe proof, including explicit non-mutation evidence for the fail-closed rejection case.
 
 The broader CLI walkthroughs later in this README remain useful runtime examples, but they are not the canonical public demo proof object for this slice.
 
@@ -62,7 +69,7 @@ The broader CLI walkthroughs later in this README remain useful runtime examples
 
 The current flagship loop lives in `health_model/`. Older project surfaces for Garmin ingestion, dashboards, and the web app still exist in the repo as legacy or adjacent code, but they are not part of the current flagship proof path.
 
-If you want the smallest trustworthy slice first, read `docs/health_lab_canonical_public_demo.md`, inspect `artifacts/public_demo/captured/`, then inspect the audited flagship proof bundle at `artifacts/flagship_loop_proof/2026-04-09/` or regenerate it with `python3 scripts/run_flagship_loop_proof_audit.py`.
+If you want the smallest trustworthy slice first, run `python3 scripts/run_canonical_public_demo.py`, inspect `artifacts/public_demo/generated/`, then compare that disposable run with `artifacts/public_demo/captured/` and the audited flagship proof bundle at `artifacts/flagship_loop_proof/2026-04-09/` or regenerate the stricter proof audit with `python3 scripts/run_flagship_loop_proof_audit.py`.
 
 For repo-level trust and contribution boundaries, see `STATUS.md`, `CONTRIBUTING.md`, and `LICENSE` at the repo root.
 
