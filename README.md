@@ -224,6 +224,54 @@ Proof:
 python3 -m unittest tests.test_persisted_bundle_append_regenerate
 ```
 
+## Stable agent-facing submit-and-regenerate CLI
+
+External agents can now drive the same bounded transaction without importing Python directly:
+
+```bash
+python3 -m health_model.agent_submit_cli hydration \
+  --bundle-path data/health/shared_input_bundle_2026-04-09.json \
+  --output-dir data/health \
+  --user-id user_1 \
+  --date 2026-04-09 \
+  --collected-at 2026-04-09T18:20:00+01:00 \
+  --ingested-at 2026-04-09T18:20:03+01:00 \
+  --raw-location healthlab://manual/hydration/2026-04-09/evening \
+  --confidence-score 0.98 \
+  --completeness-state complete \
+  --amount-ml 750 \
+  --beverage-type water \
+  --notes "Evening refill after training."
+```
+
+```bash
+python3 -m health_model.agent_submit_cli meal \
+  --bundle-path data/health/shared_input_bundle_2026-04-09.json \
+  --output-dir data/health \
+  --user-id user_1 \
+  --date 2026-04-09 \
+  --collected-at 2026-04-09T20:10:00+01:00 \
+  --ingested-at 2026-04-09T20:10:04+01:00 \
+  --raw-location healthlab://manual/nutrition/2026-04-09/dinner \
+  --confidence-score 0.94 \
+  --completeness-state complete \
+  --note-text "Chicken rice bowl and fruit after run." \
+  --meal-label dinner \
+  --estimated true
+```
+
+Each call returns machine-readable JSON with:
+
+- `ok`
+- `bundle_path`
+- `dated_artifact_path`
+- `latest_artifact_path`
+- `accepted_provenance`
+- `validation`
+- `error`
+
+The CLI fails closed with a non-zero exit code and the same JSON error envelope for invalid payloads, unsupported commands, parser-level argument or choice errors, and timestamp/date mismatches, and leaves the persisted bundle and generated artifacts unchanged on rejection.
+
 ## Voice-note intake proof
 
 The repo also includes a bounded voice-note intake path in `health_model/voice_note_intake.py`.
