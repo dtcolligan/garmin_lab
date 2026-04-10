@@ -207,6 +207,23 @@ Run:
 python3 -m unittest tests.test_shared_input_backbone
 ```
 
+## Atomic manual append + regenerate entrypoint
+
+Health Lab now includes a single bounded agent-facing transaction surface in `health_model/agent_interface.py`:
+
+- `append_fragment_and_regenerate_daily_context(...)`
+- accepts one validated same-day `meal` or `hydration` fragment
+- appends it to the persisted shared-input bundle
+- regenerates both `agent_readable_daily_context_YYYY-MM-DD.json` and `agent_readable_daily_context_latest.json` from disk in the same call
+- returns the bundle path, dated/latest artifact paths, and accepted provenance ids
+- fails closed for invalid, wrong-day, or unsupported fragments without mutating persisted state
+
+Proof:
+
+```bash
+python3 -m unittest tests.test_persisted_bundle_append_regenerate
+```
+
 ## Voice-note intake proof
 
 The repo also includes a bounded voice-note intake path in `health_model/voice_note_intake.py`.

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
 from typing import Any
@@ -26,14 +27,64 @@ def build_daily_context_artifact(*, bundle_path: str, user_id: str, date: str, o
     latest_path = output_path / "agent_readable_daily_context_latest.json"
 
     serialized = json.dumps(artifact, indent=2, sort_keys=True) + "\n"
-    dated_path.write_text(serialized)
-    latest_path.write_text(serialized)
+    _write_artifact_pair_atomically(
+        serialized=serialized,
+        dated_path=dated_path,
+        latest_path=latest_path,
+    )
 
     return {
         "artifact": artifact,
         "dated_path": str(dated_path),
         "latest_path": str(latest_path),
     }
+
+
+def _write_artifact_pair_atomically(*, serialized: str, dated_path: Path, latest_path: Path) -> None:
+    original_states = {
+        dated_path: _capture_file_state(dated_path),
+        latest_path: _capture_file_state(latest_path),
+    }
+    temp_paths = {
+        dated_path: _write_temp_artifact_file(target_path=dated_path, serialized=serialized),
+        latest_path: _write_temp_artifact_file(target_path=latest_path, serialized=serialized),
+    }
+
+    try:
+        _replace_artifact_file(source_path=temp_paths[dated_path], target_path=dated_path)
+        _replace_artifact_file(source_path=temp_paths[latest_path], target_path=latest_path)
+    except Exception:
+        for target_path, state in original_states.items():
+            _restore_artifact_file_state(target_path=target_path, state=state)
+        raise
+    finally:
+        for temp_path in temp_paths.values():
+            if temp_path.exists():
+                temp_path.unlink()
+
+
+def _capture_file_state(path: Path) -> dict[str, str | bool | None]:
+    if not path.exists():
+        return {"exists": False, "content": None}
+    return {"exists": True, "content": path.read_text()}
+
+
+def _write_temp_artifact_file(*, target_path: Path, serialized: str) -> Path:
+    temp_path = target_path.with_name(f".{target_path.name}.{os.getpid()}.tmp")
+    temp_path.write_text(serialized)
+    return temp_path
+
+
+def _replace_artifact_file(*, source_path: Path, target_path: Path) -> None:
+    source_path.replace(target_path)
+
+
+def _restore_artifact_file_state(*, target_path: Path, state: dict[str, str | bool | None]) -> None:
+    if state["exists"]:
+        target_path.write_text(str(state["content"]))
+        return
+    if target_path.exists():
+        target_path.unlink()
 
 
 class BundleValidationFailed(ValueError):

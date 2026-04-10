@@ -19,6 +19,9 @@ from health_model.manual_logging import (
 from health_model.shared_input_backbone import ValidationResult, validate_shared_input_bundle
 
 
+ALLOWED_ATOMIC_APPEND_LOG_TYPES = {"meal", "hydration"}
+
+
 class ValidationIssueDict(TypedDict):
     code: str
     message: str
@@ -76,6 +79,16 @@ class PersistedBundleAppendResponse(TypedDict, total=False):
     bundle_path: str
     bundle: dict[str, Any] | None
     appended_fragment: BundleFragment | None
+    validation: ValidationPayload
+    error: ErrorPayload | None
+
+
+class AppendRegenerateResponse(TypedDict, total=False):
+    ok: bool
+    bundle_path: str
+    dated_artifact_path: str | None
+    latest_artifact_path: str | None
+    accepted_provenance: dict[str, list[str] | str]
     validation: ValidationPayload
     error: ErrorPayload | None
 
@@ -345,6 +358,103 @@ def append_bundle_fragment_to_persisted_bundle(
 
 
 
+def append_fragment_and_regenerate_daily_context(
+    *,
+    bundle_path: str,
+    output_dir: str,
+    fragment: BundleFragment,
+    user_id: str,
+    date: str,
+) -> AppendRegenerateResponse:
+    fragment_validation = validate_shared_input_bundle(fragment)
+    if not fragment_validation.is_valid:
+        return {
+            "ok": False,
+            "bundle_path": bundle_path,
+            "dated_artifact_path": None,
+            "latest_artifact_path": None,
+            "accepted_provenance": {},
+            "validation": _validation_payload(fragment_validation),
+            "error": {
+                "code": "invalid_bundle_fragment",
+                "message": "Generated bundle fragment failed canonical validation.",
+                "retryable": False,
+                "details": {"user_id": user_id, "date": date},
+            },
+        }
+
+    scoping_issues = _bundle_fragment_scoping_issues(fragment=fragment, user_id=user_id, date=date)
+    log_type_issues = _bundle_fragment_log_type_issues(fragment=fragment)
+    semantic_issues = [*scoping_issues, *log_type_issues]
+    if semantic_issues:
+        validation = ValidationResult(bundle=None, schema_issues=[], semantic_issues=semantic_issues)
+        error_code = "bundle_fragment_scope_mismatch" if scoping_issues else "unsupported_bundle_fragment"
+        error_message = (
+            "Bundle fragment must match the requested user_id and date."
+            if scoping_issues
+            else "Bundle fragment must contain only meal or hydration manual log entries."
+        )
+        return {
+            "ok": False,
+            "bundle_path": bundle_path,
+            "dated_artifact_path": None,
+            "latest_artifact_path": None,
+            "accepted_provenance": {},
+            "validation": _validation_payload(validation),
+            "error": {
+                "code": error_code,
+                "message": error_message,
+                "retryable": False,
+                "details": {"user_id": user_id, "date": date},
+            },
+        }
+
+    bundle_file = Path(bundle_path)
+    original_bundle_text = bundle_file.read_text()
+    base_bundle = json.loads(original_bundle_text)
+    merged_bundle = merge_bundle_fragments(base_bundle, fragment)
+    merged_validation = validate_shared_input_bundle(merged_bundle)
+    if not merged_validation.is_valid:
+        return {
+            "ok": False,
+            "bundle_path": bundle_path,
+            "dated_artifact_path": None,
+            "latest_artifact_path": None,
+            "accepted_provenance": {},
+            "validation": _validation_payload(merged_validation),
+            "error": {
+                "code": "invalid_merged_bundle",
+                "message": "Merged shared input bundle failed canonical validation.",
+                "retryable": False,
+                "details": {"user_id": user_id, "date": date},
+            },
+        }
+
+    try:
+        from health_model.build_daily_context_artifact import build_daily_context_artifact
+
+        write_persisted_bundle(bundle_path=bundle_path, bundle=merged_bundle)
+        artifact_result = build_daily_context_artifact(
+            bundle_path=bundle_path,
+            user_id=user_id,
+            date=date,
+            output_dir=output_dir,
+        )
+    except Exception:
+        bundle_file.write_text(original_bundle_text)
+        raise
+
+    return {
+        "ok": True,
+        "bundle_path": bundle_path,
+        "dated_artifact_path": artifact_result["dated_path"],
+        "latest_artifact_path": artifact_result["latest_path"],
+        "accepted_provenance": _accepted_provenance_payload(fragment),
+        "validation": _validation_payload(merged_validation),
+        "error": None,
+    }
+
+
 def build_daily_context(
     *,
     bundle: dict[str, Any],
@@ -485,6 +595,29 @@ def _bundle_fragment_scoping_issues(*, fragment: BundleFragment, user_id: str, d
             issues.append(_issue("date_mismatch", "Manual log entry date must match the requested date.", f"manual_log_entries[{index}].date"))
     return issues
 
+
+
+def _bundle_fragment_log_type_issues(*, fragment: BundleFragment) -> list[Any]:
+    issues = []
+    for index, entry in enumerate(fragment.get("manual_log_entries", [])):
+        log_type = entry.get("log_type")
+        if log_type not in ALLOWED_ATOMIC_APPEND_LOG_TYPES:
+            issues.append(
+                _issue(
+                    "unsupported_manual_log_type",
+                    "Manual log entry log_type must be meal or hydration for atomic append-and-regenerate.",
+                    f"manual_log_entries[{index}].log_type",
+                )
+            )
+    return issues
+
+
+def _accepted_provenance_payload(fragment: BundleFragment) -> dict[str, list[str] | str]:
+    return {
+        "source_artifact_ids": [artifact["artifact_id"] for artifact in fragment.get("source_artifacts", [])],
+        "input_event_ids": [event["event_id"] for event in fragment.get("input_events", [])],
+        "manual_log_entry_ids": [entry["entry_id"] for entry in fragment.get("manual_log_entries", [])],
+    }
 
 
 def _issue(code: str, message: str, path: str) -> Any:
