@@ -216,6 +216,119 @@
         "parser_version": "garmin-export@0.1.0",
         "conflict_status": "none"
       }
+    },
+    {
+      "event_id": "event_hydration_20260409",
+      "user_id": "user_1",
+      "source_type": "manual",
+      "source_name": "manual_day_log",
+      "source_record_id": "manual_hydration_20260409",
+      "capture_mode": "self_reported",
+      "domain": "hydration",
+      "metric_name": "hydration_amount_ml",
+      "value_type": "number",
+      "value_number": 750,
+      "unit": "ml",
+      "event_start_at": null,
+      "event_end_at": null,
+      "effective_date": "2026-04-09",
+      "ingested_at": "2026-04-09T20:46:00Z",
+      "confidence_label": "high",
+      "confidence_score": 0.98,
+      "missingness_state": "present",
+      "provenance": {
+        "artifact_id": "artifact_manual_20260409",
+        "derivation_method": "manual_form_normalization",
+        "supporting_refs": [
+          "manual_log_entry:manual_hydration_20260409"
+        ],
+        "parser_version": null,
+        "conflict_status": "none"
+      }
+    },
+    {
+      "event_id": "event_meal_logged_20260409",
+      "user_id": "user_1",
+      "source_type": "manual",
+      "source_name": "manual_day_log",
+      "source_record_id": "manual_meal_20260409",
+      "capture_mode": "self_reported",
+      "domain": "nutrition",
+      "metric_name": "meal_logged",
+      "value_type": "boolean",
+      "value_boolean": true,
+      "event_start_at": null,
+      "event_end_at": null,
+      "effective_date": "2026-04-09",
+      "ingested_at": "2026-04-09T20:46:00Z",
+      "confidence_label": "high",
+      "confidence_score": 0.94,
+      "missingness_state": "present",
+      "provenance": {
+        "artifact_id": "artifact_manual_20260409",
+        "derivation_method": "manual_form_normalization",
+        "supporting_refs": [
+          "manual_log_entry:manual_meal_20260409"
+        ],
+        "parser_version": null,
+        "conflict_status": "none"
+      }
+    },
+    {
+      "event_id": "event_meal_estimated_20260409",
+      "user_id": "user_1",
+      "source_type": "manual",
+      "source_name": "manual_day_log",
+      "source_record_id": "manual_meal_20260409",
+      "capture_mode": "self_reported",
+      "domain": "nutrition",
+      "metric_name": "meal_estimated_flag",
+      "value_type": "boolean",
+      "value_boolean": true,
+      "event_start_at": null,
+      "event_end_at": null,
+      "effective_date": "2026-04-09",
+      "ingested_at": "2026-04-09T20:46:00Z",
+      "confidence_label": "high",
+      "confidence_score": 0.94,
+      "missingness_state": "present",
+      "provenance": {
+        "artifact_id": "artifact_manual_20260409",
+        "derivation_method": "manual_form_normalization",
+        "supporting_refs": [
+          "manual_log_entry:manual_meal_20260409"
+        ],
+        "parser_version": null,
+        "conflict_status": "none"
+      }
+    },
+    {
+      "event_id": "event_meal_label_20260409",
+      "user_id": "user_1",
+      "source_type": "manual",
+      "source_name": "manual_day_log",
+      "source_record_id": "manual_meal_20260409",
+      "capture_mode": "self_reported",
+      "domain": "nutrition",
+      "metric_name": "meal_label",
+      "value_type": "string",
+      "value_string": "dinner",
+      "event_start_at": null,
+      "event_end_at": null,
+      "effective_date": "2026-04-09",
+      "ingested_at": "2026-04-09T20:46:00Z",
+      "confidence_label": "high",
+      "confidence_score": 0.94,
+      "missingness_state": "present",
+      "provenance": {
+        "artifact_id": "artifact_manual_20260409",
+        "derivation_method": "manual_form_normalization",
+        "supporting_refs": [
+          "manual_log_entry:manual_meal_20260409"
+        ],
+        "parser_version": null,
+        "conflict_status": "none"
+      }
     }
   ],
   "subjective_daily_entries": [
@@ -279,6 +392,36 @@
       "completeness_state": "complete",
       "confidence_label": "high",
       "confidence_score": 0.97
+    },
+    {
+      "entry_id": "manual_hydration_20260409",
+      "user_id": "user_1",
+      "date": "2026-04-09",
+      "log_type": "hydration",
+      "payload": {
+        "amount_ml": 750,
+        "beverage_type": "water",
+        "notes": "Evening refill after training."
+      },
+      "source_artifact_id": "artifact_manual_20260409",
+      "completeness_state": "complete",
+      "confidence_label": "high",
+      "confidence_score": 0.98
+    },
+    {
+      "entry_id": "manual_meal_20260409",
+      "user_id": "user_1",
+      "date": "2026-04-09",
+      "log_type": "meal",
+      "payload": {
+        "meal_label": "dinner",
+        "estimated": true,
+        "notes": "Chicken rice bowl and fruit after run."
+      },
+      "source_artifact_id": "artifact_manual_20260409",
+      "completeness_state": "complete",
+      "confidence_label": "high",
+      "confidence_score": 0.94
     }
   ]
 }

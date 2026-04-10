@@ -222,6 +222,23 @@ Run:
 python3 -m unittest tests.test_voice_note_intake
 ```
 
+## Stable daily context artifact entrypoint
+
+The first stable external agent-consumption surface is the artifact writer entrypoint below. It validates a canonical shared-input bundle, fails closed on invalid input, and writes the exact daily context artifact files for `2026-04-09`:
+
+```bash
+python3 -m health_model.build_daily_context_artifact \
+  --bundle-path tests/fixtures/agent_readable_daily_context/fixture_day_bundle.json \
+  --user-id user_1 \
+  --date 2026-04-09 \
+  --output-dir data/health
+```
+
+This writes:
+
+- `data/health/agent_readable_daily_context_2026-04-09.json`
+- `data/health/agent_readable_daily_context_latest.json`
+
 ## Canonical manual intake to daily context flow
 
 For the bounded manual nutrition + hydration golden path, use `health_model.agent_interface` to submit same-day fragments, merge them, then build the agent-facing daily artifact:

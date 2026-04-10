@@ -11,6 +11,10 @@
     ],
     "input_event_ids": [
       "event_active_minutes_20260409",
+      "event_hydration_20260409",
+      "event_meal_estimated_20260409",
+      "event_meal_label_20260409",
+      "event_meal_logged_20260409",
       "event_run_duration_20260409",
       "event_sleep_duration_20260409",
       "event_sleep_end_20260409",
@@ -24,12 +28,14 @@
     "manual_log_entry_ids": [
       "manual_body_signal_20260409",
       "manual_gym_session_20260409",
+      "manual_hydration_20260409",
+      "manual_meal_20260409",
       "manual_set_1_20260409"
     ]
   },
   "explicit_grounding": {
     "signal_status_counts": {
-      "grounded": 15,
+      "grounded": 17,
       "inferred": 2,
       "missing": 4,
       "conflicted": 2
@@ -342,6 +348,51 @@
           "subjective_voice_20260409"
         ],
         "derivation_method": "contextual_risk_flag",
+        "uncertainty_note": null
+      },
+      {
+        "domain": "nutrition",
+        "signal_key": "manual_meal_logs",
+        "status": "grounded",
+        "value": {
+          "meal_count": 1,
+          "meal_labels": [
+            "dinner"
+          ],
+          "notes": [
+            "Chicken rice bowl and fruit after run."
+          ],
+          "estimated_entry_count": 1
+        },
+        "confidence_label": "high",
+        "confidence_score": 0.94,
+        "evidence_refs": [
+          "event_meal_estimated_20260409",
+          "event_meal_label_20260409",
+          "event_meal_logged_20260409",
+          "manual_meal_20260409"
+        ],
+        "derivation_method": "direct_rollup",
+        "uncertainty_note": "Includes estimated manual meal notes; quantities remain approximate."
+      },
+      {
+        "domain": "hydration",
+        "signal_key": "hydration_intake_ml",
+        "status": "grounded",
+        "value": {
+          "total_amount_ml": 750.0,
+          "log_count": 1,
+          "beverage_types": [
+            "water"
+          ]
+        },
+        "confidence_label": "high",
+        "confidence_score": 0.98,
+        "evidence_refs": [
+          "event_hydration_20260409",
+          "manual_hydration_20260409"
+        ],
+        "derivation_method": "direct_rollup",
         "uncertainty_note": null
       }
     ]
