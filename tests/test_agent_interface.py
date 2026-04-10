@@ -6,7 +6,9 @@ from pathlib import Path
 
 from health_model.agent_interface import (
     build_daily_context,
+    merge_bundle_fragments,
     submit_hydration_log,
+    submit_gym_set,
     submit_nutrition_text_note,
     validate_bundle,
 )
@@ -104,6 +106,124 @@ class AgentInterfaceTest(unittest.TestCase):
         self.assertTrue(result["is_valid"])
         self.assertEqual(result["schema_issues"], [])
         self.assertEqual(result["semantic_issues"], [])
+
+    def test_roundtrip_same_day_interface_fragments_merge_into_daily_context_without_cross_day_leakage(self) -> None:
+        bundle = json.loads((FIXTURE_DIR / "fixture_multi_day_bundle.json").read_text())
+
+        same_day_hydration = submit_hydration_log(
+            user_id="user_1",
+            date="2026-04-09",
+            amount_ml=750,
+            beverage_type="water",
+            completeness_state="complete",
+            collected_at="2026-04-09T18:20:00+01:00",
+            ingested_at="2026-04-09T18:20:03+01:00",
+            raw_location="healthlab://manual/hydration/2026-04-09/evening",
+            confidence_score=0.98,
+            notes="Evening refill after training.",
+        )
+        same_day_meal = submit_nutrition_text_note(
+            user_id="user_1",
+            date="2026-04-09",
+            note_text="Chicken rice bowl and fruit after run.",
+            meal_label="dinner",
+            estimated=True,
+            completeness_state="complete",
+            collected_at="2026-04-09T20:10:00+01:00",
+            ingested_at="2026-04-09T20:10:04+01:00",
+            raw_location="healthlab://manual/nutrition/2026-04-09/dinner",
+            confidence_score=0.94,
+        )
+        same_day_gym = submit_gym_set(
+            user_id="user_1",
+            date="2026-04-09",
+            exercise_name="Back Squat",
+            set_index=2,
+            reps=5,
+            weight_kg=110.0,
+            completeness_state="complete",
+            collected_at="2026-04-09T17:45:00+01:00",
+            ingested_at="2026-04-09T17:45:02+01:00",
+            raw_location="healthlab://manual/gym/2026-04-09/back-squat-2",
+            confidence_score=0.96,
+        )
+        wrong_day_hydration = submit_hydration_log(
+            user_id="user_1",
+            date="2026-04-08",
+            amount_ml=300,
+            beverage_type="water",
+            completeness_state="complete",
+            collected_at="2026-04-08T21:00:00+01:00",
+            ingested_at="2026-04-08T21:00:02+01:00",
+            raw_location="healthlab://manual/hydration/2026-04-08/night",
+            confidence_score=0.93,
+            notes="Wrong-day control fragment.",
+        )
+
+        for response in (same_day_hydration, same_day_meal, same_day_gym, wrong_day_hydration):
+            self.assertTrue(response["ok"], msg=response)
+            self.assertTrue(response["validation"]["is_valid"], msg=response["validation"])
+
+        merged_bundle = merge_bundle_fragments(
+            bundle,
+            same_day_hydration["bundle_fragment"],
+            same_day_meal["bundle_fragment"],
+            same_day_gym["bundle_fragment"],
+            wrong_day_hydration["bundle_fragment"],
+        )
+
+        validation = validate_bundle(bundle=merged_bundle)
+        self.assertTrue(validation["is_valid"], msg=validation)
+
+        context = build_daily_context(bundle=merged_bundle, user_id="user_1", date="2026-04-09")
+
+        self.assertEqual(context["artifact_type"], "agent_readable_daily_context")
+        self.assertIn(same_day_gym["artifact"]["artifact_id"], context["generated_from"]["source_artifact_ids"])
+        self.assertIn(same_day_hydration["artifact"]["artifact_id"], context["generated_from"]["source_artifact_ids"])
+        self.assertIn(same_day_meal["artifact"]["artifact_id"], context["generated_from"]["source_artifact_ids"])
+        self.assertNotIn(
+            wrong_day_hydration["artifact"]["artifact_id"],
+            context["generated_from"]["source_artifact_ids"],
+        )
+        self.assertIn(
+            same_day_hydration["derived_events"][0]["event_id"],
+            context["generated_from"]["input_event_ids"],
+        )
+        self.assertNotIn(
+            wrong_day_hydration["derived_events"][0]["event_id"],
+            context["generated_from"]["input_event_ids"],
+        )
+        self.assertIn(same_day_hydration["entry"]["entry_id"], context["generated_from"]["manual_log_entry_ids"])
+        self.assertIn(same_day_meal["entry"]["entry_id"], context["generated_from"]["manual_log_entry_ids"])
+        self.assertIn(same_day_gym["entry"]["entry_id"], context["generated_from"]["manual_log_entry_ids"])
+        self.assertNotIn(
+            wrong_day_hydration["entry"]["entry_id"],
+            context["generated_from"]["manual_log_entry_ids"],
+        )
+
+        statuses = {signal["status"] for signal in context["explicit_grounding"]["signals"]}
+        self.assertEqual(statuses, {"grounded", "inferred", "missing", "conflicted"})
+
+        nutrition_signal = next(
+            signal
+            for signal in context["explicit_grounding"]["signals"]
+            if signal["domain"] == "nutrition" and signal["signal_key"] == "manual_meal_logs"
+        )
+        hydration_signal = next(
+            signal
+            for signal in context["explicit_grounding"]["signals"]
+            if signal["domain"] == "hydration" and signal["signal_key"] == "hydration_intake_ml"
+        )
+        self.assertEqual(nutrition_signal["status"], "grounded")
+        self.assertEqual(nutrition_signal["evidence_refs"], [same_day_meal["entry"]["entry_id"]])
+        self.assertEqual(hydration_signal["status"], "grounded")
+        self.assertEqual(
+            hydration_signal["evidence_refs"],
+            [
+                same_day_hydration["derived_events"][0]["event_id"],
+                same_day_hydration["entry"]["entry_id"],
+            ],
+        )
 
 
 if __name__ == "__main__":

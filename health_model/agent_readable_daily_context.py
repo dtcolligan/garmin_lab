@@ -38,6 +38,7 @@ def build_agent_readable_daily_context(bundle: dict[str, Any], user_id: str, dat
         *_sleep_signals(sleep_summary),
         *_subjective_signals(subjective_summary),
         *_activity_training_signals(activity_summary),
+        *_manual_enrichment_signals(input_events, manual_log_entries),
     ]
     important_gaps = _collect_gap_entries(
         [
@@ -139,6 +140,34 @@ def _activity_training_signals(summary: ActivityTrainingSemanticSummary) -> list
     ]
 
 
+def _manual_enrichment_signals(
+    input_events: list[dict[str, Any]],
+    manual_log_entries: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    meal_entries = [
+        entry
+        for entry in manual_log_entries
+        if entry.get("log_type") == "meal"
+    ]
+    hydration_entries = [
+        entry
+        for entry in manual_log_entries
+        if entry.get("log_type") == "hydration"
+    ]
+    hydration_events = [
+        event
+        for event in input_events
+        if event.get("domain") == "hydration" and event.get("metric_name") == "hydration_amount_ml"
+    ]
+
+    signals: list[dict[str, Any]] = []
+    if meal_entries:
+        signals.append(_nutrition_signal(meal_entries))
+    if hydration_entries or hydration_events:
+        signals.append(_hydration_signal(hydration_entries, hydration_events))
+    return signals
+
+
 def _signal_entry(domain: str, signal_key: str, field: WrappedField) -> dict[str, Any]:
     return {
         "domain": domain,
@@ -202,6 +231,99 @@ def _source_artifact_ids_for_day(
         if artifact_id:
             source_artifact_ids.add(artifact_id)
     return sorted(source_artifact_ids)
+
+
+def _nutrition_signal(meal_entries: list[dict[str, Any]]) -> dict[str, Any]:
+    evidence_refs = sorted(entry["entry_id"] for entry in meal_entries)
+    confidence_label, confidence_score = _conservative_confidence(meal_entries)
+    meal_labels = sorted(
+        {
+            entry.get("payload", {}).get("meal_label")
+            for entry in meal_entries
+            if entry.get("payload", {}).get("meal_label")
+        }
+    )
+    note_texts = [
+        entry.get("payload", {}).get("notes")
+        for entry in meal_entries
+        if entry.get("payload", {}).get("notes")
+    ]
+    estimated_entry_count = sum(
+        1
+        for entry in meal_entries
+        if entry.get("payload", {}).get("estimated") is True
+    )
+    field = WrappedField(
+        status="grounded",
+        value={
+            "meal_count": len(meal_entries),
+            "meal_labels": meal_labels,
+            "notes": note_texts,
+            "estimated_entry_count": estimated_entry_count,
+        },
+        confidence_label=confidence_label,
+        confidence_score=confidence_score,
+        evidence_refs=evidence_refs,
+        derivation_method="direct_rollup",
+        uncertainty_note=(
+            "Includes estimated manual meal notes; quantities remain approximate."
+            if estimated_entry_count
+            else None
+        ),
+    )
+    return _signal_entry("nutrition", "manual_meal_logs", field)
+
+
+def _hydration_signal(
+    hydration_entries: list[dict[str, Any]],
+    hydration_events: list[dict[str, Any]],
+) -> dict[str, Any]:
+    evidence_refs = sorted(
+        [entry["entry_id"] for entry in hydration_entries]
+        + [event["event_id"] for event in hydration_events]
+    )
+    supporting_records: list[dict[str, Any]] = [*hydration_entries, *hydration_events]
+    confidence_label, confidence_score = _conservative_confidence(supporting_records)
+    beverage_types = sorted(
+        {
+            entry.get("payload", {}).get("beverage_type")
+            for entry in hydration_entries
+            if entry.get("payload", {}).get("beverage_type")
+        }
+    )
+    total_amount_ml = sum(
+        float(event["value_number"])
+        for event in hydration_events
+        if event.get("value_number") is not None
+    )
+    if total_amount_ml == 0:
+        total_amount_ml = sum(
+            float(entry.get("payload", {}).get("amount_ml", 0))
+            for entry in hydration_entries
+        )
+    field = WrappedField(
+        status="grounded",
+        value={
+            "total_amount_ml": total_amount_ml,
+            "log_count": len(hydration_entries),
+            "beverage_types": beverage_types,
+        },
+        confidence_label=confidence_label,
+        confidence_score=confidence_score,
+        evidence_refs=evidence_refs,
+        derivation_method="direct_rollup",
+        uncertainty_note=None,
+    )
+    return _signal_entry("hydration", "hydration_intake_ml", field)
+
+
+def _conservative_confidence(records: list[dict[str, Any]]) -> tuple[str, float]:
+    score = min(float(record.get("confidence_score", 0.0)) for record in records)
+    if score >= 0.8:
+        return "high", score
+    if score >= 0.5:
+        return "medium", score
+    return "low", score
 
 
 def _serialize(value: Any) -> Any:

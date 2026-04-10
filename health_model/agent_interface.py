@@ -73,6 +73,23 @@ class DailyContextErrorResponse(TypedDict):
     validation: ValidationPayload
 
 
+def merge_bundle_fragments(*fragments: BundleFragment) -> dict[str, list[dict[str, Any]]]:
+    bundle: dict[str, list[dict[str, Any]]] = {
+        "source_artifacts": [],
+        "input_events": [],
+        "subjective_daily_entries": [],
+        "manual_log_entries": [],
+    }
+    for fragment in fragments:
+        bundle["source_artifacts"].extend(dict(artifact) for artifact in fragment.get("source_artifacts", []))
+        bundle["input_events"].extend(dict(event) for event in fragment.get("input_events", []))
+        bundle["subjective_daily_entries"].extend(
+            dict(entry) for entry in fragment.get("subjective_daily_entries", [])
+        )
+        bundle["manual_log_entries"].extend(dict(entry) for entry in fragment.get("manual_log_entries", []))
+    return bundle
+
+
 def submit_nutrition_text_note(
     *,
     user_id: str,
