@@ -13,6 +13,12 @@ Canonical public-truth surfaces:
 
 The flagship loop is real, CLI-first, locally runnable, and backed by checked-in proof artifacts plus focused unittest coverage.
 
+## Architecture truth
+
+- Private memory layer: user-owned health memory lives outside this repo and outside Health Lab.
+- Agent runtime layer: an external agent performs retrieval, synthesis, recommendation generation, and writeback.
+- Health Lab protocol layer: this repo defines and proves bounded contracts, CLI surfaces, and reference artifacts for that workflow.
+
 ## What is proven now
 
 - contract discovery via `health_model.agent_contract_cli`
@@ -26,6 +32,7 @@ The flagship loop is real, CLI-first, locally runnable, and backed by checked-in
 - not a clinical product or medical device
 - not a hosted or multi-user product
 - not a polished install flow for general users
+- not the durable private memory authority for user health data
 - not yet a repo fully reorganized around the flagship loop
 
 ## Repo-readiness audit note

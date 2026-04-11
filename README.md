@@ -1,12 +1,19 @@
 # Health Lab
 
-Health Lab is a local-first personal health lab for turning bounded daily inputs into machine-readable artifacts that another agent can inspect safely.
+Health Lab is a protocol and contract layer for agent-mediated personal health workflows: it gives an agent truthful ways to retrieve bounded health evidence from a user-owned private memory layer, produce inspectable outputs, and write structured updates back.
 
 Note: the repository directory is still named `garmin_lab` for historical reasons, while the current project framing is Health Lab.
 
+## Architecture boundary
+
+- Health Lab is the protocol and specification layer in this repo.
+- Private health data belongs in a user-owned memory layer outside Health Lab.
+- Agents perform retrieval, synthesis, recommendation generation, and writeback against that external memory layer.
+- The checked-in CLIs and proof bundles in this repo are reference implementation surfaces, not a claim that Health Lab itself is the full runtime or durable data host.
+
 ## What works today
 
-The clearest shipped proof in this repo is a CLI-first loop:
+The clearest shipped proof in this repo is a CLI-first reference protocol loop:
 
 `contract describe -> bundle init -> voice-note submit -> context get -> recommendation create`
 
@@ -39,6 +46,8 @@ The checked-in public demo bundle includes:
 
 Use the one-command wrapper for a fresh disposable run, then inspect the captured bundle for the frozen public-safe proof, including explicit non-mutation evidence for the fail-closed rejection case.
 
+These checked-in bundles are proof objects for the protocol layer, not evidence that this repo is the durable home for private user health data.
+
 The broader CLI walkthroughs later in this README remain useful runtime examples, but they are not the canonical public demo proof object for this slice.
 
 ## Self-usage day runner
@@ -60,6 +69,8 @@ python3 scripts/run_self_usage_day.py \
 ```
 
 This wrapper stays thin on purpose. It does not generate recommendation content. It verifies repo-root preflight checks, reads the scoped context, validates that the recommendation artifact only references ids present in the day context, copies the proof bundle into `artifacts/self_usage/week1/YYYY-MM-DD/`, rewrites `judgment_log.csv`, and writes compact friction/usefulness capture to `runner_capture_YYYY-MM-DD.json`.
+
+Treat this as a reference proof of agent-operated retrieval, synthesis handoff, and judgment capture, not as an embedded always-on coaching runtime.
 
 ## Non-clinical and privacy boundaries
 
