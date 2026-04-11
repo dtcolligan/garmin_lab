@@ -468,6 +468,25 @@ def _contract_payload() -> dict[str, Any]:
                 "produces": ["retrieval_response_envelope"],
                 "response_envelope": "retrieval",
             },
+            "retrieve.recommendation_judgment": {
+                "module": "health_model.agent_retrieval_cli",
+                "command": "recommendation-judgment",
+                "mode": "read",
+                "description": "Return one bounded recommendation judgment artifact from an accepted recommendation_judgment artifact, with request metadata validated and echoed under validation.request_echo.",
+                "implementation_status": "proof_complete",
+                "args": [
+                    _shared_arg("user_id"),
+                    _shared_arg("date"),
+                    _retrieval_arg("artifact_path"),
+                    _retrieval_arg("request_id"),
+                    _retrieval_arg("requested_at"),
+                    _retrieval_arg("include_conflicts"),
+                    _retrieval_arg("include_missingness"),
+                ],
+                "consumes": ["recommendation_judgment"],
+                "produces": ["retrieval_response_envelope"],
+                "response_envelope": "retrieval",
+            },
             "retrieve.weekly_pattern_review": {
                 "module": "health_model.agent_context_cli",
                 "command": "retrieve-weekly-pattern-review",
@@ -598,6 +617,7 @@ def _contract_payload() -> dict[str, Any]:
                 "retrieve.day_context",
                 "retrieve.day_nutrition_brief",
                 "retrieve.sleep_review",
+                "retrieve.recommendation_judgment",
                 "retrieve.weekly_pattern_review",
             ],
             "recommendation_commands": ["create"],
@@ -754,6 +774,7 @@ def _contract_payload() -> dict[str, Any]:
             "day_nutrition_brief_proof_bundle": "artifacts/protocol_layer_proof/2026-04-11-day-nutrition-brief/",
             "sleep_review_proof_bundle": "artifacts/protocol_layer_proof/2026-04-11-sleep-review/",
             "weekly_pattern_review_proof_bundle": "artifacts/protocol_layer_proof/2026-04-11-weekly-pattern-review/",
+            "recommendation_judgment_retrieval_proof_bundle": "artifacts/protocol_layer_proof/2026-04-11-recommendation-judgment-retrieval/",
         },
     }
 

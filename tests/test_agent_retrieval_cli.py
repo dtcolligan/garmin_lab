@@ -93,6 +93,104 @@ class AgentRetrievalCliIntegrationTest(unittest.TestCase):
         self.assertFalse(result["ok"])
         self.assertEqual(result, expected)
 
+    def test_recommendation_judgment_returns_success_envelope_grounded_in_accepted_writeback_artifact(self) -> None:
+        request_fixture = json.loads((RETRIEVAL_FIXTURE_DIR / "recommendation_judgment_success_request.json").read_text())
+        expected = json.loads((RETRIEVAL_FIXTURE_DIR / "recommendation_judgment_success_response.json").read_text())
+
+        result = self._run_cli(
+            [
+                "recommendation-judgment",
+                "--artifact-path",
+                request_fixture["artifact_path"],
+                "--user-id",
+                request_fixture["user_id"],
+                "--date",
+                request_fixture["date"],
+                "--request-id",
+                request_fixture["request_id"],
+                "--requested-at",
+                request_fixture["requested_at"],
+                "--include-conflicts",
+                request_fixture["include_conflicts"],
+                "--include-missingness",
+                request_fixture["include_missingness"],
+            ]
+        )
+
+        self.assertTrue(result["ok"], msg=result)
+        self.assertEqual(result, expected)
+
+    def test_recommendation_judgment_fails_closed_on_wrong_scope(self) -> None:
+        request_fixture = json.loads((RETRIEVAL_FIXTURE_DIR / "recommendation_judgment_success_request.json").read_text())
+        expected = json.loads((RETRIEVAL_FIXTURE_DIR / "recommendation_judgment_wrong_scope_response.json").read_text())
+
+        result = self._run_cli(
+            [
+                "recommendation-judgment",
+                "--artifact-path",
+                str((REPO_ROOT / request_fixture["artifact_path"]).resolve()),
+                "--user-id",
+                "user_other",
+                "--date",
+                request_fixture["date"],
+                "--request-id",
+                "req_recommendation_judgment_wrong_scope_2026_04_11",
+                "--requested-at",
+                request_fixture["requested_at"],
+            ],
+            expected_returncode=1,
+        )
+
+        self.assertFalse(result["ok"])
+        self.assertEqual(result, expected)
+
+    def test_recommendation_judgment_fails_closed_on_invalid_requested_at_with_request_echo(self) -> None:
+        request_fixture = json.loads((RETRIEVAL_FIXTURE_DIR / "recommendation_judgment_success_request.json").read_text())
+        expected = json.loads((RETRIEVAL_FIXTURE_DIR / "recommendation_judgment_invalid_request_metadata_response.json").read_text())
+
+        result = self._run_cli(
+            [
+                "recommendation-judgment",
+                "--artifact-path",
+                str((REPO_ROOT / request_fixture["artifact_path"]).resolve()),
+                "--user-id",
+                request_fixture["user_id"],
+                "--date",
+                request_fixture["date"],
+                "--request-id",
+                request_fixture["request_id"],
+                "--requested-at",
+                "2026-04-11T12:05:00",
+            ],
+            expected_returncode=1,
+        )
+
+        self.assertFalse(result["ok"])
+        self.assertEqual(result, expected)
+
+    def test_recommendation_judgment_fails_closed_on_missing_artifact(self) -> None:
+        expected = json.loads((RETRIEVAL_FIXTURE_DIR / "recommendation_judgment_missing_artifact_response.json").read_text())
+
+        result = self._run_cli(
+            [
+                "recommendation-judgment",
+                "--artifact-path",
+                str((REPO_ROOT / "artifacts" / "protocol_layer_proof" / "2026-04-11-recommendation-judgment-retrieval" / "missing_recommendation_judgment_2026-04-10.json").resolve()),
+                "--user-id",
+                "user_dom",
+                "--date",
+                "2026-04-10",
+                "--request-id",
+                "req_recommendation_judgment_missing_artifact_2026_04_11",
+                "--requested-at",
+                "2026-04-11T12:05:00+01:00",
+            ],
+            expected_returncode=1,
+        )
+
+        self.assertFalse(result["ok"])
+        self.assertEqual(result, expected)
+
     def test_weekly_pattern_review_returns_success_envelope_grounded_in_accepted_daily_artifacts(self) -> None:
         request_fixture = json.loads((RETRIEVAL_FIXTURE_DIR / "weekly_pattern_review_success_request.json").read_text())
         expected = json.loads((RETRIEVAL_FIXTURE_DIR / "weekly_pattern_review_success_response.json").read_text())

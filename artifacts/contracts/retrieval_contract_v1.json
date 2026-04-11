@@ -53,6 +53,7 @@
         "retrieve.day_context",
         "retrieve.day_nutrition_brief",
         "retrieve.sleep_review",
+        "retrieve.recommendation_judgment",
         "retrieve.weekly_pattern_review"
       ],
       "submit_commands": [
@@ -172,6 +173,7 @@
       "machine_contract": "artifacts/contracts/retrieval_contract_v1.json",
       "memory_write_human_contract": "docs/memory_write_contract_v1.md",
       "memory_write_machine_contract": "artifacts/contracts/memory_write_contract_v1.json",
+      "recommendation_judgment_retrieval_proof_bundle": "artifacts/protocol_layer_proof/2026-04-11-recommendation-judgment-retrieval/",
       "sleep_review_proof_bundle": "artifacts/protocol_layer_proof/2026-04-11-sleep-review/",
       "weekly_pattern_review_proof_bundle": "artifacts/protocol_layer_proof/2026-04-11-weekly-pattern-review/"
     },
@@ -599,6 +601,79 @@
         "implementation_status": "proof_complete",
         "mode": "read",
         "module": "health_model.day_nutrition_brief",
+        "produces": [
+          "retrieval_response_envelope"
+        ],
+        "response_envelope": "retrieval"
+      },
+      "retrieve.recommendation_judgment": {
+        "args": [
+          {
+            "description": "Scoped Health Lab user identifier.",
+            "flag": "--user-id",
+            "name": "user_id",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "description": "ISO date for the requested daily scope, YYYY-MM-DD.",
+            "flag": "--date",
+            "name": "date",
+            "required": true,
+            "type": "date"
+          },
+          {
+            "description": "Path to one scoped read-only artifact when retrieval is backed by a local artifact file.",
+            "flag": "--artifact-path",
+            "name": "artifact_path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "description": "Required non-empty request identifier. Daily retrieval ops validate it and echo it back under validation.request_echo.",
+            "flag": "--request-id",
+            "name": "request_id",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "description": "Required ISO 8601 timestamp with timezone information. Daily retrieval ops validate it and echo it back under validation.request_echo.",
+            "flag": "--requested-at",
+            "name": "requested_at",
+            "required": true,
+            "type": "datetime"
+          },
+          {
+            "accepted_values": [
+              "true",
+              "false"
+            ],
+            "description": "Whether to include surfaced conflicts in the retrieval response.",
+            "flag": "--include-conflicts",
+            "name": "include_conflicts",
+            "required": false,
+            "type": "enum"
+          },
+          {
+            "accepted_values": [
+              "true",
+              "false"
+            ],
+            "description": "Whether to include explicit missingness notes in the retrieval response.",
+            "flag": "--include-missingness",
+            "name": "include_missingness",
+            "required": false,
+            "type": "enum"
+          }
+        ],
+        "command": "recommendation-judgment",
+        "consumes": [
+          "recommendation_judgment"
+        ],
+        "description": "Return one bounded recommendation judgment artifact from an accepted recommendation_judgment artifact, with request metadata validated and echoed under validation.request_echo.",
+        "implementation_status": "proof_complete",
+        "mode": "read",
+        "module": "health_model.agent_retrieval_cli",
         "produces": [
           "retrieval_response_envelope"
         ],
