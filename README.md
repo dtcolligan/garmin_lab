@@ -220,6 +220,8 @@ python3 -m health_model.agent_memory_write_cli recommendation-judgment \
 
 This writes `recommendation_judgment_YYYY-MM-DD.json` plus the latest alias, validates the referenced recommendation artifact scope and id, and fails closed without mutating existing judgment artifacts on rejection.
 
+The bounded closed-loop proof that carries one recommendation from `pending_judgment` through accepted writeback into truthful post-write resolution and feedback retrieval is frozen under `artifacts/protocol_layer_proof/2026-04-11-recommendation-resolution-transition/` and can be replayed with `python3 scripts/run_recommendation_resolution_transition_proof.py`.
+
 Each call returns machine-readable JSON with:
 
 - `ok`

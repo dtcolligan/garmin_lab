@@ -15,6 +15,8 @@ The flagship loop is real, CLI-first, locally runnable, and backed by checked-in
 
 The current bounded writeback proof slice is `writeback.recommendation_judgment`, frozen under `artifacts/protocol_layer_proof/2026-04-11-writeback-judgment/` with success, wrong-scope rejection, missing-artifact rejection, and non-mutation evidence.
 
+The current bounded closed-loop transition proof is `protocol_proof.recommendation_resolution_transition`, frozen under `artifacts/protocol_layer_proof/2026-04-11-recommendation-resolution-transition/` with one recommendation shown as `pending_judgment` before writeback, `judged` after accepted writeback, visible in post-write feedback retrieval, plus a rejected non-mutating writeback replay.
+
 ## Architecture truth
 
 - Private memory layer: user-owned health memory lives outside this repo and outside Health Lab.
@@ -29,6 +31,7 @@ The current bounded writeback proof slice is `writeback.recommendation_judgment`
 - scoped context reads via `health_model.agent_context_cli`
 - recommendation creation with fail-closed behavior via `health_model.agent_recommendation_cli`
 - same-day recommendation judgment writeback with fail-closed non-mutation via `health_model.agent_memory_write_cli`
+- one closed-loop recommendation resolution transition proof from `pending_judgment` to judged and feedback-visible state, with rejected non-mutation replay
 
 ## What this repo is not claiming
 
