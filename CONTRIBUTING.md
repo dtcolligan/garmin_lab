@@ -4,7 +4,7 @@ Thanks for taking a look at Health Lab.
 
 ## Current contribution shape
 
-This repo is currently easiest to review as a bounded proof repo around the CLI-first flagship loop in `health_model/`, not as a broad platform or polished product.
+This repo is currently easiest to review as a bounded proof repo around the CLI-first flagship loop in `health_agent_infra/`, with `health_model/` retained as a temporary compatibility namespace, not as a broad platform or polished product.
 
 Start here:
 - `docs/health_lab_canonical_public_demo.md`
