@@ -2,7 +2,7 @@
   "schema_version": 1,
   "sessions": [
     {
-      "session_id": "example-upper-2026-04-08",
+      "session_key": "example-upper-2026-04-08",
       "date": "2026-04-08",
       "start_time_local": "2026-04-08T18:00:00",
       "session_title": "Upper body",
@@ -14,6 +14,7 @@
       "notes": "Example manual gym log for Health Lab v1.",
       "sets": [
         {
+          "set_key": "bench-1",
           "exercise_name": "Bench press",
           "exercise_group": "chest",
           "set_number": 1,
@@ -21,6 +22,7 @@
           "weight_kg": 60
         },
         {
+          "set_key": "bench-2",
           "exercise_name": "Bench press",
           "exercise_group": "chest",
           "set_number": 2,
@@ -28,6 +30,7 @@
           "weight_kg": 60
         },
         {
+          "set_key": "pulldown-1",
           "exercise_name": "Lat pulldown",
           "exercise_group": "back",
           "set_number": 1,

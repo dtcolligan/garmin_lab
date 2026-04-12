@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import json
+import tempfile
 from pathlib import Path
 import unittest
 
+from health_model.daily_snapshot import build_gym_sessions, generate_snapshot
 from health_model.manual_logging import (
     build_exercise_set_manual_log_entry,
     build_hydration_input_event,
@@ -169,6 +171,84 @@ class ManualLoggingTest(unittest.TestCase):
 
         self.assertFalse(result.is_valid)
         self.assertIn("manual_completeness_mismatch", {issue.code for issue in result.semantic_issues})
+
+    def test_manual_gym_sessions_emit_frozen_ids_and_totals(self) -> None:
+        sessions_payload = [
+            {
+                "session_key": "example-upper-2026-04-08",
+                "date": "2026-04-08",
+                "sets": [
+                    {"set_key": "bench-1", "exercise_name": "Bench press", "set_number": 1, "reps": 8, "weight_kg": 60},
+                    {"set_key": "bench-2", "exercise_name": "Bench press", "set_number": 2, "reps": 8, "weight_kg": 60},
+                    {"set_key": "pulldown-1", "exercise_name": "Lat pulldown", "set_number": 1, "reps": 10, "weight_kg": 45},
+                ],
+            }
+        ]
+
+        sessions, sets = build_gym_sessions(sessions_payload, "2026-04-08", source_artifact="manual_gym_sessions")
+
+        self.assertEqual(len(sessions), 1)
+        self.assertEqual(len(sets), 3)
+        self.assertEqual(sessions[0].training_session_id, "resistance_training:manual_gym_sessions:session:example-upper-2026-04-08")
+        self.assertEqual(sessions[0].source_record_id, sessions[0].training_session_id)
+        self.assertEqual(sessions[0].provenance_record_id, "provenance:resistance_training:manual_gym_sessions:training_session:example-upper-2026-04-08")
+        self.assertEqual(sessions[0].confidence_label, "high")
+        self.assertEqual(sessions[0].conflict_status, "none")
+        self.assertEqual(sessions[0].exercise_count, 2)
+        self.assertEqual(sessions[0].total_sets, 3)
+        self.assertEqual(sessions[0].total_reps, 26)
+        self.assertEqual(sessions[0].total_load_kg, 1410.0)
+        self.assertEqual(sets[0].gym_exercise_set_id, "resistance_training:manual_gym_sessions:set:example-upper-2026-04-08:bench-1")
+        self.assertEqual(sets[0].training_session_id, sessions[0].training_session_id)
+        self.assertEqual(sets[0].source_name, "resistance_training")
+        self.assertEqual(sets[0].source_record_id, sets[0].gym_exercise_set_id)
+        self.assertEqual(sets[0].provenance_record_id, "provenance:resistance_training:manual_gym_sessions:gym_exercise_set:example-upper-2026-04-08:bench-1")
+        self.assertEqual(sets[0].confidence_label, "high")
+        self.assertEqual(sets[0].conflict_status, "none")
+
+        replay_sessions, replay_sets = build_gym_sessions(sessions_payload, "2026-04-08", source_artifact="manual_gym_sessions")
+        self.assertEqual([row.training_session_id for row in sessions], [row.training_session_id for row in replay_sessions])
+        self.assertEqual([row.gym_exercise_set_id for row in sets], [row.gym_exercise_set_id for row in replay_sets])
+
+    def test_generate_snapshot_rolls_manual_gym_metrics_consistently(self) -> None:
+        export_dir = FIXTURES_DIR / "garmin_minimal_export"
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db_path = Path(tmpdir) / "health_log.db"
+            gym_log_path = Path(tmpdir) / "manual_gym_sessions.json"
+            gym_log_path.write_text(json.dumps({
+                "schema_version": 1,
+                "sessions": [
+                    {
+                        "session_key": "example-upper-2026-04-08",
+                        "date": "2026-04-08",
+                        "start_time_local": "2026-04-08T18:00:00",
+                        "session_title": "Upper body",
+                        "lift_focus": "push_pull",
+                        "duration_sec": 3000,
+                        "rpe_1_10": 7,
+                        "energy_pre_1_5": 3,
+                        "energy_post_1_5": 2,
+                        "notes": "Example manual gym log for Health Lab v1.",
+                        "sets": [
+                            {"set_key": "bench-1", "exercise_name": "Bench press", "exercise_group": "chest", "set_number": 1, "reps": 8, "weight_kg": 60},
+                            {"set_key": "bench-2", "exercise_name": "Bench press", "exercise_group": "chest", "set_number": 2, "reps": 8, "weight_kg": 60},
+                            {"set_key": "pulldown-1", "exercise_name": "Lat pulldown", "exercise_group": "back", "set_number": 1, "reps": 10, "weight_kg": 45}
+                        ]
+                    }
+                ]
+            }))
+            snapshot = generate_snapshot(export_dir=export_dir, gym_log_path=gym_log_path, db_path=db_path, target_date="2026-04-08", user_id=1)
+            replay = generate_snapshot(export_dir=export_dir, gym_log_path=gym_log_path, db_path=db_path, target_date="2026-04-08", user_id=1)
+
+        self.assertEqual(snapshot.gym_sessions_count, 1)
+        self.assertEqual(snapshot.gym_total_sets, 3)
+        self.assertEqual(snapshot.gym_total_reps, 26)
+        self.assertEqual(snapshot.gym_total_load_kg, 1410.0)
+        self.assertEqual(snapshot.gym_sessions[0]["training_session_id"], "resistance_training:manual_gym_sessions:session:example-upper-2026-04-08")
+        self.assertEqual(snapshot.gym_exercise_sets[0]["gym_exercise_set_id"], "resistance_training:manual_gym_sessions:set:example-upper-2026-04-08:bench-1")
+        self.assertEqual(snapshot.gym_sessions, replay.gym_sessions)
+        self.assertEqual(snapshot.gym_exercise_sets, replay.gym_exercise_sets)
+        self.assertIn("gym_total_load_kg", snapshot.data_backed_fields)
 
 
 def _load_fixture(name: str) -> dict[str, object]:

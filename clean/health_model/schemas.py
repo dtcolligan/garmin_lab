@@ -86,6 +86,7 @@ class TrainingSession:
     source_name: str | None = None
     source_record_id: str | None = None
     provenance_record_id: str | None = None
+    confidence_label: str | None = None
     conflict_status: str = "none"
     start_time_local: str | None = None
     duration_sec: float | None = None
@@ -109,10 +110,18 @@ class TrainingSession:
 
 @dataclass
 class GymExerciseSet:
-    set_id: str
-    session_id: str
-    date: str
-    exercise_name: str
+    artifact_family: str = "gym_exercise_set"
+    set_id: str = ""
+    session_id: str = ""
+    training_session_id: str | None = None
+    gym_exercise_set_id: str | None = None
+    date: str = ""
+    exercise_name: str = ""
+    source_name: str | None = None
+    source_record_id: str | None = None
+    provenance_record_id: str | None = None
+    confidence_label: str | None = None
+    conflict_status: str = "none"
     exercise_group: str | None = None
     set_number: int | None = None
     reps: int | None = None

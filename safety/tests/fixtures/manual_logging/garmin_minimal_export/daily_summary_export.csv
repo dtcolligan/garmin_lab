@@ -1,0 +1,2 @@
+date,sleep_deep_sec,sleep_light_sec,sleep_rem_sec,sleep_awake_sec,sleep_score_overall,avg_sleep_respiration,awake_count,training_readiness_level,training_recovery_time_hours,training_readiness_sleep_pct,training_readiness_hrv_pct,training_readiness_stress_pct,training_readiness_load_pct,resting_hr,health_hrv_status,body_battery
+2026-04-08,5400,12600,5400,1800,82,14.8,2,HIGH,12,80,78,70,65,52,balanced,76

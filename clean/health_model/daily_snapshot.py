@@ -29,10 +29,12 @@ from health_model.schemas import (
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_EXPORT_DIR = PROJECT_ROOT / "pull" / "data" / "garmin" / "export"
-DEFAULT_GYM_LOG_PATH = PROJECT_ROOT / "data" / "health" / "manual_gym_sessions.json"
+DEFAULT_GYM_LOG_PATH = PROJECT_ROOT / "pull" / "data" / "health" / "manual_gym_sessions.json"
 DEFAULT_DB_PATH = PROJECT_ROOT / "data" / "health_log.db"
 DEFAULT_OUTPUT_DIR = PROJECT_ROOT / "clean" / "data" / "health"
 PARSER_VERSION = "garmin-source-hardening-v1"
+MANUAL_GYM_SOURCE_NAME = "resistance_training"
+MANUAL_GYM_PARSER_VERSION = "manual-form-normalization-v1"
 
 READINESS_SCORE_MAP = {
     "VERY_LOW": 1,
@@ -408,11 +410,43 @@ def build_running_sessions(activities: pd.DataFrame, date: str, export_dir: Path
     return sessions
 
 
-def build_gym_sessions(session_payloads: list[dict], date: str) -> tuple[list[TrainingSession], list[GymExerciseSet]]:
+def _manual_session_key(session: dict, date: str, index: int) -> str:
+    return str(session.get("session_key") or session.get("session_id") or f"{date}-session-{index}")
+
+
+def _manual_set_key(raw_set: dict, index: int) -> str:
+    explicit = raw_set.get("set_key") or raw_set.get("set_id")
+    if explicit:
+        return str(explicit)
+    exercise_name = str(raw_set.get("exercise_name") or "set").strip().lower().replace(" ", "-")
+    set_number = safe_int(raw_set.get("set_number"))
+    if set_number is not None:
+        return f"{exercise_name}-{set_number}"
+    return f"{exercise_name}-{index}"
+
+
+def _manual_training_session_id(source_artifact: str, session_key: str) -> str:
+    return f"{MANUAL_GYM_SOURCE_NAME}:{source_artifact}:session:{session_key}"
+
+
+def _manual_set_id(source_artifact: str, session_key: str, set_key: str) -> str:
+    return f"{MANUAL_GYM_SOURCE_NAME}:{source_artifact}:set:{session_key}:{set_key}"
+
+
+def _manual_training_provenance_id(source_artifact: str, session_key: str) -> str:
+    return f"provenance:{MANUAL_GYM_SOURCE_NAME}:{source_artifact}:training_session:{session_key}"
+
+
+def _manual_set_provenance_id(source_artifact: str, session_key: str, set_key: str) -> str:
+    return f"provenance:{MANUAL_GYM_SOURCE_NAME}:{source_artifact}:gym_exercise_set:{session_key}:{set_key}"
+
+
+def build_gym_sessions(session_payloads: list[dict], date: str, *, source_artifact: str = "manual_gym_sessions_fixture") -> tuple[list[TrainingSession], list[GymExerciseSet]]:
     sessions: list[TrainingSession] = []
     sets: list[GymExerciseSet] = []
-    for session in session_payloads:
-        session_id = session.get("session_id") or f"manual-gym-{date}-{len(sessions)+1}"
+    for session_index, session in enumerate(session_payloads, start=1):
+        session_key = _manual_session_key(session, date, session_index)
+        training_session_id = _manual_training_session_id(source_artifact, session_key)
         raw_sets = session.get("sets", [])
         total_sets = len(raw_sets)
         total_reps = sum(int(s.get("reps") or 0) for s in raw_sets)
@@ -420,10 +454,16 @@ def build_gym_sessions(session_payloads: list[dict], date: str) -> tuple[list[Tr
         exercise_names = [s.get("exercise_name") for s in raw_sets if s.get("exercise_name")]
         sessions.append(
             TrainingSession(
-                session_id=session_id,
+                session_id=session_key,
                 date=date,
                 session_type="gym",
                 source="manual_gym_log",
+                training_session_id=training_session_id,
+                source_name=MANUAL_GYM_SOURCE_NAME,
+                source_record_id=training_session_id,
+                provenance_record_id=_manual_training_provenance_id(source_artifact, session_key),
+                confidence_label="high",
+                conflict_status="none",
                 start_time_local=session.get("start_time_local"),
                 duration_sec=safe_float(session.get("duration_sec")),
                 session_title=session.get("session_title"),
@@ -438,15 +478,24 @@ def build_gym_sessions(session_payloads: list[dict], date: str) -> tuple[list[Tr
                 total_load_kg=round(total_load, 2) if total_sets else None,
             )
         )
-        for idx, raw_set in enumerate(raw_sets, start=1):
+        for set_index, raw_set in enumerate(raw_sets, start=1):
+            set_key = _manual_set_key(raw_set, set_index)
+            gym_exercise_set_id = _manual_set_id(source_artifact, session_key, set_key)
             sets.append(
                 GymExerciseSet(
-                    set_id=raw_set.get("set_id") or f"{session_id}-set-{idx}",
-                    session_id=session_id,
+                    set_id=set_key,
+                    session_id=session_key,
+                    training_session_id=training_session_id,
+                    gym_exercise_set_id=gym_exercise_set_id,
                     date=date,
                     exercise_name=raw_set.get("exercise_name", "unknown"),
+                    source_name=MANUAL_GYM_SOURCE_NAME,
+                    source_record_id=gym_exercise_set_id,
+                    provenance_record_id=_manual_set_provenance_id(source_artifact, session_key, set_key),
+                    confidence_label="high",
+                    conflict_status="none",
                     exercise_group=raw_set.get("exercise_group"),
-                    set_number=safe_int(raw_set.get("set_number") or idx),
+                    set_number=safe_int(raw_set.get("set_number") or set_index),
                     reps=safe_int(raw_set.get("reps")),
                     weight_kg=safe_float(raw_set.get("weight_kg")),
                     rir=safe_float(raw_set.get("rir")),
@@ -498,6 +547,7 @@ def generate_snapshot(export_dir: Path, gym_log_path: Path, db_path: Path, targe
     activities["date"] = pd.to_datetime(activities["start_time_local"], errors="coerce").dt.strftime("%Y-%m-%d")
 
     gym_by_date, gym_dates = load_manual_gym(gym_log_path)
+    manual_gym_source_artifact = gym_log_path.stem
     nutrition_rows, nutrition_dates = load_nutrition_rows(db_path, user_id=user_id)
     date = _pick_target_date(daily, gym_dates, nutrition_dates, target_date)
 
@@ -507,7 +557,7 @@ def generate_snapshot(export_dir: Path, gym_log_path: Path, db_path: Path, targe
     sleep = build_sleep(daily_row, date, export_dir) if not daily_rows.empty else SleepDaily(date=date)
     readiness = build_readiness(daily_row, date, export_dir) if not daily_rows.empty else ReadinessDaily(date=date)
     running_sessions = build_running_sessions(activities, date, export_dir)
-    gym_sessions, gym_sets = build_gym_sessions(gym_by_date.get(date, []), date)
+    gym_sessions, gym_sets = build_gym_sessions(gym_by_date.get(date, []), date, source_artifact=manual_gym_source_artifact)
     nutrition = build_nutrition(nutrition_rows, date)
 
     hydration_ml = None
@@ -590,7 +640,7 @@ def write_outputs(snapshot: DailyHealthSnapshot, output_dir: Path) -> tuple[Path
 def build_garmin_canonical_bundle(export_dir: Path, target_date: str) -> dict[str, object]:
     snapshot = generate_snapshot(
         export_dir=export_dir,
-        gym_log_path=PROJECT_ROOT / "data" / "health" / "manual_gym_sessions.json",
+        gym_log_path=PROJECT_ROOT / "pull" / "data" / "health" / "manual_gym_sessions.json",
         db_path=PROJECT_ROOT / "data" / "health_log.db",
         target_date=target_date,
         user_id=1,
