@@ -9,15 +9,24 @@ Note: the repository directory is still named `garmin_lab` for historical reason
 ### 1. CLI / data plane / reporting layer
 This layer owns contract discovery, bundle bootstrap, intake, scoped retrieval, validation entrypoints, replayable manifests, and generated artifacts. In current repo truth it is grounded in:
 
-- `health_model/agent_contract_cli.py`
-- `health_model/agent_bundle_cli.py`
-- `health_model/agent_voice_note_cli.py`
-- `health_model/agent_submit_cli.py`
-- `health_model/agent_context_cli.py`
-- `health_model/agent_retrieval_cli.py`
-- `health_model/agent_memory_write_cli.py`
-- `health_model/daily_snapshot.py`
-- `health_model/day_nutrition_brief.py`
+- `health_agent_infra/agent_contract_cli.py` (canonical)
+- `health_model/agent_contract_cli.py` (temporary compatibility)
+- `health_agent_infra/agent_bundle_cli.py` (canonical)
+- `health_model/agent_bundle_cli.py` (temporary compatibility)
+- `health_agent_infra/agent_voice_note_cli.py` (canonical)
+- `health_model/agent_voice_note_cli.py` (temporary compatibility)
+- `health_agent_infra/agent_submit_cli.py` (canonical)
+- `health_model/agent_submit_cli.py` (temporary compatibility)
+- `health_agent_infra/agent_context_cli.py` (canonical)
+- `health_model/agent_context_cli.py` (temporary compatibility)
+- `health_agent_infra/agent_retrieval_cli.py` (canonical)
+- `health_model/agent_retrieval_cli.py` (temporary compatibility)
+- `health_agent_infra/agent_memory_write_cli.py` (canonical)
+- `health_model/agent_memory_write_cli.py` (temporary compatibility)
+- `health_agent_infra/daily_snapshot.py` (canonical)
+- `health_model/daily_snapshot.py` (temporary compatibility)
+- `health_agent_infra/day_nutrition_brief.py` (canonical)
+- `health_model/day_nutrition_brief.py` (temporary compatibility)
 
 This layer does not own core cognition. It exposes bounded interfaces and produces inspectable artifacts.
 
@@ -42,7 +51,7 @@ The clearest shipped proof in this repo remains the CLI-first reference loop:
 
 `contract describe -> bundle init -> voice-note submit -> context get -> recommendation create`
 
-That loop is implemented under `health_model/`, backed by focused tests and checked-in proof artifacts, and should be read as the current flagship Health Lab slice.
+That loop is implemented canonically under `health_agent_infra/`, with `health_model/` preserved as a temporary compatibility namespace, backed by focused tests and checked-in proof artifacts, and should be read as the current flagship Health Lab slice.
 
 ## What Health Lab is not claiming
 

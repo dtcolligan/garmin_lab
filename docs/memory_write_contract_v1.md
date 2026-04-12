@@ -17,7 +17,7 @@ Health Lab remains the protocol, CLI, and proof surface only. It does not host t
 
 ## Discovery surface
 
-Machine-readable discovery is published by `python3 -m health_model.agent_contract_cli describe`.
+Machine-readable discovery is published by `python3 -m health_agent_infra.agent_contract_cli describe (`health_model.agent_contract_cli` remains temporarily compatible)`.
 
 ## Supported writeback operations
 

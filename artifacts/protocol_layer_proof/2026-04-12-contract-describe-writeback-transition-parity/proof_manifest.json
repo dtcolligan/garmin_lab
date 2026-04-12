@@ -1,9 +1,9 @@
 {
   "date": "2026-04-12",
   "slice": "protocol_proof.contract_describe_writeback_transition_parity",
-  "frozen_command": "python3 -m health_model.agent_contract_cli describe",
+  "frozen_command": "python3 -m health_agent_infra.agent_contract_cli describe",
   "deterministic_replay_commands": [
-    "python3 -m health_model.agent_contract_cli describe",
+    "python3 -m health_agent_infra.agent_contract_cli describe",
     "python3 - <<'PY'\nimport json\nfrom pathlib import Path\nrepo=Path('.')\ndescribe=json.loads((repo/'artifacts/protocol_layer_proof/2026-04-12-contract-describe-writeback-transition-parity/contract_describe_output.json').read_text())['contract']\nretrieval=json.loads((repo/'artifacts/contracts/retrieval_contract_v1.json').read_text())\nassert retrieval['accepted_enums']['writeback_operations']==describe['accepted_enums']['writeback_operations']\nassert retrieval['supported_operations']['writeback.recommendation_resolution_transition']==describe['supported_operations']['writeback.recommendation_resolution_transition']\nPY"
   ],
   "deterministic_replay_tests": [

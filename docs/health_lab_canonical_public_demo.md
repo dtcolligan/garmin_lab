@@ -29,7 +29,8 @@ Truth surfaces stay distinct:
 Fail-closed rejection proof:
 
 ```bash
-python3 -m health_model.agent_recommendation_cli create \
+python3 -m health_agent_infra.agent_recommendation_cli create \
+  # temporary compatibility path remains `python3 -m health_model.agent_recommendation_cli create`
   --output-dir "$DEMO_DIR" \
   --payload-json '{"user_id":"user_dom","date":"2026-04-09","context_artifact_path":"'"$DEMO_DIR"'/agent_readable_daily_context_2026-04-09.json","context_artifact_id":"agent_context_user_dom_2026-04-09","recommendation_id":"rec_bad_evidence_01","summary":"Summary","rationale":"Rationale","evidence_refs":["not_in_context"],"confidence_score":0.8}'
 ```

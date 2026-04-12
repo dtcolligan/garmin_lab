@@ -179,7 +179,7 @@
     "contract_id": "health_lab_agent_contract",
     "contract_version": "2026-04-11",
     "discovery": {
-      "cli_module": "health_model.agent_contract_cli",
+      "cli_module": "health_agent_infra.agent_contract_cli",
       "command": "describe",
       "read_only": true
     },
@@ -387,7 +387,7 @@
         "command": "init",
         "description": "Create one canonical empty shared-input bundle and fail closed if the target path already exists.",
         "mode": "write",
-        "module": "health_model.agent_bundle_cli"
+        "module": "health_agent_infra.agent_bundle_cli"
       },
       "context.get": {
         "args": [
@@ -416,7 +416,7 @@
         "command": "get",
         "description": "Read one dated agent-readable daily context artifact.",
         "mode": "read",
-        "module": "health_model.agent_context_cli"
+        "module": "health_agent_infra.agent_context_cli"
       },
       "context.get_latest": {
         "args": [
@@ -438,14 +438,14 @@
         "command": "get-latest",
         "description": "Read the latest agent-readable daily context artifact scoped to one user.",
         "mode": "read",
-        "module": "health_model.agent_context_cli"
+        "module": "health_agent_infra.agent_context_cli"
       },
       "contract.describe": {
         "args": [],
         "command": "describe",
         "description": "Return this contract description as machine-readable JSON.",
         "mode": "read",
-        "module": "health_model.agent_contract_cli"
+        "module": "health_agent_infra.agent_contract_cli"
       },
       "recommendation.create": {
         "args": [
@@ -478,7 +478,7 @@
         ],
         "description": "Write one validated day-scoped recommendation artifact grounded in one scoped daily context artifact plus one accepted seven-day recommendation-resolution-window retrieval envelope.",
         "mode": "write",
-        "module": "health_model.agent_recommendation_cli",
+        "module": "health_agent_infra.agent_recommendation_cli",
         "payload_shape": {
           "notes": "All evidence_refs must already exist in the referenced agent_readable_daily_context. recommendation.create also requires one accepted seven-day retrieve.recommendation_resolution_window envelope and policy_basis refs that truthfully match that supplied window artifact.",
           "required_fields": [
@@ -567,7 +567,7 @@
         "description": "Return one scoped agent-readable daily context artifact as the v1 retrieval proof surface, with request metadata validated and echoed under validation.request_echo.",
         "implementation_status": "proof_complete",
         "mode": "read",
-        "module": "health_model.agent_context_cli",
+        "module": "health_agent_infra.agent_context_cli",
         "produces": [
           "retrieval_response_envelope"
         ],
@@ -640,7 +640,7 @@
         "description": "Return one bounded day-scoped nutrition brief from an accepted nutrition brief artifact, with request metadata validated and echoed under validation.request_echo.",
         "implementation_status": "proof_complete",
         "mode": "read",
-        "module": "health_model.day_nutrition_brief",
+        "module": "health_agent_infra.day_nutrition_brief",
         "produces": [
           "retrieval_response_envelope"
         ],
@@ -713,7 +713,7 @@
         "description": "Return one bounded recommendation artifact from an accepted agent_recommendation artifact, with request metadata validated and echoed under validation.request_echo.",
         "implementation_status": "proof_complete",
         "mode": "read",
-        "module": "health_model.agent_retrieval_cli",
+        "module": "health_agent_infra.agent_retrieval_cli",
         "produces": [
           "retrieval_response_envelope"
         ],
@@ -794,7 +794,7 @@
         "description": "Return one bounded recommendation plus same-day judgment pair, failing closed unless both artifacts validate and their id and path linkage match.",
         "implementation_status": "proof_complete",
         "mode": "read",
-        "module": "health_model.agent_retrieval_cli",
+        "module": "health_agent_infra.agent_retrieval_cli",
         "produces": [
           "retrieval_response_envelope"
         ],
@@ -890,7 +890,7 @@
         "description": "Return one bounded seven-day window of linked recommendation plus same-day judgment pairs aggregated only from a scoped memory locator fixture, failing closed on locator, scope, or linkage violations.",
         "implementation_status": "proof_complete",
         "mode": "read",
-        "module": "health_model.agent_retrieval_cli",
+        "module": "health_agent_infra.agent_retrieval_cli",
         "produces": [
           "retrieval_response_envelope"
         ],
@@ -964,7 +964,7 @@
         "description": "Return one bounded recommendation judgment artifact from an accepted recommendation_judgment artifact, with request metadata validated and echoed under validation.request_echo.",
         "implementation_status": "proof_complete",
         "mode": "read",
-        "module": "health_model.agent_retrieval_cli",
+        "module": "health_agent_infra.agent_retrieval_cli",
         "produces": [
           "retrieval_response_envelope"
         ],
@@ -1060,7 +1060,7 @@
         "description": "Return one bounded seven-day window of accepted recommendations from a scoped memory locator fixture, separating judged items, pending_judgment items, and no-recommendation dates while failing closed on locator, scope, or linkage violations.",
         "implementation_status": "proof_complete",
         "mode": "read",
-        "module": "health_model.agent_retrieval_cli",
+        "module": "health_agent_infra.agent_retrieval_cli",
         "produces": [
           "retrieval_response_envelope"
         ],
@@ -1134,7 +1134,7 @@
         "description": "Return one bounded one-day sleep evidence review from an accepted day-scoped context artifact, with request metadata validated and echoed under validation.request_echo.",
         "implementation_status": "proof_complete",
         "mode": "read",
-        "module": "health_model.agent_retrieval_cli",
+        "module": "health_agent_infra.agent_retrieval_cli",
         "produces": [
           "retrieval_response_envelope"
         ],
@@ -1229,7 +1229,7 @@
         "description": "Return one bounded seven-day weekly pattern review aggregated only from accepted daily context artifacts listed by a bounded memory locator fixture, with request metadata validated and echoed under validation.request_echo.",
         "implementation_status": "proof_complete",
         "mode": "read",
-        "module": "health_model.agent_context_cli",
+        "module": "health_agent_infra.agent_context_cli",
         "produces": [
           "retrieval_response_envelope"
         ],
@@ -1338,7 +1338,7 @@
         "command": "hydration",
         "description": "Append one same-day hydration log and regenerate daily context artifacts.",
         "mode": "write",
-        "module": "health_model.agent_submit_cli"
+        "module": "health_agent_infra.agent_submit_cli"
       },
       "submit.meal": {
         "args": [
@@ -1453,7 +1453,7 @@
         "command": "meal",
         "description": "Append one same-day meal note and regenerate daily context artifacts.",
         "mode": "write",
-        "module": "health_model.agent_submit_cli"
+        "module": "health_agent_infra.agent_submit_cli"
       },
       "submit.voice_note": {
         "args": [
@@ -1507,7 +1507,7 @@
         ],
         "description": "Append one canonicalized same-day transcribed voice note and regenerate daily context artifacts.",
         "mode": "write",
-        "module": "health_model.agent_voice_note_cli",
+        "module": "health_agent_infra.agent_voice_note_cli",
         "produces": [
           "shared_input_bundle",
           "agent_readable_daily_context_dated",
@@ -1545,7 +1545,7 @@
         "description": "Write one validated same-day recommendation judgment artifact grounded in one scoped recommendation artifact.",
         "implementation_status": "proof_complete",
         "mode": "write",
-        "module": "health_model.agent_memory_write_cli",
+        "module": "health_agent_infra.agent_memory_write_cli",
         "payload_shape": {
           "accepted_judgment_labels": [
             "useful",
@@ -1613,7 +1613,7 @@
         "description": "Write one updated bounded recommendation-resolution-window locator by attaching one already-written same-day judgment to one targeted pending recommendation entry, and optionally emit the paired feedback-window locator.",
         "implementation_status": "proof_complete",
         "mode": "write",
-        "module": "health_model.agent_memory_write_cli",
+        "module": "health_agent_infra.agent_memory_write_cli",
         "payload_shape": {
           "notes": "The payload must stay within one seven-day locator-scoped window, validate the supplied recommendation and judgment linkage, mutate only the targeted recommendation entry by attaching judgment_artifact_path, and fail closed without mutating written locator artifacts on rejection.",
           "optional_fields": [

@@ -30,12 +30,12 @@ The current bounded closed-loop transition proof is `protocol_proof.recommendati
 
 ## What is proven now
 
-- contract discovery via `health_model.agent_contract_cli`
-- bundle initialization via `health_model.agent_bundle_cli`
-- same-day voice-note submission via `health_model.agent_voice_note_cli`
-- scoped context reads via `health_model.agent_context_cli`
-- recommendation creation with fail-closed behavior via `health_model.agent_recommendation_cli`
-- same-day recommendation judgment writeback with fail-closed non-mutation via `health_model.agent_memory_write_cli`
+- contract discovery via `health_agent_infra.agent_contract_cli`, with `health_model.agent_contract_cli` retained temporarily for compatibility
+- bundle initialization via `health_agent_infra.agent_bundle_cli`, with `health_model.agent_bundle_cli` retained temporarily for compatibility
+- same-day voice-note submission via `health_agent_infra.agent_voice_note_cli`, with `health_model.agent_voice_note_cli` retained temporarily for compatibility
+- scoped context reads via `health_agent_infra.agent_context_cli`, with `health_model.agent_context_cli` retained temporarily for compatibility
+- recommendation creation with fail-closed behavior via `health_agent_infra.agent_recommendation_cli`, with `health_model.agent_recommendation_cli` retained temporarily for compatibility
+- same-day recommendation judgment writeback with fail-closed non-mutation via `health_agent_infra.agent_memory_write_cli`, with `health_model.agent_memory_write_cli` retained temporarily for compatibility
 - one closed-loop recommendation resolution transition proof from `pending_judgment` to judged and feedback-visible state, with rejected non-mutation replay
 
 ## What this repo is not claiming

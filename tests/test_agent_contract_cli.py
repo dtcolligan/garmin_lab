@@ -100,7 +100,7 @@ class AgentContractCliIntegrationTest(unittest.TestCase):
         )
 
         bootstrap_init = contract["supported_operations"]["bootstrap.init"]
-        self.assertEqual(bootstrap_init["module"], "health_model.agent_bundle_cli")
+        self.assertEqual(bootstrap_init["module"], "health_agent_infra.agent_bundle_cli")
         self.assertEqual(bootstrap_init["command"], "init")
         self.assertEqual(bootstrap_init["mode"], "write")
         self.assertEqual([arg["name"] for arg in bootstrap_init["args"]], ["bundle_path", "user_id", "date"])
@@ -120,7 +120,7 @@ class AgentContractCliIntegrationTest(unittest.TestCase):
 
         submit_voice_note = contract["supported_operations"]["submit.voice_note"]
         voice_note_args = {arg["name"]: arg for arg in submit_voice_note["args"]}
-        self.assertEqual(submit_voice_note["module"], "health_model.agent_voice_note_cli")
+        self.assertEqual(submit_voice_note["module"], "health_agent_infra.agent_voice_note_cli")
         self.assertEqual(submit_voice_note["command"], "submit")
         self.assertEqual(submit_voice_note["consumes"], ["shared_input_bundle", "voice_note_submission_payload"])
         self.assertEqual(
@@ -137,7 +137,7 @@ class AgentContractCliIntegrationTest(unittest.TestCase):
 
         retrieval_day_context = contract["supported_operations"]["retrieve.day_context"]
         retrieval_args = {arg["name"]: arg for arg in retrieval_day_context["args"]}
-        self.assertEqual(retrieval_day_context["module"], "health_model.agent_context_cli")
+        self.assertEqual(retrieval_day_context["module"], "health_agent_infra.agent_context_cli")
         self.assertEqual(retrieval_day_context["command"], "get")
         self.assertEqual(retrieval_day_context["mode"], "read")
         self.assertEqual(retrieval_day_context["implementation_status"], "proof_complete")
@@ -151,7 +151,7 @@ class AgentContractCliIntegrationTest(unittest.TestCase):
 
         sleep_review = contract["supported_operations"]["retrieve.sleep_review"]
         sleep_review_args = {arg["name"]: arg for arg in sleep_review["args"]}
-        self.assertEqual(sleep_review["module"], "health_model.agent_retrieval_cli")
+        self.assertEqual(sleep_review["module"], "health_agent_infra.agent_retrieval_cli")
         self.assertEqual(sleep_review["command"], "sleep-review")
         self.assertEqual(sleep_review["implementation_status"], "proof_complete")
         self.assertEqual(sleep_review["consumes"], ["agent_readable_daily_context"])
@@ -161,7 +161,7 @@ class AgentContractCliIntegrationTest(unittest.TestCase):
 
         recommendation = contract["supported_operations"]["retrieve.recommendation"]
         recommendation_args = {arg["name"]: arg for arg in recommendation["args"]}
-        self.assertEqual(recommendation["module"], "health_model.agent_retrieval_cli")
+        self.assertEqual(recommendation["module"], "health_agent_infra.agent_retrieval_cli")
         self.assertEqual(recommendation["command"], "recommendation")
         self.assertEqual(recommendation["implementation_status"], "proof_complete")
         self.assertEqual(recommendation["consumes"], ["agent_recommendation"])
@@ -171,7 +171,7 @@ class AgentContractCliIntegrationTest(unittest.TestCase):
 
         recommendation_judgment = contract["supported_operations"]["retrieve.recommendation_judgment"]
         recommendation_judgment_args = {arg["name"]: arg for arg in recommendation_judgment["args"]}
-        self.assertEqual(recommendation_judgment["module"], "health_model.agent_retrieval_cli")
+        self.assertEqual(recommendation_judgment["module"], "health_agent_infra.agent_retrieval_cli")
         self.assertEqual(recommendation_judgment["command"], "recommendation-judgment")
         self.assertEqual(recommendation_judgment["implementation_status"], "proof_complete")
         self.assertEqual(recommendation_judgment["consumes"], ["recommendation_judgment"])
@@ -181,7 +181,7 @@ class AgentContractCliIntegrationTest(unittest.TestCase):
 
         recommendation_feedback = contract["supported_operations"]["retrieve.recommendation_feedback"]
         recommendation_feedback_args = {arg["name"]: arg for arg in recommendation_feedback["args"]}
-        self.assertEqual(recommendation_feedback["module"], "health_model.agent_retrieval_cli")
+        self.assertEqual(recommendation_feedback["module"], "health_agent_infra.agent_retrieval_cli")
         self.assertEqual(recommendation_feedback["command"], "recommendation-feedback")
         self.assertEqual(recommendation_feedback["implementation_status"], "proof_complete")
         self.assertEqual(recommendation_feedback["consumes"], ["agent_recommendation", "recommendation_judgment"])
@@ -192,7 +192,7 @@ class AgentContractCliIntegrationTest(unittest.TestCase):
 
         recommendation_feedback_window = contract["supported_operations"]["retrieve.recommendation_feedback_window"]
         recommendation_feedback_window_args = {arg["name"]: arg for arg in recommendation_feedback_window["args"]}
-        self.assertEqual(recommendation_feedback_window["module"], "health_model.agent_retrieval_cli")
+        self.assertEqual(recommendation_feedback_window["module"], "health_agent_infra.agent_retrieval_cli")
         self.assertEqual(recommendation_feedback_window["command"], "recommendation-feedback-window")
         self.assertEqual(recommendation_feedback_window["implementation_status"], "proof_complete")
         self.assertEqual(recommendation_feedback_window["range_limit_days"], 7)
@@ -205,7 +205,7 @@ class AgentContractCliIntegrationTest(unittest.TestCase):
 
         recommendation_resolution_window = contract["supported_operations"]["retrieve.recommendation_resolution_window"]
         recommendation_resolution_window_args = {arg["name"]: arg for arg in recommendation_resolution_window["args"]}
-        self.assertEqual(recommendation_resolution_window["module"], "health_model.agent_retrieval_cli")
+        self.assertEqual(recommendation_resolution_window["module"], "health_agent_infra.agent_retrieval_cli")
         self.assertEqual(recommendation_resolution_window["command"], "recommendation-resolution-window")
         self.assertEqual(recommendation_resolution_window["implementation_status"], "proof_complete")
         self.assertEqual(recommendation_resolution_window["range_limit_days"], 7)
@@ -218,7 +218,7 @@ class AgentContractCliIntegrationTest(unittest.TestCase):
 
         day_nutrition_brief = contract["supported_operations"]["retrieve.day_nutrition_brief"]
         day_nutrition_args = {arg["name"]: arg for arg in day_nutrition_brief["args"]}
-        self.assertEqual(day_nutrition_brief["module"], "health_model.day_nutrition_brief")
+        self.assertEqual(day_nutrition_brief["module"], "health_agent_infra.day_nutrition_brief")
         self.assertEqual(day_nutrition_brief["command"], "retrieve-day-nutrition-brief")
         self.assertEqual(day_nutrition_brief["implementation_status"], "proof_complete")
         self.assertEqual(day_nutrition_brief["consumes"], ["day_nutrition_brief"])
@@ -238,7 +238,7 @@ class AgentContractCliIntegrationTest(unittest.TestCase):
 
         recommendation_create = contract["supported_operations"]["recommendation.create"]
         recommendation_args = {arg["name"]: arg for arg in recommendation_create["args"]}
-        self.assertEqual(recommendation_create["module"], "health_model.agent_recommendation_cli")
+        self.assertEqual(recommendation_create["module"], "health_agent_infra.agent_recommendation_cli")
         self.assertEqual(recommendation_create["command"], "create")
         self.assertEqual(recommendation_create["consumes"], ["agent_readable_daily_context", "recommendation_resolution_window_retrieval_envelope"])
         self.assertEqual(recommendation_create["produces"], ["agent_recommendation_dated", "agent_recommendation_latest"])
@@ -264,7 +264,7 @@ class AgentContractCliIntegrationTest(unittest.TestCase):
 
         writeback_judgment = contract["supported_operations"]["writeback.recommendation_judgment"]
         writeback_args = {arg["name"]: arg for arg in writeback_judgment["args"]}
-        self.assertEqual(writeback_judgment["module"], "health_model.agent_memory_write_cli")
+        self.assertEqual(writeback_judgment["module"], "health_agent_infra.agent_memory_write_cli")
         self.assertEqual(writeback_judgment["command"], "recommendation-judgment")
         self.assertEqual(writeback_judgment["implementation_status"], "proof_complete")
         self.assertEqual(writeback_judgment["consumes"], ["agent_recommendation"])
@@ -276,7 +276,7 @@ class AgentContractCliIntegrationTest(unittest.TestCase):
 
         writeback_transition = contract["supported_operations"]["writeback.recommendation_resolution_transition"]
         writeback_transition_args = {arg["name"]: arg for arg in writeback_transition["args"]}
-        self.assertEqual(writeback_transition["module"], "health_model.agent_memory_write_cli")
+        self.assertEqual(writeback_transition["module"], "health_agent_infra.agent_memory_write_cli")
         self.assertEqual(writeback_transition["command"], "recommendation-resolution-transition")
         self.assertEqual(writeback_transition["implementation_status"], "proof_complete")
         self.assertEqual(
@@ -397,7 +397,7 @@ class AgentContractCliIntegrationTest(unittest.TestCase):
             dated_artifact_path = health_dir / "agent_readable_daily_context_2026-04-09.json"
 
             bootstrap = self._run_module(
-                "health_model.agent_bundle_cli",
+                "health_agent_infra.agent_bundle_cli",
                 [
                     "init",
                     "--bundle-path",
@@ -425,7 +425,7 @@ class AgentContractCliIntegrationTest(unittest.TestCase):
                 ],
             )
             context = self._run_module(
-                "health_model.agent_context_cli",
+                "health_agent_infra.agent_context_cli",
                 [
                     "get",
                     "--artifact-path",
@@ -473,44 +473,44 @@ class AgentContractCliIntegrationTest(unittest.TestCase):
         self.assertEqual(result["contract"]["accepted_enums"]["retrieval_operations"], expected["operations"])
 
         day_context = result["contract"]["supported_operations"]["retrieve.day_context"]
-        self.assertEqual(day_context["module"], "health_model.agent_context_cli")
+        self.assertEqual(day_context["module"], "health_agent_infra.agent_context_cli")
         self.assertEqual(day_context["command"], "get")
         self.assertEqual(day_context["mode"], "read")
 
         day_nutrition_brief = result["contract"]["supported_operations"]["retrieve.day_nutrition_brief"]
-        self.assertEqual(day_nutrition_brief["module"], "health_model.day_nutrition_brief")
+        self.assertEqual(day_nutrition_brief["module"], "health_agent_infra.day_nutrition_brief")
         self.assertEqual(day_nutrition_brief["command"], "retrieve-day-nutrition-brief")
         self.assertEqual(day_nutrition_brief["implementation_status"], "proof_complete")
         self.assertEqual(day_nutrition_brief["consumes"], ["day_nutrition_brief"])
         self.assertEqual(day_nutrition_brief["response_envelope"], "retrieval")
 
         sleep_review = result["contract"]["supported_operations"]["retrieve.sleep_review"]
-        self.assertEqual(sleep_review["module"], "health_model.agent_retrieval_cli")
+        self.assertEqual(sleep_review["module"], "health_agent_infra.agent_retrieval_cli")
         self.assertEqual(sleep_review["command"], "sleep-review")
         self.assertEqual(sleep_review["implementation_status"], "proof_complete")
 
         recommendation = result["contract"]["supported_operations"]["retrieve.recommendation"]
-        self.assertEqual(recommendation["module"], "health_model.agent_retrieval_cli")
+        self.assertEqual(recommendation["module"], "health_agent_infra.agent_retrieval_cli")
         self.assertEqual(recommendation["command"], "recommendation")
         self.assertEqual(recommendation["implementation_status"], "proof_complete")
 
         recommendation_judgment = result["contract"]["supported_operations"]["retrieve.recommendation_judgment"]
-        self.assertEqual(recommendation_judgment["module"], "health_model.agent_retrieval_cli")
+        self.assertEqual(recommendation_judgment["module"], "health_agent_infra.agent_retrieval_cli")
         self.assertEqual(recommendation_judgment["command"], "recommendation-judgment")
         self.assertEqual(recommendation_judgment["implementation_status"], "proof_complete")
 
         recommendation_feedback = result["contract"]["supported_operations"]["retrieve.recommendation_feedback"]
-        self.assertEqual(recommendation_feedback["module"], "health_model.agent_retrieval_cli")
+        self.assertEqual(recommendation_feedback["module"], "health_agent_infra.agent_retrieval_cli")
         self.assertEqual(recommendation_feedback["command"], "recommendation-feedback")
         self.assertEqual(recommendation_feedback["implementation_status"], "proof_complete")
 
         recommendation_feedback_window = result["contract"]["supported_operations"]["retrieve.recommendation_feedback_window"]
-        self.assertEqual(recommendation_feedback_window["module"], "health_model.agent_retrieval_cli")
+        self.assertEqual(recommendation_feedback_window["module"], "health_agent_infra.agent_retrieval_cli")
         self.assertEqual(recommendation_feedback_window["command"], "recommendation-feedback-window")
         self.assertEqual(recommendation_feedback_window["implementation_status"], "proof_complete")
 
         weekly_review = result["contract"]["supported_operations"]["retrieve.weekly_pattern_review"]
-        self.assertEqual(weekly_review["module"], "health_model.agent_context_cli")
+        self.assertEqual(weekly_review["module"], "health_agent_infra.agent_context_cli")
         self.assertEqual(weekly_review["command"], "retrieve-weekly-pattern-review")
         self.assertEqual(weekly_review["implementation_status"], "proof_complete")
 
@@ -521,7 +521,7 @@ class AgentContractCliIntegrationTest(unittest.TestCase):
         artifact_path = REPO_ROOT / request_fixture["artifact_path"]
 
         context = self._run_module(
-            "health_model.agent_context_cli",
+            "health_agent_infra.agent_context_cli",
             [
                 "get",
                 "--artifact-path",
@@ -569,7 +569,7 @@ class AgentContractCliIntegrationTest(unittest.TestCase):
         artifact_path = REPO_ROOT / "data" / "health" / "agent_readable_daily_context_2026-04-10.json"
 
         wrong_user = self._run_module(
-            "health_model.agent_context_cli",
+            "health_agent_infra.agent_context_cli",
             [
                 "get",
                 "--artifact-path",
@@ -582,7 +582,7 @@ class AgentContractCliIntegrationTest(unittest.TestCase):
             expected_returncode=1,
         )
         wrong_date = self._run_module(
-            "health_model.agent_context_cli",
+            "health_agent_infra.agent_context_cli",
             [
                 "get",
                 "--artifact-path",
@@ -611,7 +611,7 @@ class AgentContractCliIntegrationTest(unittest.TestCase):
         self.assertEqual(sorted(result.keys()), ["contract", "error", "ok", "validation"])
 
     def _run_cli(self, args: list[str], *, expected_returncode: int = 0) -> dict[str, object]:
-        return self._run_module("health_model.agent_contract_cli", args, expected_returncode=expected_returncode)
+        return self._run_module("health_agent_infra.agent_contract_cli", args, expected_returncode=expected_returncode)
 
     def _run_module(self, module: str, args: list[str], *, expected_returncode: int = 0) -> dict[str, object]:
         completed = subprocess.run(

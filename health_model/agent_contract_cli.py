@@ -229,13 +229,13 @@ def _contract_payload() -> dict[str, Any]:
             "embedded_coach_claims": False,
         },
         "discovery": {
-            "cli_module": "health_model.agent_contract_cli",
+            "cli_module": "health_agent_infra.agent_contract_cli",
             "command": "describe",
             "read_only": True,
         },
         "supported_operations": {
             "bootstrap.init": {
-                "module": "health_model.agent_bundle_cli",
+                "module": "health_agent_infra.agent_bundle_cli",
                 "command": "init",
                 "mode": "write",
                 "description": "Create one canonical empty shared-input bundle and fail closed if the target path already exists.",
@@ -246,14 +246,14 @@ def _contract_payload() -> dict[str, Any]:
                 ],
             },
             "contract.describe": {
-                "module": "health_model.agent_contract_cli",
+                "module": "health_agent_infra.agent_contract_cli",
                 "command": "describe",
                 "mode": "read",
                 "description": "Return this contract description as machine-readable JSON.",
                 "args": [],
             },
             "submit.hydration": {
-                "module": "health_model.agent_submit_cli",
+                "module": "health_agent_infra.agent_submit_cli",
                 "command": "hydration",
                 "mode": "write",
                 "description": "Append one same-day hydration log and regenerate daily context artifacts.",
@@ -294,7 +294,7 @@ def _contract_payload() -> dict[str, Any]:
                 ],
             },
             "submit.meal": {
-                "module": "health_model.agent_submit_cli",
+                "module": "health_agent_infra.agent_submit_cli",
                 "command": "meal",
                 "mode": "write",
                 "description": "Append one same-day meal note and regenerate daily context artifacts.",
@@ -343,7 +343,7 @@ def _contract_payload() -> dict[str, Any]:
                 ],
             },
             "submit.voice_note": {
-                "module": "health_model.agent_voice_note_cli",
+                "module": "health_agent_infra.agent_voice_note_cli",
                 "command": "submit",
                 "mode": "write",
                 "description": "Append one canonicalized same-day transcribed voice note and regenerate daily context artifacts.",
@@ -375,7 +375,7 @@ def _contract_payload() -> dict[str, Any]:
                 ],
             },
             "context.get": {
-                "module": "health_model.agent_context_cli",
+                "module": "health_agent_infra.agent_context_cli",
                 "command": "get",
                 "mode": "read",
                 "description": "Read one dated agent-readable daily context artifact.",
@@ -404,7 +404,7 @@ def _contract_payload() -> dict[str, Any]:
                 ],
             },
             "context.get_latest": {
-                "module": "health_model.agent_context_cli",
+                "module": "health_agent_infra.agent_context_cli",
                 "command": "get-latest",
                 "mode": "read",
                 "description": "Read the latest agent-readable daily context artifact scoped to one user.",
@@ -426,7 +426,7 @@ def _contract_payload() -> dict[str, Any]:
                 ],
             },
             "retrieve.day_context": {
-                "module": "health_model.agent_context_cli",
+                "module": "health_agent_infra.agent_context_cli",
                 "command": "get",
                 "mode": "read",
                 "description": "Return one scoped agent-readable daily context artifact as the v1 retrieval proof surface, with request metadata validated and echoed under validation.request_echo.",
@@ -445,7 +445,7 @@ def _contract_payload() -> dict[str, Any]:
                 "response_envelope": "retrieval",
             },
             "retrieve.day_nutrition_brief": {
-                "module": "health_model.day_nutrition_brief",
+                "module": "health_agent_infra.day_nutrition_brief",
                 "command": "retrieve-day-nutrition-brief",
                 "mode": "read",
                 "description": "Return one bounded day-scoped nutrition brief from an accepted nutrition brief artifact, with request metadata validated and echoed under validation.request_echo.",
@@ -464,7 +464,7 @@ def _contract_payload() -> dict[str, Any]:
                 "response_envelope": "retrieval",
             },
             "retrieve.sleep_review": {
-                "module": "health_model.agent_retrieval_cli",
+                "module": "health_agent_infra.agent_retrieval_cli",
                 "command": "sleep-review",
                 "mode": "read",
                 "description": "Return one bounded one-day sleep evidence review from an accepted day-scoped context artifact, with request metadata validated and echoed under validation.request_echo.",
@@ -483,7 +483,7 @@ def _contract_payload() -> dict[str, Any]:
                 "response_envelope": "retrieval",
             },
             "retrieve.recommendation": {
-                "module": "health_model.agent_retrieval_cli",
+                "module": "health_agent_infra.agent_retrieval_cli",
                 "command": "recommendation",
                 "mode": "read",
                 "description": "Return one bounded recommendation artifact from an accepted agent_recommendation artifact, with request metadata validated and echoed under validation.request_echo.",
@@ -502,7 +502,7 @@ def _contract_payload() -> dict[str, Any]:
                 "response_envelope": "retrieval",
             },
             "retrieve.recommendation_judgment": {
-                "module": "health_model.agent_retrieval_cli",
+                "module": "health_agent_infra.agent_retrieval_cli",
                 "command": "recommendation-judgment",
                 "mode": "read",
                 "description": "Return one bounded recommendation judgment artifact from an accepted recommendation_judgment artifact, with request metadata validated and echoed under validation.request_echo.",
@@ -521,7 +521,7 @@ def _contract_payload() -> dict[str, Any]:
                 "response_envelope": "retrieval",
             },
             "retrieve.recommendation_feedback": {
-                "module": "health_model.agent_retrieval_cli",
+                "module": "health_agent_infra.agent_retrieval_cli",
                 "command": "recommendation-feedback",
                 "mode": "read",
                 "description": "Return one bounded recommendation plus same-day judgment pair, failing closed unless both artifacts validate and their id and path linkage match.",
@@ -541,7 +541,7 @@ def _contract_payload() -> dict[str, Any]:
                 "response_envelope": "retrieval",
             },
             "retrieve.recommendation_feedback_window": {
-                "module": "health_model.agent_retrieval_cli",
+                "module": "health_agent_infra.agent_retrieval_cli",
                 "command": "recommendation-feedback-window",
                 "mode": "read",
                 "description": "Return one bounded seven-day window of linked recommendation plus same-day judgment pairs aggregated only from a scoped memory locator fixture, failing closed on locator, scope, or linkage violations.",
@@ -570,7 +570,7 @@ def _contract_payload() -> dict[str, Any]:
                 "range_limit_days": 7,
             },
             "retrieve.recommendation_resolution_window": {
-                "module": "health_model.agent_retrieval_cli",
+                "module": "health_agent_infra.agent_retrieval_cli",
                 "command": "recommendation-resolution-window",
                 "mode": "read",
                 "description": "Return one bounded seven-day window of accepted recommendations from a scoped memory locator fixture, separating judged items, pending_judgment items, and no-recommendation dates while failing closed on locator, scope, or linkage violations.",
@@ -599,7 +599,7 @@ def _contract_payload() -> dict[str, Any]:
                 "range_limit_days": 7,
             },
             "retrieve.weekly_pattern_review": {
-                "module": "health_model.agent_context_cli",
+                "module": "health_agent_infra.agent_context_cli",
                 "command": "retrieve-weekly-pattern-review",
                 "mode": "read",
                 "description": "Return one bounded seven-day weekly pattern review aggregated only from accepted daily context artifacts listed by a bounded memory locator fixture, with request metadata validated and echoed under validation.request_echo.",
@@ -622,7 +622,7 @@ def _contract_payload() -> dict[str, Any]:
                 "range_limit_days": 7,
             },
             "recommendation.create": {
-                "module": "health_model.agent_recommendation_cli",
+                "module": "health_agent_infra.agent_recommendation_cli",
                 "command": "create",
                 "mode": "write",
                 "description": "Write one validated day-scoped recommendation artifact grounded in one scoped daily context artifact plus one accepted seven-day recommendation-resolution-window retrieval envelope.",
@@ -669,7 +669,7 @@ def _contract_payload() -> dict[str, Any]:
                 },
             },
             "writeback.recommendation_judgment": {
-                "module": "health_model.agent_memory_write_cli",
+                "module": "health_agent_infra.agent_memory_write_cli",
                 "command": "recommendation-judgment",
                 "mode": "write",
                 "description": "Write one validated same-day recommendation judgment artifact grounded in one scoped recommendation artifact.",
@@ -720,7 +720,7 @@ def _contract_payload() -> dict[str, Any]:
                 "response_envelope": "writeback",
             },
             "writeback.recommendation_resolution_transition": {
-                "module": "health_model.agent_memory_write_cli",
+                "module": "health_agent_infra.agent_memory_write_cli",
                 "command": "recommendation-resolution-transition",
                 "mode": "write",
                 "description": "Write one updated bounded recommendation-resolution-window locator by attaching one already-written same-day judgment to one targeted pending recommendation entry, and optionally emit the paired feedback-window locator.",
