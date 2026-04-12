@@ -71,7 +71,8 @@
       "payload_path"
     ],
     "writeback_operations": [
-      "writeback.recommendation_judgment"
+      "writeback.recommendation_judgment",
+      "writeback.recommendation_resolution_transition"
     ],
     "writeback_payload_inputs": [
       "payload_json",
@@ -99,7 +100,10 @@
     "judgment_label",
     "action_taken",
     "why",
-    "written_at"
+    "written_at",
+    "resolution_window_memory_path",
+    "feedback_window_memory_path",
+    "judgment_artifact_id"
   ],
   "architecture_boundary": {
     "embedded_coach_claims": false,
@@ -152,6 +156,22 @@
           "{output_dir}/recommendation_judgment_{date}.json",
           "{output_dir}/recommendation_judgment_latest.json"
         ]
+      },
+      {
+        "artifact_type": "recommendation_resolution_window_memory",
+        "notes": "writeback.recommendation_resolution_transition writes one updated locator artifact for the same bounded seven-day window and mutates only the targeted recommendation entry by attaching the supplied judgment_artifact_path.",
+        "paths": [
+          "{output_dir}/recommendation_resolution_window_memory_{start_date}_{end_date}.json",
+          "{output_dir}/recommendation_resolution_window_memory_latest.json"
+        ]
+      },
+      {
+        "artifact_type": "recommendation_feedback_window_memory",
+        "notes": "writeback.recommendation_resolution_transition may also emit a paired feedback-window locator for the same bounded window when feedback_window_memory_path is supplied.",
+        "paths": [
+          "{output_dir}/recommendation_feedback_window_memory_{start_date}_{end_date}.json",
+          "{output_dir}/recommendation_feedback_window_memory_latest.json"
+        ]
       }
     ]
   },
@@ -166,12 +186,17 @@
     "bundle_path": "{output_dir}/shared_input_bundle_{date}.json",
     "dated_context_artifact": "{output_dir}/agent_readable_daily_context_{date}.json",
     "dated_recommendation_artifact": "{output_dir}/agent_recommendation_{date}.json",
+    "dated_recommendation_feedback_window_memory_artifact": "{output_dir}/recommendation_feedback_window_memory_{start_date}_{end_date}.json",
     "dated_recommendation_judgment_artifact": "{output_dir}/recommendation_judgment_{date}.json",
+    "dated_recommendation_resolution_window_memory_artifact": "{output_dir}/recommendation_resolution_window_memory_{start_date}_{end_date}.json",
     "latest_context_artifact": "{output_dir}/agent_readable_daily_context_latest.json",
     "latest_recommendation_artifact": "{output_dir}/agent_recommendation_latest.json",
-    "latest_recommendation_judgment_artifact": "{output_dir}/recommendation_judgment_latest.json"
+    "latest_recommendation_feedback_window_memory_artifact": "{output_dir}/recommendation_feedback_window_memory_latest.json",
+    "latest_recommendation_judgment_artifact": "{output_dir}/recommendation_judgment_latest.json",
+    "latest_recommendation_resolution_window_memory_artifact": "{output_dir}/recommendation_resolution_window_memory_latest.json"
   },
   "proof_artifacts": {
+    "contract_describe_writeback_transition_parity_proof_bundle": "artifacts/protocol_layer_proof/2026-04-12-contract-describe-writeback-transition-parity/",
     "day_context_proof_bundle": "artifacts/protocol_layer_proof/2026-04-11/",
     "day_nutrition_brief_proof_bundle": "artifacts/protocol_layer_proof/2026-04-11-day-nutrition-brief/",
     "human_contract": "docs/retrieval_contract_v1.md",
@@ -182,6 +207,7 @@
     "recommendation_feedback_retrieval_proof_bundle": "artifacts/protocol_layer_proof/2026-04-11-recommendation-feedback/",
     "recommendation_feedback_window_retrieval_proof_bundle": "artifacts/protocol_layer_proof/2026-04-11-recommendation-feedback-window/",
     "recommendation_judgment_retrieval_proof_bundle": "artifacts/protocol_layer_proof/2026-04-11-recommendation-judgment-retrieval/",
+    "recommendation_resolution_transition_writeback_proof_bundle": "artifacts/protocol_layer_proof/2026-04-11-recommendation-resolution-transition-writeback/",
     "recommendation_resolution_window_retrieval_proof_bundle": "artifacts/protocol_layer_proof/2026-04-11-recommendation-resolution-window/",
     "recommendation_retrieval_proof_bundle": "artifacts/protocol_layer_proof/2026-04-11-recommendation-retrieval/",
     "sleep_review_proof_bundle": "artifacts/protocol_layer_proof/2026-04-11-sleep-review/",
@@ -1550,6 +1576,67 @@
       "produces": [
         "recommendation_judgment_dated",
         "recommendation_judgment_latest"
+      ],
+      "response_envelope": "writeback"
+    },
+    "writeback.recommendation_resolution_transition": {
+      "args": [
+        {
+          "description": "Directory where dated and latest locator artifacts are written.",
+          "flag": "--output-dir",
+          "name": "output_dir",
+          "required": true,
+          "type": "string"
+        },
+        {
+          "description": "Recommendation resolution transition payload JSON object string. Exactly one of --payload-json or --payload-path is required.",
+          "flag": "--payload-json",
+          "name": "payload_json",
+          "required": false,
+          "type": "json_object"
+        },
+        {
+          "description": "Path to one recommendation resolution transition payload JSON file. Exactly one of --payload-json or --payload-path is required.",
+          "flag": "--payload-path",
+          "name": "payload_path",
+          "required": false,
+          "type": "string"
+        }
+      ],
+      "command": "recommendation-resolution-transition",
+      "consumes": [
+        "agent_recommendation",
+        "recommendation_judgment",
+        "recommendation_resolution_window_memory"
+      ],
+      "description": "Write one updated bounded recommendation-resolution-window locator by attaching one already-written same-day judgment to one targeted pending recommendation entry, and optionally emit the paired feedback-window locator.",
+      "implementation_status": "proof_complete",
+      "mode": "write",
+      "module": "health_model.agent_memory_write_cli",
+      "payload_shape": {
+        "notes": "The payload must stay within one seven-day locator-scoped window, validate the supplied recommendation and judgment linkage, mutate only the targeted recommendation entry by attaching judgment_artifact_path, and fail closed without mutating written locator artifacts on rejection.",
+        "optional_fields": [
+          "feedback_window_memory_path"
+        ],
+        "required_fields": [
+          "user_id",
+          "start_date",
+          "end_date",
+          "recommendation_artifact_path",
+          "recommendation_artifact_id",
+          "judgment_artifact_path",
+          "judgment_artifact_id",
+          "resolution_window_memory_path",
+          "written_at",
+          "request_id",
+          "requested_at"
+        ]
+      },
+      "produces": [
+        "recommendation_resolution_window_memory_dated",
+        "recommendation_resolution_window_memory_latest",
+        "recommendation_feedback_window_memory_dated",
+        "recommendation_feedback_window_memory_latest"
       ],
       "response_envelope": "writeback"
     }

@@ -378,6 +378,14 @@ class AgentContractCliIntegrationTest(unittest.TestCase):
             contract["proof_artifacts"]["recommendation_creation_with_resolution_window_grounding_proof_bundle"],
             "artifacts/protocol_layer_proof/2026-04-11-recommendation-creation-with-resolution-window-grounding/",
         )
+        self.assertEqual(
+            contract["proof_artifacts"]["recommendation_resolution_transition_writeback_proof_bundle"],
+            "artifacts/protocol_layer_proof/2026-04-11-recommendation-resolution-transition-writeback/",
+        )
+        self.assertEqual(
+            contract["proof_artifacts"]["contract_describe_writeback_transition_parity_proof_bundle"],
+            "artifacts/protocol_layer_proof/2026-04-12-contract-describe-writeback-transition-parity/",
+        )
 
     def test_contract_describe_bootstrap_voice_note_submit_and_context_get_prove_external_agent_loop(self) -> None:
         contract_result = self._run_cli(["describe"])

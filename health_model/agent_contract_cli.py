@@ -973,6 +973,7 @@ def _contract_payload() -> dict[str, Any]:
             "recommendation_resolution_window_retrieval_proof_bundle": "artifacts/protocol_layer_proof/2026-04-11-recommendation-resolution-window/",
             "recommendation_creation_with_resolution_window_grounding_proof_bundle": "artifacts/protocol_layer_proof/2026-04-11-recommendation-creation-with-resolution-window-grounding/",
             "recommendation_resolution_transition_writeback_proof_bundle": "artifacts/protocol_layer_proof/2026-04-11-recommendation-resolution-transition-writeback/",
+            "contract_describe_writeback_transition_parity_proof_bundle": "artifacts/protocol_layer_proof/2026-04-12-contract-describe-writeback-transition-parity/",
         },
     }
 
