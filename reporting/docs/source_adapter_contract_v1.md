@@ -207,6 +207,25 @@ Rules:
 - `superseded` means another record is the retained primary representation of the same real-world fact, but the superseded record remains traceable
 - `coexists_conflicted` means multiple plausible records remain in tension and v1 preserves the ambiguity explicitly
 
+### Supplements coexistence contract
+
+This conflict rule is frozen for v1.
+
+If Cronometer and manual supplements both describe what appears to be the same real-world supplement intake:
+- Cronometer is the preferred machine-readable source and remains the default retained `pull` representation when it has trustworthy supplement detail
+- manual supplements remain valid fallback and backfill inputs through `merge_human_inputs` when Cronometer is absent, incomplete, late, intentionally unused, or lacks needed detail
+- v1 must not silently merge a Cronometer supplement record and a manual supplement record into one canonical fact
+- v1 must not silently let manual supplement input override a Cronometer-derived intake
+- deterministic duplicate resolution is allowed only when substance identity, effective date, and available time and dose anchors match closely enough to justify treating the pair as the same intake
+- when deterministic duplicate resolution is applied, one retained primary canonical intake may remain `none` while the duplicate provenance path is marked `superseded`
+- when the overlap cannot be resolved safely, the normalized supplement output must remain explicit about `coexists_conflicted`
+- replay of the same Cronometer receipt or manual artifact must preserve the same source identities; cross-source overlap must never collapse source IDs by accident
+
+Recommended stable-ID patterns for this slice:
+- Cronometer day anchor: `nutrition:cronometer:day:<date>`
+- Cronometer supplement intake subkey: derived from the same day receipt family plus stable intake-local anchors
+- manual supplement anchor: `supplement:<source_artifact_or_import>:<intake_timestamp_or_date>:<substance_key>`
+
 ### Garmin vs Strava overlap contract
 
 This conflict rule is frozen for v1.
@@ -227,6 +246,13 @@ Minimum proof expectations:
 - proof of stable `source_record_id` behavior on repeated processing
 - proof that provenance is attached
 - proof of any declared conflict handling where overlap exists
+
+For the supplements coexistence slice, the minimum inspectable proof bundle is:
+- one Cronometer-only supplement example
+- one manual-only fallback example
+- one overlap example resolved explicitly as `superseded` or `coexists_conflicted`
+- expected canonical `supplement_intake` outputs with `source_name`, `source_record_id`, `provenance_record_id`, and `conflict_status`
+- one replay note showing that repeated processing preserves the same source IDs
 
 Proof may be staged by source status:
 - `proof_complete`: proof artifacts already exist and are reviewable

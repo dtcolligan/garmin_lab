@@ -60,9 +60,9 @@ The downstream normalized artifact families for v1 are:
 | --- | --- | --- | --- | --- |
 | Garmin | in_v1 | `pull` | already grounded in repo docs, data, and current adapter reality, and now part of the frozen v1 trio | `source_record`, `provenance_record`, `sleep_daily`, `readiness_daily`, `training_session`, `daily_health_snapshot` |
 | wger | in_v1 | `pull` | preferred open, controllable gym-domain source system for resistance training in v1 | `source_record`, `provenance_record`, `training_session`, `gym_set_record`, `exercise_catalog`, `exercise_alias`, `program_block`, `daily_health_snapshot` |
-| Cronometer | in_v1 | `pull` | preferred nutrition and supplements source system in v1 via bounded export-first connector surfaces | `source_record`, `provenance_record`, `nutrition_daily`, `supplement_intake`, `daily_health_snapshot` |
+| Cronometer | in_v1 | `pull` | preferred nutrition and machine-readable supplements source system in v1 via bounded export-first connector surfaces | `source_record`, `provenance_record`, `nutrition_daily`, `supplement_intake`, `daily_health_snapshot` |
 | Strava | in_v1 | `pull` | required for cross-source training overlap contract, especially with Garmin, but not in the frozen first trio | `source_record`, `provenance_record`, `training_session`, `daily_health_snapshot` |
-| supplements | in_v1 | `merge_human_inputs` first, future `pull` allowed later | still valid manual-first fallback even though Cronometer is the preferred source system | `source_record`, `provenance_record`, `supplement_intake`, `daily_health_snapshot` |
+| supplements | in_v1 | `merge_human_inputs` first, future `pull` allowed later | still valid manual fallback and backfill path even though Cronometer is the preferred machine-readable source system | `source_record`, `provenance_record`, `supplement_intake`, `daily_health_snapshot` |
 | bloodwork | in_v1 | `merge_human_inputs` first, future `pull` allowed later | important health-domain input, currently best treated as manual-first | `source_record`, `provenance_record`, `lab_result`, `daily_health_snapshot` |
 | Oura | in_v1 | `pull` | high-value passive source family, must be covered by the platform contract before implementation | `source_record`, `provenance_record`, `sleep_daily`, `readiness_daily`, `training_session`, `daily_health_snapshot` |
 | resistance training | in_v1 | `pull` via preferred `wger` source, manual fallback remains allowed | v1 gym domain should center on a controllable external source system while preserving source independence and fallback manual entry | `source_record`, `provenance_record`, `training_session`, `gym_set_record`, `exercise_catalog`, `exercise_alias`, `program_block`, `daily_health_snapshot` |
@@ -95,6 +95,17 @@ The contract-level freeze is:
 - the gym-domain core now centers on `training_session`, `exercise_catalog`, `exercise_alias`, `gym_set_record`, and `program_block`
 - derived metrics such as volume, estimated 1RM, weekly hard sets, density, and adherence remain Health Lab downstream concerns
 - future imported lifting adapters must converge into the same canonical gym-domain objects
+
+## Supplements coexistence expectation
+
+Cronometer and manual supplements are both in scope for v1.
+
+The platform contract therefore freezes that:
+- Cronometer is the preferred machine-readable source for `supplement_intake`
+- manual supplements remain valid when Cronometer data is absent, incomplete, late, intentionally unused, or missing needed detail
+- v1 must not silently merge or silently override overlapping Cronometer and manual supplement records
+- overlap must resolve explicitly as `superseded` when deterministic duplicate handling is justified, or `coexists_conflicted` when ambiguity remains
+- repeated processing must preserve distinct source identities unless explicit duplicate resolution has already been applied
 
 ## Garmin and Strava overlap expectation
 
