@@ -2,7 +2,7 @@
 
 ## Repo status
 
-This repo currently presents a truthful public shell around one proved flagship Health Lab slice. In public-facing terms, `garmin_lab` is being framed as Health Lab: the trust layer for agent-mediated personal health work over user-owned memory, implemented here as a bounded contract-and-proof system rather than a hosted product.
+This repo currently presents a truthful public shell around one proved flagship Health Lab slice. In public-facing terms, `health_agent_infra` is the Health Lab repository: the trust layer for agent-mediated personal health work over user-owned memory, implemented here as a bounded contract-and-proof system rather than a hosted product.
 
 The frozen canonical definition for this repo-visible slice lives at `docs/health_lab_canonical_definition.md`.
 
@@ -49,7 +49,6 @@ The current bounded closed-loop transition proof is `protocol_proof.recommendati
 ## Repo-readiness audit note
 
 Unresolved truths that still matter:
-- Note: the repository directory is still named `garmin_lab` for historical reasons, while the current project framing is Health Lab.
 - older Garmin, dashboard, web, and adjacent project surfaces remain in-tree and can still distract from the flagship proof path, so `dashboard/`, `web/`, and `garmin/` are explicitly constrained as legacy or adjacent surfaces rather than the canonical current slice
 - the cleanest public review path is the checked-in demo and proof bundles, not the whole repo
 - local runtime outputs under `data/` are not public-safe proof artifacts unless explicitly curated
@@ -60,4 +59,4 @@ Unresolved truths that still matter:
 - [x] `LICENSE`, `CONTRIBUTING.md`, and this `STATUS.md` exist
 - [x] Proof-facing wording stays within current repo reality
 - [x] Frozen flagship CLI smoke-test command is defined for CI
-- [ ] Any repo directory rename and broader legacy-root wording cleanup remain pending beyond this bounded slice
+- [ ] Any broader legacy-root wording cleanup beyond the renamed upstream repo remains pending beyond this bounded slice

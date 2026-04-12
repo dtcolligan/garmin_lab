@@ -1,10 +1,8 @@
 # Health Lab
 
-Health Lab is the trust layer for agent-mediated personal health work over user-owned memory. In repo terms, this `garmin_lab` repository is a bounded contract-and-proof system that lets external agents retrieve scoped health evidence, produce inspectable artifacts, and write structured updates back safely without claiming ownership of a user's durable private memory.
+Health Lab is the trust layer for agent-mediated personal health work over user-owned memory. In repo terms, this `health_agent_infra` repository is a bounded contract-and-proof system that lets external agents retrieve scoped health evidence, produce inspectable artifacts, and write structured updates back safely without claiming ownership of a user's durable private memory.
 
 The current public proof is a narrow, CLI-first Health Lab slice, not a hosted product, consumer app, or multi-user runtime.
-
-Note: the repository directory is still named `garmin_lab` for historical reasons, while the current project framing is Health Lab.
 
 Start with `docs/health_lab_canonical_definition.md` for the frozen canonical definition, then inspect the canonical public demo and proof surfaces linked below.
 
