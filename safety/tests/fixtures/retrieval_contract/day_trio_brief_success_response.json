@@ -1,0 +1,96 @@
+{
+  "artifact_path": "data/health/day_trio_brief_snapshot_2026-04-08.json",
+  "error": null,
+  "ok": true,
+  "retrieval": {
+    "conflicts": [],
+    "coverage_status": "partial",
+    "evidence": {
+      "agent_notes": {
+        "data_backed_notes": [
+          "Readiness was moderate after 7.75 hours of sleep."
+        ],
+        "generic_or_missingness_notes": [
+          "No accepted training artifacts are available for this date. The brief does not infer training conclusions from recovery or nutrition data.",
+          "Gym lane is unavailable for this date, so training conclusions remain unproven."
+        ]
+      },
+      "coverage_status": {
+        "blocked_sources": [],
+        "missing_sources": [
+          "gym"
+        ],
+        "nutrition_present": true,
+        "recovery_present": true,
+        "training_present": false
+      },
+      "date": "2026-04-08",
+      "nutrition_summary": {
+        "calories_kcal": 2410,
+        "carbs_g": 245,
+        "fat_g": 71,
+        "food_log_completeness": "complete",
+        "protein_g": 182
+      },
+      "provenance_refs": [
+        {
+          "provenance_record_id": "prov_garmin_sleep_2026_04_08",
+          "section": "recovery",
+          "source_name": "garmin",
+          "source_record_id": "garmin_sleep_2026_04_08"
+        },
+        {
+          "provenance_record_id": "prov_garmin_readiness_2026_04_08",
+          "section": "recovery",
+          "source_name": "garmin",
+          "source_record_id": "garmin_readiness_2026_04_08"
+        },
+        {
+          "provenance_record_id": "prov_cronometer_day_2026_04_08",
+          "section": "nutrition",
+          "source_name": "cronometer",
+          "source_record_id": "cronometer_day_2026_04_08"
+        }
+      ],
+      "recovery_summary": {
+        "caveat": "Gym lane is unavailable for this date, so training conclusions remain unproven.",
+        "data_backed_observation": "Readiness was moderate after 7.75 hours of sleep.",
+        "readiness_label": "moderate",
+        "readiness_score": 71,
+        "sleep_duration_hours": 7.75,
+        "sleep_score": 82
+      },
+      "training_summary": {
+        "note": "No accepted training artifacts are available for this date. The brief does not infer training conclusions from recovery or nutrition data.",
+        "session_count": 0,
+        "sessions": [],
+        "status": "missing",
+        "total_load_kg": null,
+        "total_reps": null,
+        "total_sets": null
+      }
+    },
+    "generated_from": {
+      "artifact_path": "data/health/day_trio_brief_snapshot_2026-04-08.json",
+      "daily_health_snapshot_id": "snapshot_2026_04_08_degraded"
+    },
+    "important_gaps": [
+      "gym"
+    ],
+    "operation": "retrieve.day_trio_brief",
+    "scope": {
+      "date": "2026-04-08",
+      "user_id": "user_dom"
+    },
+    "unsupported_claims": []
+  },
+  "validation": {
+    "is_valid": true,
+    "request_echo": {
+      "request_id": "req_day_trio_brief_proof_2026_04_12",
+      "requested_at": "2026-04-12T21:55:00+01:00"
+    },
+    "schema_issues": [],
+    "semantic_issues": []
+  }
+}

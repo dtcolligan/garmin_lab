@@ -1,0 +1,10 @@
+{
+  "artifact_path": "data/health/day_trio_brief_snapshot_2026-04-08.json",
+  "date": "2026-04-08",
+  "include_conflicts": true,
+  "include_missingness": true,
+  "operation": "retrieve.day_trio_brief",
+  "request_id": "req_day_trio_brief_proof_2026_04_12",
+  "requested_at": "2026-04-12T21:55:00+01:00",
+  "user_id": "user_dom"
+}

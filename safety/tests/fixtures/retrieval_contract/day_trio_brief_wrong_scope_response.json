@@ -1,0 +1,30 @@
+{
+  "artifact_path": "data/health/day_trio_brief_snapshot_2026-04-08.json",
+  "error": {
+    "code": "artifact_date_mismatch",
+    "details": {
+      "artifact_path": "data/health/day_trio_brief_snapshot_2026-04-08.json",
+      "date": "2026-04-09",
+      "user_id": "user_dom"
+    },
+    "message": "Artifact failed scope or type validation.",
+    "retryable": false
+  },
+  "ok": false,
+  "retrieval": null,
+  "validation": {
+    "is_valid": false,
+    "request_echo": {
+      "request_id": "req_day_trio_brief_wrong_scope_2026_04_12",
+      "requested_at": "2026-04-12T21:55:00+01:00"
+    },
+    "schema_issues": [],
+    "semantic_issues": [
+      {
+        "code": "artifact_date_mismatch",
+        "message": "Artifact date does not match request.",
+        "path": "date"
+      }
+    ]
+  }
+}

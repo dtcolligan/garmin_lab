@@ -41,6 +41,17 @@ Machine-readable discovery is published by `python3 -m health_model.agent_contra
   - explicit missingness, never fabricated zeros
   - no unsupported micronutrient or coaching claims
 
+### `retrieve.day_trio_brief`
+- Purpose: return a bounded one-day trio brief over recovery, nutrition, and training coverage from an accepted `daily_health_snapshot` artifact.
+- Current implementation status: proof-complete in v1.
+- Required scope: `user_id`, `date`, `artifact_path`, `request_id`, `requested_at`.
+- Semantics:
+  - validate `request_id` as a non-empty string and `requested_at` as an ISO 8601 datetime with timezone information, then echo both under `validation.request_echo`
+  - fail closed if the artifact is missing, invalid JSON, wrong `artifact_type`, wrong `user_id`, or wrong `date`
+  - preserve explicit coverage flags for recovery, nutrition, and training
+  - when training artifacts are absent, surface `training_summary.status` as `missing` or `blocked` and do not infer a workout from other signals
+  - preserve inspectable provenance refs for each populated section
+
 ### `retrieve.sleep_review`
 - Purpose: return a bounded one-day sleep evidence review.
 - Current implementation status: proof-complete in v1.

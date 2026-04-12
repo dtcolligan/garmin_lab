@@ -463,6 +463,25 @@ def _contract_payload() -> dict[str, Any]:
                 "produces": ["retrieval_response_envelope"],
                 "response_envelope": "retrieval",
             },
+            "retrieve.day_trio_brief": {
+                "module": "health_model.agent_retrieval_cli",
+                "command": "day-trio-brief",
+                "mode": "read",
+                "description": "Return one bounded day-scoped trio brief from an accepted daily_health_snapshot artifact, preserving explicit missingness for unavailable training evidence and provenance refs for populated sections.",
+                "implementation_status": "proof_complete",
+                "args": [
+                    _shared_arg("user_id"),
+                    _shared_arg("date"),
+                    _retrieval_arg("artifact_path"),
+                    _retrieval_arg("request_id"),
+                    _retrieval_arg("requested_at"),
+                    _retrieval_arg("include_conflicts"),
+                    _retrieval_arg("include_missingness"),
+                ],
+                "consumes": ["daily_health_snapshot"],
+                "produces": ["retrieval_response_envelope"],
+                "response_envelope": "retrieval",
+            },
             "retrieve.sleep_review": {
                 "module": "health_model.agent_retrieval_cli",
                 "command": "sleep-review",
@@ -779,6 +798,7 @@ def _contract_payload() -> dict[str, Any]:
             "retrieval_operations": [
                 "retrieve.day_context",
                 "retrieve.day_nutrition_brief",
+                "retrieve.day_trio_brief",
                 "retrieve.sleep_review",
                 "retrieve.recommendation",
                 "retrieve.recommendation_judgment",

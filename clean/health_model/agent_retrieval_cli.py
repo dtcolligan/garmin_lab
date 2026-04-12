@@ -54,6 +54,7 @@ RECOMMENDATION_FEEDBACK_JUDGMENT_KEYS = RECOMMENDATION_JUDGMENT_EVIDENCE_KEYS
 RECOMMENDATION_FEEDBACK_WINDOW_MEMORY_ARTIFACT_TYPE = "recommendation_feedback_window_memory"
 RECOMMENDATION_RESOLUTION_WINDOW_MEMORY_ARTIFACT_TYPE = "recommendation_resolution_window_memory"
 RECOMMENDATION_WINDOW_RANGE_LIMIT_DAYS = 7
+DAY_TRIO_BRIEF_ARTIFACT_TYPE = "daily_health_snapshot"
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -68,6 +69,15 @@ def build_parser() -> argparse.ArgumentParser:
     sleep_review.add_argument("--requested-at", required=True)
     sleep_review.add_argument("--include-conflicts", choices=["true", "false"])
     sleep_review.add_argument("--include-missingness", choices=["true", "false"])
+
+    day_trio_brief = subparsers.add_parser("day-trio-brief")
+    day_trio_brief.add_argument("--artifact-path", required=True)
+    day_trio_brief.add_argument("--user-id", required=True)
+    day_trio_brief.add_argument("--date", required=True)
+    day_trio_brief.add_argument("--request-id", required=True)
+    day_trio_brief.add_argument("--requested-at", required=True)
+    day_trio_brief.add_argument("--include-conflicts", choices=["true", "false"])
+    day_trio_brief.add_argument("--include-missingness", choices=["true", "false"])
 
     recommendation_judgment = subparsers.add_parser("recommendation-judgment")
     recommendation_judgment.add_argument("--artifact-path", required=True)
@@ -153,6 +163,8 @@ def main(argv: list[str] | None = None) -> int:
 
 
 def run_command(args: argparse.Namespace) -> dict[str, Any]:
+    if args.command == "day-trio-brief":
+        return _run_day_trio_brief(args)
     if args.command == "sleep-review":
         return _run_sleep_review(args)
     if args.command == "recommendation-judgment":
@@ -166,6 +178,296 @@ def run_command(args: argparse.Namespace) -> dict[str, Any]:
     if args.command == "recommendation-resolution-window":
         return _run_recommendation_resolution_window(args)
     raise ValueError(f"Unsupported command: {args.command}")
+
+
+def _run_day_trio_brief(args: argparse.Namespace) -> dict[str, Any]:
+    request_validation, _request_echo = validate_and_echo_request_metadata(
+        request_id=args.request_id,
+        requested_at=args.requested_at,
+    )
+    if not request_validation["is_valid"]:
+        return {
+            "ok": False,
+            "artifact_path": args.artifact_path,
+            "retrieval": None,
+            "validation": request_validation,
+            "error": {
+                "code": request_validation["semantic_issues"][0]["code"],
+                "message": "Request metadata failed validation.",
+                "retryable": False,
+                "details": {
+                    "command": args.command,
+                    "request_echo": request_validation["request_echo"],
+                },
+            },
+        }
+
+    artifact_response = _read_day_trio_brief_artifact(
+        path=Path(args.artifact_path),
+        user_id=args.user_id,
+        date=args.date,
+    )
+    if not artifact_response["ok"]:
+        return {
+            "ok": False,
+            "artifact_path": artifact_response.get("artifact_path"),
+            "retrieval": None,
+            "validation": {
+                **artifact_response["validation"],
+                "request_echo": request_validation["request_echo"],
+            },
+            "error": artifact_response["error"],
+        }
+
+    artifact = artifact_response["artifact"]
+    retrieval = _assemble_day_trio_brief(artifact=artifact)
+    if args.include_missingness == "false":
+        retrieval["agent_notes"]["generic_or_missingness_notes"] = []
+
+    conflicts = [] if args.include_conflicts == "false" else _day_trio_brief_conflicts(artifact=artifact)
+
+    return {
+        "ok": True,
+        "artifact_path": artifact_response["artifact_path"],
+        "retrieval": {
+            "operation": "retrieve.day_trio_brief",
+            "scope": {
+                "user_id": args.user_id,
+                "date": args.date,
+            },
+            "coverage_status": _day_trio_brief_overall_coverage(retrieval=retrieval),
+            "generated_from": {
+                "artifact_path": artifact_response["artifact_path"],
+                "daily_health_snapshot_id": artifact.get("daily_health_snapshot_id"),
+            },
+            "evidence": retrieval,
+            "important_gaps": retrieval["coverage_status"]["missing_sources"] if args.include_missingness != "false" else [],
+            "conflicts": conflicts,
+            "unsupported_claims": [],
+        },
+        "validation": {
+            "is_valid": True,
+            "schema_issues": [],
+            "semantic_issues": [],
+            "request_echo": request_validation["request_echo"],
+        },
+        "error": None,
+    }
+
+
+def _read_day_trio_brief_artifact(*, path: Path, user_id: str, date: str) -> dict[str, Any]:
+    if not path.exists():
+        return _retrieval_validation_error(
+            artifact_path=str(path),
+            code="artifact_not_found",
+            message="Artifact file does not exist.",
+            semantic_issues=[_issue(code="artifact_not_found", message="Artifact file does not exist.", path="artifact_path")],
+            details={"artifact_path": str(path)},
+        )
+
+    try:
+        raw = json.loads(path.read_text())
+    except json.JSONDecodeError as exc:
+        return _retrieval_validation_error(
+            artifact_path=str(path),
+            code="invalid_artifact_json",
+            message="Artifact file is not valid JSON.",
+            semantic_issues=[_issue(code="invalid_artifact_json", message=str(exc), path="artifact_path")],
+            details={"artifact_path": str(path)},
+        )
+
+    semantic_issues = _day_trio_brief_semantic_issues(raw=raw, user_id=user_id, date=date)
+    if semantic_issues:
+        return _retrieval_validation_error(
+            artifact_path=str(path),
+            code=semantic_issues[0]["code"],
+            message="Artifact failed scope or type validation.",
+            semantic_issues=semantic_issues,
+            details={"artifact_path": str(path), "user_id": user_id, "date": date},
+        )
+
+    return {
+        "ok": True,
+        "artifact_path": str(path),
+        "artifact": raw,
+        "validation": {"is_valid": True, "schema_issues": [], "semantic_issues": []},
+        "error": None,
+    }
+
+
+def _day_trio_brief_semantic_issues(*, raw: Any, user_id: str, date: str) -> list[dict[str, str]]:
+    issues: list[dict[str, str]] = []
+    if not isinstance(raw, dict):
+        return [_issue(code="artifact_not_object", message="Artifact JSON must be an object.", path="$")]
+    if raw.get("artifact_type") != DAY_TRIO_BRIEF_ARTIFACT_TYPE:
+        issues.append(_issue(code="artifact_type_mismatch", message=f"Expected artifact_type={DAY_TRIO_BRIEF_ARTIFACT_TYPE}.", path="artifact_type"))
+    if str(raw.get("user_id")) != str(user_id):
+        issues.append(_issue(code="artifact_user_mismatch", message="Artifact user_id does not match request.", path="user_id"))
+    if raw.get("date") != date:
+        issues.append(_issue(code="artifact_date_mismatch", message="Artifact date does not match request.", path="date"))
+    return issues
+
+
+def _assemble_day_trio_brief(*, artifact: dict[str, Any]) -> dict[str, Any]:
+    sleep = artifact.get("sleep_daily") or {}
+    readiness = artifact.get("readiness_daily") or {}
+    nutrition = artifact.get("nutrition_daily") or {}
+    running_sessions = artifact.get("running_sessions") or []
+    gym_sessions = artifact.get("gym_sessions") or []
+    gym_sets = artifact.get("gym_exercise_sets") or []
+    source_flags = artifact.get("source_flags") or {}
+
+    recovery_present = any(
+        value is not None
+        for value in [
+            artifact.get("sleep_duration_hours"),
+            artifact.get("sleep_score"),
+            artifact.get("body_battery_or_readiness"),
+            artifact.get("readiness_label"),
+            readiness.get("data_backed_observation"),
+        ]
+    )
+    nutrition_present = any(
+        value is not None
+        for value in [
+            artifact.get("calories_kcal"),
+            artifact.get("protein_g"),
+            artifact.get("carbs_g"),
+            artifact.get("fat_g"),
+            nutrition.get("food_log_completeness"),
+        ]
+    )
+    training_present = bool(running_sessions or gym_sessions or gym_sets)
+
+    missing_sources: list[str] = []
+    blocked_sources: list[str] = []
+    if not recovery_present:
+        missing_sources.append("recovery")
+    if not nutrition_present:
+        missing_sources.append("nutrition")
+    if not training_present:
+        if source_flags.get("gym") is False or source_flags.get("wger") is False:
+            missing_sources.append("gym")
+        else:
+            missing_sources.append("training")
+
+    training_status = "present" if training_present else ("blocked" if blocked_sources else "missing")
+    training_note = None
+    if not training_present:
+        training_note = "No accepted training artifacts are available for this date. The brief does not infer training conclusions from recovery or nutrition data."
+
+    provenance_refs = []
+    for section, payload in (("recovery", sleep), ("recovery", readiness), ("nutrition", nutrition)):
+        if isinstance(payload, dict) and any(value is not None for key, value in payload.items() if key.endswith("_id") or key in {"source_name", "source"}):
+            provenance_refs.append(
+                {
+                    "section": section,
+                    "source_name": payload.get("source_name") or payload.get("source"),
+                    "source_record_id": payload.get("source_record_id"),
+                    "provenance_record_id": payload.get("provenance_record_id"),
+                }
+            )
+
+    data_backed_notes = [note for note in [readiness.get("data_backed_observation")] if note]
+    generic_notes = []
+    if training_note:
+        generic_notes.append(training_note)
+    if readiness.get("caveat"):
+        generic_notes.append(readiness["caveat"])
+
+    sessions = []
+    for session in [*running_sessions, *gym_sessions]:
+        sessions.append(
+            {
+                "session_id": session.get("session_id") or session.get("training_session_id"),
+                "session_title": session.get("session_title"),
+                "session_type": session.get("session_type"),
+                "lift_focus": session.get("lift_focus"),
+            }
+        )
+        provenance_refs.append(
+            {
+                "section": "training",
+                "source_name": session.get("source_name") or session.get("source"),
+                "source_record_id": session.get("source_record_id"),
+                "provenance_record_id": session.get("provenance_record_id"),
+            }
+        )
+
+    return {
+        "date": artifact["date"],
+        "coverage_status": {
+            "recovery_present": recovery_present,
+            "nutrition_present": nutrition_present,
+            "training_present": training_present,
+            "missing_sources": missing_sources,
+            "blocked_sources": blocked_sources,
+        },
+        "recovery_summary": {
+            "sleep_duration_hours": artifact.get("sleep_duration_hours") or _sec_to_hours(sleep.get("total_sleep_sec")),
+            "sleep_score": artifact.get("sleep_score") or sleep.get("sleep_score"),
+            "readiness_score": artifact.get("body_battery_or_readiness") or readiness.get("readiness_score"),
+            "readiness_label": artifact.get("readiness_label") or readiness.get("readiness_label"),
+            "data_backed_observation": readiness.get("data_backed_observation"),
+            "caveat": readiness.get("caveat"),
+        },
+        "nutrition_summary": {
+            "calories_kcal": artifact.get("calories_kcal") or nutrition.get("calories_kcal"),
+            "protein_g": artifact.get("protein_g") or nutrition.get("protein_g"),
+            "carbs_g": artifact.get("carbs_g") or nutrition.get("carbs_g"),
+            "fat_g": artifact.get("fat_g") or nutrition.get("fat_g"),
+            "food_log_completeness": nutrition.get("food_log_completeness"),
+        },
+        "training_summary": {
+            "session_count": len(sessions),
+            "sessions": sessions,
+            "total_sets": _sum_present([session.get("total_sets") for session in gym_sessions]) or artifact.get("gym_total_sets"),
+            "total_reps": _sum_present([session.get("total_reps") for session in gym_sessions]) or artifact.get("gym_total_reps"),
+            "total_load_kg": _sum_present([session.get("total_load_kg") for session in gym_sessions]) or artifact.get("gym_total_load_kg"),
+            "status": training_status,
+            "note": training_note,
+        },
+        "agent_notes": {
+            "data_backed_notes": data_backed_notes,
+            "generic_or_missingness_notes": generic_notes,
+        },
+        "provenance_refs": provenance_refs,
+    }
+
+
+def _day_trio_brief_overall_coverage(*, retrieval: dict[str, Any]) -> str:
+    flags = retrieval["coverage_status"]
+    present_count = sum(1 for key in ["recovery_present", "nutrition_present", "training_present"] if flags[key])
+    if present_count == 0:
+        return "missing"
+    if present_count == 3:
+        return "present"
+    return "partial"
+
+
+def _day_trio_brief_conflicts(*, artifact: dict[str, Any]) -> list[dict[str, Any]]:
+    conflicts = []
+    for path, payload in [
+        ("sleep_daily", artifact.get("sleep_daily")),
+        ("readiness_daily", artifact.get("readiness_daily")),
+        ("nutrition_daily", artifact.get("nutrition_daily")),
+    ]:
+        if isinstance(payload, dict) and payload.get("conflict_status") not in {None, "none"}:
+            conflicts.append({"path": path, "conflict_status": payload.get("conflict_status")})
+    return conflicts
+
+
+def _sec_to_hours(value: Any) -> float | None:
+    if value is None:
+        return None
+    return round(float(value) / 3600, 2)
+
+
+def _sum_present(values: list[Any]) -> float | int | None:
+    present = [value for value in values if value is not None]
+    if not present:
+        return None
+    return sum(present)
 
 
 def _run_sleep_review(args: argparse.Namespace) -> dict[str, Any]:

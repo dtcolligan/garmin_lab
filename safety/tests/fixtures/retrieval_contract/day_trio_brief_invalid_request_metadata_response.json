@@ -1,0 +1,32 @@
+{
+  "artifact_path": "data/health/day_trio_brief_snapshot_2026-04-08.json",
+  "error": {
+    "code": "invalid_requested_at",
+    "details": {
+      "command": "day-trio-brief",
+      "request_echo": {
+        "request_id": "req_day_trio_brief_proof_2026_04_12",
+        "requested_at": "2026-04-12T21:55:00"
+      }
+    },
+    "message": "Request metadata failed validation.",
+    "retryable": false
+  },
+  "ok": false,
+  "retrieval": null,
+  "validation": {
+    "is_valid": false,
+    "request_echo": {
+      "request_id": "req_day_trio_brief_proof_2026_04_12",
+      "requested_at": "2026-04-12T21:55:00"
+    },
+    "schema_issues": [],
+    "semantic_issues": [
+      {
+        "code": "invalid_requested_at",
+        "message": "requested_at must be an ISO 8601 datetime string with timezone information.",
+        "path": "requested_at"
+      }
+    ]
+  }
+}

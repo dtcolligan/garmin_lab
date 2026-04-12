@@ -12,6 +12,101 @@ RETRIEVAL_FIXTURE_DIR = REPO_ROOT / "tests" / "fixtures" / "retrieval_contract"
 
 
 class AgentRetrievalCliIntegrationTest(unittest.TestCase):
+    def test_day_trio_brief_returns_degraded_success_envelope_with_explicit_training_missingness(self) -> None:
+        request_fixture = json.loads((RETRIEVAL_FIXTURE_DIR / "day_trio_brief_success_request.json").read_text())
+        expected = json.loads((RETRIEVAL_FIXTURE_DIR / "day_trio_brief_success_response.json").read_text())
+
+        result = self._run_cli(
+            [
+                "day-trio-brief",
+                "--artifact-path",
+                request_fixture["artifact_path"],
+                "--user-id",
+                request_fixture["user_id"],
+                "--date",
+                request_fixture["date"],
+                "--request-id",
+                request_fixture["request_id"],
+                "--requested-at",
+                request_fixture["requested_at"],
+                "--include-conflicts",
+                "true",
+                "--include-missingness",
+                "true",
+            ]
+        )
+
+        self.assertTrue(result["ok"], msg=result)
+        self.assertEqual(result, expected)
+
+    def test_day_trio_brief_is_deterministic_on_rerun(self) -> None:
+        request_fixture = json.loads((RETRIEVAL_FIXTURE_DIR / "day_trio_brief_success_request.json").read_text())
+
+        first = self._run_cli(
+            [
+                "day-trio-brief",
+                "--artifact-path",
+                request_fixture["artifact_path"],
+                "--user-id",
+                request_fixture["user_id"],
+                "--date",
+                request_fixture["date"],
+                "--request-id",
+                request_fixture["request_id"],
+                "--requested-at",
+                request_fixture["requested_at"],
+                "--include-conflicts",
+                "true",
+                "--include-missingness",
+                "true",
+            ]
+        )
+        second = self._run_cli(
+            [
+                "day-trio-brief",
+                "--artifact-path",
+                request_fixture["artifact_path"],
+                "--user-id",
+                request_fixture["user_id"],
+                "--date",
+                request_fixture["date"],
+                "--request-id",
+                request_fixture["request_id"],
+                "--requested-at",
+                request_fixture["requested_at"],
+                "--include-conflicts",
+                "true",
+                "--include-missingness",
+                "true",
+            ]
+        )
+
+        self.assertEqual(first, second)
+
+    def test_day_trio_brief_fails_closed_on_wrong_date(self) -> None:
+        request_fixture = json.loads((RETRIEVAL_FIXTURE_DIR / "day_trio_brief_success_request.json").read_text())
+        expected = json.loads((RETRIEVAL_FIXTURE_DIR / "day_trio_brief_wrong_scope_response.json").read_text())
+
+        result = self._run_cli(
+            [
+                "day-trio-brief",
+                "--artifact-path",
+                request_fixture["artifact_path"],
+                "--user-id",
+                request_fixture["user_id"],
+                "--date",
+                "2026-04-09",
+                "--request-id",
+                "req_day_trio_brief_wrong_scope_2026_04_12",
+                "--requested-at",
+                request_fixture["requested_at"],
+            ],
+            expected_returncode=1,
+        )
+
+        self.assertFalse(result["ok"])
+        self.assertEqual(result, expected)
+
     def test_sleep_review_returns_partial_success_envelope_grounded_in_day_context(self) -> None:
         request_fixture = json.loads((RETRIEVAL_FIXTURE_DIR / "sleep_review_success_request.json").read_text())
         expected = json.loads((RETRIEVAL_FIXTURE_DIR / "sleep_review_partial_success_response.json").read_text())
