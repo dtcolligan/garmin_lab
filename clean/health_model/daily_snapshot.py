@@ -30,7 +30,7 @@ from health_model.schemas import (
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_EXPORT_DIR = PROJECT_ROOT / "pull" / "data" / "garmin" / "export"
 DEFAULT_GYM_LOG_PATH = PROJECT_ROOT / "pull" / "data" / "health" / "manual_gym_sessions.json"
-DEFAULT_DB_PATH = PROJECT_ROOT / "data" / "health_log.db"
+DEFAULT_DB_PATH = PROJECT_ROOT / "pull" / "data" / "health_log.db"
 DEFAULT_OUTPUT_DIR = PROJECT_ROOT / "clean" / "data" / "health"
 PARSER_VERSION = "garmin-source-hardening-v1"
 MANUAL_GYM_SOURCE_NAME = "resistance_training"
@@ -54,6 +54,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--date", help="Optional YYYY-MM-DD target date. Defaults to latest available date across inputs.")
     parser.add_argument("--user-id", type=int, default=1, help="Intended nutrition user_id for SQLite nutrition loading. Defaults to 1.")
     parser.add_argument("--garmin-proof-dir", help="Optional directory for Garmin canonical proof artifacts.")
+    parser.add_argument("--nutrition-proof-dir", help="Optional directory for nutrition canonical proof artifacts.")
     return parser.parse_args()
 
 
@@ -126,6 +127,53 @@ def _provenance_record_id(source_record_id: str, artifact_family: str) -> str:
 
 def _artifact_id(artifact_family: str, source_record_id: str) -> str:
     return f"{artifact_family}_{_stable_token(source_record_id)}"
+
+
+def _nutrition_source_name(row: dict | None) -> str:
+    raw_source = str((row or {}).get("source") or "health_log_sqlite_daily_summary").strip()
+    return raw_source or "health_log_sqlite_daily_summary"
+
+
+def _nutrition_source_record_id(row: dict | None, date: str) -> str:
+    return f"nutrition:{_nutrition_source_name(row)}:day:{date}"
+
+
+def _nutrition_provenance_record_id(source_record_id: str) -> str:
+    return _provenance_record_id(source_record_id, "nutrition_daily")
+
+
+def _nutrition_daily_id(source_record_id: str) -> str:
+    return _artifact_id("nutrition_daily", source_record_id)
+
+
+def _build_nutrition_source_record(db_path: Path, row: dict | None, date: str) -> SourceRecord:
+    source_name = _nutrition_source_name(row)
+    ingested_at = datetime.fromtimestamp(db_path.stat().st_mtime, tz=timezone.utc).isoformat() if db_path.exists() else None
+    return SourceRecord(
+        source_record_id=_nutrition_source_record_id(row, date),
+        source_name=source_name,
+        source_type="imported_food_pipeline",
+        entry_lane="pull",
+        raw_location=db_path.as_posix(),
+        raw_format="sqlite",
+        effective_date=date,
+        ingested_at=ingested_at,
+        hash_or_version=_sha256_file(db_path)[:16] if db_path.exists() else None,
+        native_record_type="day_nutrition_summary",
+        native_record_id=date,
+    )
+
+
+def _build_nutrition_provenance_record(db_path: Path, source_record: SourceRecord) -> ProvenanceRecord:
+    supporting_refs = [db_path.as_posix(), f"{db_path.as_posix()}#daily_summary", f"{db_path.as_posix()}#meal_items"]
+    return ProvenanceRecord(
+        provenance_record_id=_nutrition_provenance_record_id(source_record.source_record_id),
+        source_record_id=source_record.source_record_id,
+        derivation_method="food_import_normalization",
+        supporting_refs=supporting_refs,
+        parser_version=PARSER_VERSION,
+        conflict_status="none",
+    )
 
 
 def _snapshot_provenance_id(export_dir: Path, date: str) -> str:
@@ -507,12 +555,20 @@ def build_gym_sessions(session_payloads: list[dict], date: str, *, source_artifa
     return sessions, sets
 
 
-def build_nutrition(nutrition_rows: dict[str, dict], date: str) -> NutritionDaily:
+def build_nutrition(nutrition_rows: dict[str, dict], db_path: Path, date: str) -> NutritionDaily:
     row = nutrition_rows.get(date)
     if not row:
-        return NutritionDaily(date=date, source=None)
+        return NutritionDaily(date=date)
+
+    source_record = _build_nutrition_source_record(db_path, row, date)
+    provenance = _build_nutrition_provenance_record(db_path, source_record)
     return NutritionDaily(
         date=date,
+        nutrition_daily_id=_nutrition_daily_id(source_record.source_record_id),
+        source_name=source_record.source_name,
+        source_record_id=source_record.source_record_id,
+        provenance_record_id=provenance.provenance_record_id,
+        conflict_status="none",
         calories_kcal=safe_float(row.get("total_calories")),
         protein_g=safe_float(row.get("total_protein_g")),
         carbs_g=safe_float(row.get("total_carbs_g")),
@@ -521,7 +577,6 @@ def build_nutrition(nutrition_rows: dict[str, dict], date: str) -> NutritionDail
         meal_count=safe_int(row.get("meal_count")),
         food_log_completeness="logged" if safe_int(row.get("meal_count")) else "not_logged",
         top_meals_summary=row.get("top_meals_summary"),
-        source=row.get("source") or "health_log_sqlite",
     )
 
 
@@ -558,7 +613,7 @@ def generate_snapshot(export_dir: Path, gym_log_path: Path, db_path: Path, targe
     readiness = build_readiness(daily_row, date, export_dir) if not daily_rows.empty else ReadinessDaily(date=date)
     running_sessions = build_running_sessions(activities, date, export_dir)
     gym_sessions, gym_sets = build_gym_sessions(gym_by_date.get(date, []), date, source_artifact=manual_gym_source_artifact)
-    nutrition = build_nutrition(nutrition_rows, date)
+    nutrition = build_nutrition(nutrition_rows, db_path, date)
 
     hydration_ml = None
     if not hydration.empty:
@@ -579,7 +634,7 @@ def generate_snapshot(export_dir: Path, gym_log_path: Path, db_path: Path, targe
         data_backed_fields.append("hydration_ml")
     if gym_sessions:
         data_backed_fields.extend(["gym_sessions_count", "gym_total_sets", "gym_total_reps", "gym_total_load_kg"])
-    if nutrition.source:
+    if nutrition.source_name:
         data_backed_fields.extend(["food_logged_bool", "calories_kcal", "protein_g", "carbs_g", "fat_g"])
     else:
         generic_fields.append("nutrition_unavailable_in_v1")
@@ -604,7 +659,7 @@ def generate_snapshot(export_dir: Path, gym_log_path: Path, db_path: Path, targe
         gym_total_sets=sum(s.total_sets or 0 for s in gym_sessions) if gym_sessions else None,
         gym_total_reps=sum(s.total_reps or 0 for s in gym_sessions) if gym_sessions else None,
         gym_total_load_kg=round(sum(s.total_load_kg or 0 for s in gym_sessions), 2) if gym_sessions else None,
-        food_logged_bool=True if nutrition.source and (nutrition.meal_count or 0) > 0 else False if nutrition.source else None,
+        food_logged_bool=True if nutrition.source_name and (nutrition.meal_count or 0) > 0 else False if nutrition.source_name else None,
         calories_kcal=nutrition.calories_kcal,
         protein_g=nutrition.protein_g,
         carbs_g=nutrition.carbs_g,
@@ -615,7 +670,7 @@ def generate_snapshot(export_dir: Path, gym_log_path: Path, db_path: Path, targe
         source_flags={
             "garmin_export": not daily_rows.empty,
             "manual_gym_log": bool(gym_sessions),
-            "nutrition_sqlite": bool(nutrition.source),
+            "nutrition_sqlite": bool(nutrition.source_name),
         },
         sleep_daily=asdict(sleep),
         readiness_daily=asdict(readiness),
@@ -641,7 +696,7 @@ def build_garmin_canonical_bundle(export_dir: Path, target_date: str) -> dict[st
     snapshot = generate_snapshot(
         export_dir=export_dir,
         gym_log_path=PROJECT_ROOT / "pull" / "data" / "health" / "manual_gym_sessions.json",
-        db_path=PROJECT_ROOT / "data" / "health_log.db",
+        db_path=DEFAULT_DB_PATH,
         target_date=target_date,
         user_id=1,
     )
@@ -677,6 +732,93 @@ def build_garmin_canonical_bundle(export_dir: Path, target_date: str) -> dict[st
         "training_session": snapshot.running_sessions,
         "daily_health_snapshot": snapshot.to_dict(),
     }
+
+
+def build_nutrition_canonical_bundle(export_dir: Path, db_path: Path, target_date: str, user_id: int = 1) -> dict[str, object]:
+    snapshot = generate_snapshot(
+        export_dir=export_dir,
+        gym_log_path=PROJECT_ROOT / "pull" / "data" / "health" / "manual_gym_sessions.json",
+        db_path=db_path,
+        target_date=target_date,
+        user_id=user_id,
+    )
+    nutrition_daily = snapshot.nutrition_daily or {}
+    source_record = None
+    provenance_record = None
+    if nutrition_daily.get("source_record_id"):
+        source_record = asdict(_build_nutrition_source_record(db_path, {"source": nutrition_daily.get("source_name")}, target_date))
+        provenance_record = asdict(_build_nutrition_provenance_record(db_path, SourceRecord(**source_record)))
+    return {
+        "source_record": source_record,
+        "provenance_record": provenance_record,
+        "nutrition_daily": nutrition_daily,
+        "daily_health_snapshot": snapshot.to_dict(),
+        "manual_merge_policy": {
+            "numeric_totals_source": "daily_summary",
+            "manual_or_voice_note_behavior": "not_silently_merged_into_imported_numeric_totals",
+            "meal_summary_derivation": "meal_items scoped to requested user/date",
+        },
+    }
+
+
+def write_nutrition_proof_artifacts(export_dir: Path, db_path: Path, proof_dir: Path, target_date: str, user_id: int = 1) -> dict[str, str | list[str]]:
+    proof_dir.mkdir(parents=True, exist_ok=True)
+    bundle = build_nutrition_canonical_bundle(export_dir, db_path, target_date, user_id=user_id)
+
+    source_record_path = proof_dir / "source_record.json"
+    provenance_path = proof_dir / "provenance_record.json"
+    nutrition_path = proof_dir / "nutrition_daily.json"
+    snapshot_path = proof_dir / "daily_health_snapshot.json"
+    coexistence_path = proof_dir / "manual_coexistence_policy.json"
+
+    source_record_path.write_text(json.dumps(bundle["source_record"], indent=2))
+    provenance_path.write_text(json.dumps(bundle["provenance_record"], indent=2))
+    nutrition_path.write_text(json.dumps(bundle["nutrition_daily"], indent=2))
+    snapshot_path.write_text(json.dumps(bundle["daily_health_snapshot"], indent=2))
+    coexistence_path.write_text(json.dumps(bundle["manual_merge_policy"], indent=2))
+
+    replay_bundle = build_nutrition_canonical_bundle(export_dir, db_path, target_date, user_id=user_id)
+    stable_id_evidence = {
+        "source_record_id": [bundle["source_record"]["source_record_id"], replay_bundle["source_record"]["source_record_id"]],
+        "provenance_record_id": [bundle["provenance_record"]["provenance_record_id"], replay_bundle["provenance_record"]["provenance_record_id"]],
+        "nutrition_daily_id": [bundle["nutrition_daily"]["nutrition_daily_id"], replay_bundle["nutrition_daily"]["nutrition_daily_id"]],
+        "daily_health_snapshot_nutrition": [
+            {
+                "calories_kcal": bundle["daily_health_snapshot"]["calories_kcal"],
+                "protein_g": bundle["daily_health_snapshot"]["protein_g"],
+                "carbs_g": bundle["daily_health_snapshot"]["carbs_g"],
+                "fat_g": bundle["daily_health_snapshot"]["fat_g"],
+                "nutrition_daily_id": bundle["daily_health_snapshot"]["nutrition_daily"].get("nutrition_daily_id"),
+            },
+            {
+                "calories_kcal": replay_bundle["daily_health_snapshot"]["calories_kcal"],
+                "protein_g": replay_bundle["daily_health_snapshot"]["protein_g"],
+                "carbs_g": replay_bundle["daily_health_snapshot"]["carbs_g"],
+                "fat_g": replay_bundle["daily_health_snapshot"]["fat_g"],
+                "nutrition_daily_id": replay_bundle["daily_health_snapshot"]["nutrition_daily"].get("nutrition_daily_id"),
+            },
+        ],
+    }
+    stable_id_path = proof_dir / "stable_id_evidence.json"
+    stable_id_path.write_text(json.dumps(stable_id_evidence, indent=2))
+
+    manifest = {
+        "proof_target_date": target_date,
+        "db_path": db_path.as_posix(),
+        "export_dir": export_dir.as_posix(),
+        "replay_command": f"PYTHONPATH=clean python3 clean/health_model/daily_snapshot.py --export-dir {export_dir.as_posix()} --db-path {db_path.as_posix()} --date {target_date} --user-id {user_id} --nutrition-proof-dir {proof_dir.as_posix()}",
+        "sample_outputs": {
+            "source_record": source_record_path.as_posix(),
+            "provenance_record": provenance_path.as_posix(),
+            "nutrition_daily": nutrition_path.as_posix(),
+            "daily_health_snapshot": snapshot_path.as_posix(),
+            "manual_coexistence_policy": coexistence_path.as_posix(),
+            "stable_id_evidence": stable_id_path.as_posix(),
+        },
+    }
+    manifest_path = proof_dir / "proof_manifest.json"
+    manifest_path.write_text(json.dumps(manifest, indent=2))
+    return {"proof_manifest": manifest_path.as_posix(), "sample_outputs": list(manifest["sample_outputs"].values())}
 
 
 def write_garmin_proof_artifacts(export_dir: Path, proof_dir: Path, target_date: str) -> dict[str, str | list[str]]:
@@ -749,6 +891,9 @@ def main() -> None:
     print(f"wrote {dated_path}")
     if args.garmin_proof_dir:
         proof = write_garmin_proof_artifacts(export_dir, Path(args.garmin_proof_dir), snapshot.date)
+        print(f"wrote {proof['proof_manifest']}")
+    if args.nutrition_proof_dir:
+        proof = write_nutrition_proof_artifacts(export_dir, Path(args.db_path), Path(args.nutrition_proof_dir), snapshot.date, user_id=args.user_id)
         print(f"wrote {proof['proof_manifest']}")
 
 

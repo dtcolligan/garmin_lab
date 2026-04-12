@@ -85,7 +85,10 @@ def build_day_nutrition_brief(
         "coverage_note": coverage_note,
         "nutrition": {
             **supported_metrics,
-            "source": nutrition.get("source"),
+            "source": nutrition.get("source_name"),
+            "source_record_id": nutrition.get("source_record_id"),
+            "provenance_record_id": nutrition.get("provenance_record_id"),
+            "conflict_status": nutrition.get("conflict_status"),
         },
         "unsupported_notes": [
             "Personalized bedtime guidance is unsupported in this slice.",

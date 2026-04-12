@@ -134,7 +134,13 @@ class GymExerciseSet:
 
 @dataclass
 class NutritionDaily:
-    date: str
+    artifact_family: str = "nutrition_daily"
+    date: str = ""
+    nutrition_daily_id: str | None = None
+    source_name: str | None = None
+    source_record_id: str | None = None
+    provenance_record_id: str | None = None
+    conflict_status: str = "none"
     calories_kcal: float | None = None
     protein_g: float | None = None
     carbs_g: float | None = None
@@ -143,7 +149,6 @@ class NutritionDaily:
     meal_count: int | None = None
     food_log_completeness: str | None = None
     top_meals_summary: str | None = None
-    source: str | None = None
 
 
 @dataclass

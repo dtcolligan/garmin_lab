@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import sqlite3
 import subprocess
 import sys
@@ -11,8 +12,10 @@ from pathlib import Path
 from health_model.day_nutrition_brief import build_day_nutrition_brief
 
 
-ROOT_DIR = Path(__file__).resolve().parent.parent
-RETRIEVAL_FIXTURE_DIR = ROOT_DIR / "tests" / "fixtures" / "retrieval_contract"
+ROOT_DIR = Path(__file__).resolve().parents[2]
+RETRIEVAL_FIXTURE_DIR = ROOT_DIR / "safety" / "tests" / "fixtures" / "retrieval_contract"
+SUBPROCESS_ENV = {**os.environ, "PYTHONPATH": os.pathsep.join([str(ROOT_DIR), str(ROOT_DIR / "clean")])}
+CLI_PATH = ROOT_DIR / "clean" / "health_model" / "day_nutrition_brief.py"
 
 
 class DayNutritionBriefTest(unittest.TestCase):
@@ -22,6 +25,14 @@ class DayNutritionBriefTest(unittest.TestCase):
             "2026-04-08,3600,14400,5400,1200,82,14.2,2,HIGH,12,80,75,65,70,48,balanced,78\n"
         )
         (export_dir / "activities_export.csv").write_text("activity_id,start_time_local\n")
+
+    def _ensure_retrieval_artifact_fixture(self) -> Path:
+        target = ROOT_DIR / "data" / "health" / "day_nutrition_brief_2026-04-08.json"
+        if not target.exists():
+            target.parent.mkdir(parents=True, exist_ok=True)
+            source = ROOT_DIR / "pull" / "data" / "health" / "day_nutrition_brief_2026-04-08.json"
+            target.write_text(source.read_text())
+        return target
 
     def test_build_day_nutrition_brief_exposes_truthful_scoped_totals(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -92,10 +103,62 @@ class DayNutritionBriefTest(unittest.TestCase):
             self.assertEqual(brief["nutrition"]["fat_g"], 60.0)
             self.assertEqual(brief["nutrition"]["fiber_g"], 28.0)
             self.assertEqual(brief["nutrition"]["meal_count"], 3)
+            self.assertEqual(brief["nutrition"]["source"], "health_log_sqlite_daily_summary")
+            self.assertEqual(brief["nutrition"]["source_record_id"], "nutrition:health_log_sqlite_daily_summary:day:2026-04-08")
+            self.assertIsNotNone(brief["nutrition"]["provenance_record_id"])
+            self.assertEqual(brief["nutrition"]["conflict_status"], "none")
             self.assertIn("Chicken Bowl", brief["nutrition"]["top_meals_summary"])
             self.assertNotIn("Burger", brief["nutrition"]["top_meals_summary"])
             self.assertIn("bedtime guidance", " ".join(brief["unsupported_notes"]).lower())
             self.assertIn("micronutrient", " ".join(brief["unsupported_notes"]).lower())
+
+    def test_build_day_nutrition_brief_keeps_replay_identity_stable(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            export_dir = root / "export"
+            export_dir.mkdir()
+            self._write_export_files(export_dir)
+
+            db_path = root / "health_log.db"
+            conn = sqlite3.connect(db_path)
+            conn.executescript(
+                """
+                CREATE TABLE daily_summary (
+                    user_id INTEGER NOT NULL,
+                    date_for TEXT NOT NULL,
+                    total_calories REAL,
+                    total_protein_g REAL,
+                    total_carbs_g REAL,
+                    total_fat_g REAL,
+                    total_fiber_g REAL,
+                    meal_count INTEGER
+                );
+                """
+            )
+            conn.execute(
+                "INSERT INTO daily_summary VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                (1, "2026-04-08", 1800, 140, 170, 60, 28, 3),
+            )
+            conn.commit()
+            conn.close()
+
+            first = build_day_nutrition_brief(
+                export_dir=export_dir,
+                gym_log_path=root / "missing_gym.json",
+                db_path=db_path,
+                date="2026-04-08",
+                user_id=1,
+            )
+            second = build_day_nutrition_brief(
+                export_dir=export_dir,
+                gym_log_path=root / "missing_gym.json",
+                db_path=db_path,
+                date="2026-04-08",
+                user_id=1,
+            )
+
+            self.assertEqual(first["nutrition"]["source_record_id"], second["nutrition"]["source_record_id"])
+            self.assertEqual(first["nutrition"]["provenance_record_id"], second["nutrition"]["provenance_record_id"])
 
     def test_build_day_nutrition_brief_keeps_missing_nutrition_explicit(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -118,14 +181,14 @@ class DayNutritionBriefTest(unittest.TestCase):
             self.assertIn("does not guess", brief["coverage_note"])
 
     def test_retrieve_day_nutrition_brief_returns_success_envelope_grounded_in_day_artifact(self) -> None:
+        self._ensure_retrieval_artifact_fixture()
         request_fixture = json.loads((RETRIEVAL_FIXTURE_DIR / "day_nutrition_brief_success_request.json").read_text())
         expected = json.loads((RETRIEVAL_FIXTURE_DIR / "day_nutrition_brief_success_response.json").read_text())
 
         result = subprocess.run(
             [
                 sys.executable,
-                "-m",
-                "health_model.day_nutrition_brief",
+                str(CLI_PATH),
                 "retrieve-day-nutrition-brief",
                 "--artifact-path",
                 request_fixture["artifact_path"],
@@ -141,6 +204,7 @@ class DayNutritionBriefTest(unittest.TestCase):
                 "true",
             ],
             cwd=ROOT_DIR,
+            env=SUBPROCESS_ENV,
             capture_output=True,
             text=True,
             check=False,
@@ -150,13 +214,13 @@ class DayNutritionBriefTest(unittest.TestCase):
         self.assertEqual(json.loads(result.stdout), expected)
 
     def test_retrieve_day_nutrition_brief_fails_closed_on_invalid_requested_at_with_request_echo(self) -> None:
+        self._ensure_retrieval_artifact_fixture()
         request_fixture = json.loads((RETRIEVAL_FIXTURE_DIR / "day_nutrition_brief_success_request.json").read_text())
 
         result = subprocess.run(
             [
                 sys.executable,
-                "-m",
-                "health_model.day_nutrition_brief",
+                str(CLI_PATH),
                 "retrieve-day-nutrition-brief",
                 "--artifact-path",
                 request_fixture["artifact_path"],
@@ -170,6 +234,7 @@ class DayNutritionBriefTest(unittest.TestCase):
                 "2026-04-11T09:20:00",
             ],
             cwd=ROOT_DIR,
+            env=SUBPROCESS_ENV,
             capture_output=True,
             text=True,
             check=False,
@@ -188,14 +253,14 @@ class DayNutritionBriefTest(unittest.TestCase):
         )
 
     def test_retrieve_day_nutrition_brief_fails_closed_on_wrong_date(self) -> None:
+        self._ensure_retrieval_artifact_fixture()
         request_fixture = json.loads((RETRIEVAL_FIXTURE_DIR / "day_nutrition_brief_success_request.json").read_text())
         expected = json.loads((RETRIEVAL_FIXTURE_DIR / "day_nutrition_brief_wrong_scope_response.json").read_text())
 
         result = subprocess.run(
             [
                 sys.executable,
-                "-m",
-                "health_model.day_nutrition_brief",
+                str(CLI_PATH),
                 "retrieve-day-nutrition-brief",
                 "--artifact-path",
                 str((ROOT_DIR / request_fixture["artifact_path"]).resolve()),
@@ -209,6 +274,7 @@ class DayNutritionBriefTest(unittest.TestCase):
                 request_fixture["requested_at"],
             ],
             cwd=ROOT_DIR,
+            env=SUBPROCESS_ENV,
             capture_output=True,
             text=True,
             check=False,
@@ -251,8 +317,7 @@ class DayNutritionBriefTest(unittest.TestCase):
             result = subprocess.run(
                 [
                     "python3",
-                    "-m",
-                    "health_model.day_nutrition_brief",
+                    str(CLI_PATH),
                     "--date",
                     "2026-04-08",
                     "--user-id",
@@ -267,6 +332,7 @@ class DayNutritionBriefTest(unittest.TestCase):
                     str(output_dir),
                 ],
                 cwd=ROOT_DIR,
+                env=SUBPROCESS_ENV,
                 capture_output=True,
                 text=True,
                 check=False,

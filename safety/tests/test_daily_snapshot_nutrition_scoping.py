@@ -8,7 +8,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "clean"))
 
-from health_model.daily_snapshot import generate_snapshot
+from health_model.daily_snapshot import DEFAULT_DB_PATH, generate_snapshot
 
 
 class DailySnapshotNutritionScopingTest(unittest.TestCase):
@@ -84,13 +84,19 @@ class DailySnapshotNutritionScopingTest(unittest.TestCase):
             self.assertEqual(snapshot.carbs_g, 170.0)
             self.assertEqual(snapshot.fat_g, 60.0)
             self.assertTrue(snapshot.food_logged_bool)
-            self.assertEqual(snapshot.nutrition_daily["source"], "health_log_sqlite_daily_summary")
+            self.assertEqual(snapshot.nutrition_daily["source_name"], "health_log_sqlite_daily_summary")
+            self.assertEqual(snapshot.nutrition_daily["source_record_id"], "nutrition:health_log_sqlite_daily_summary:day:2026-04-08")
+            self.assertTrue(snapshot.nutrition_daily["provenance_record_id"].startswith("provenance_nutrition_daily_"))
+            self.assertTrue(snapshot.nutrition_daily["nutrition_daily_id"].startswith("nutrition_daily_"))
             self.assertEqual(
                 snapshot.nutrition_daily["top_meals_summary"],
                 "Chicken Bowl (700 kcal), Oats (500 kcal), Yogurt (300 kcal)",
             )
             self.assertNotIn("Burger", snapshot.nutrition_daily["top_meals_summary"])
             self.assertNotIn("Milkshake", snapshot.nutrition_daily["top_meals_summary"])
+
+    def test_default_db_path_points_to_live_pull_database(self) -> None:
+        self.assertEqual(DEFAULT_DB_PATH.as_posix().rsplit("/", 3)[-3:], ["pull", "data", "health_log.db"])
 
 
 if __name__ == "__main__":
