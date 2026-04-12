@@ -1,390 +1,117 @@
 # Health Lab
 
-Health Lab is the infrastructure layer for agent-mediated personal health work over user-owned memory. In repo terms, this `health_agent_infra` repository should be read as the deterministic `PULL` plus `CLEAN` layer, with a later human-input merge before model-owned interpretation and reporting. It provides bounded contract-and-proof surfaces for pulling scoped health evidence, cleaning it into interpretation-ready datasets, and writing persisted memory/state updates safely without claiming ownership of a user's durable private memory.
+Health Lab is a bucket-organized infrastructure repo for agent-mediated personal health work over user-owned memory.
 
-The current public proof is a narrow, CLI-first Health Lab slice, not a hosted product, consumer app, or multi-user runtime.
+The canonical project shape is only these eight buckets:
 
-Start with `docs/health_lab_canonical_definition.md` for the frozen canonical definition, then inspect the canonical public demo and proof surfaces linked below.
+- `pull`
+- `clean`
+- `merge_human_inputs`
+- `research`
+- `interpretation`
+- `reporting`
+- `writeback`
+- `safety`
 
-## Architecture boundary
+Anything else in the repo should be treated as implementation detail, compatibility surface, proof material, or legacy/archive content, not as an extra canonical layer.
 
-- PULL layer: deterministic connectors and intake surfaces under `health_model/` pull scoped passive-data artifacts and other machine-readable health inputs, with `health_agent_infra/` preserved as a temporary compatibility namespace.
-- CLEAN layer: deterministic normalization, validation, bundle assembly, retrieval shaping, and dataset preparation turn pulled inputs into interpretation-ready context surfaces.
-- Human-input merge: subjective notes, answers, and clarifications are a separate lane that should merge after PULL/CLEAN and before interpretation, rather than being treated as part of the deterministic infra layer itself.
-- Interpretation and report layers: external agents own interpretation, synthesis, prioritisation, explanation, recommendation generation, guidance structure, and final reporting against user-owned memory plus merged context.
-- Writeback layer: bounded persisted memory/state updates and related receipts live behind explicit write surfaces rather than inside the interpretation layer.
-- Policy / proof layer: checked-in proof bundles and fail-closed contract enforcement own the trust boundary for scope, rejection, grounding, and non-mutation guarantees.
-- Private health data belongs in a user-owned memory layer outside Health Lab, and the checked-in repo surfaces are reference implementation and proof surfaces rather than a claim that Health Lab is the durable private data host.
+## Repo truth right now
 
-## What works today
+This repo currently exposes a narrow CLI-first proof path plus supporting docs, tests, and artifacts. It is not a hosted product, polished consumer app, clinical system, or the durable private memory authority for user health data.
 
-The clearest shipped proof in this repo is a CLI-first reference protocol loop:
+Current implementation locations that matter for review:
+
+- `pull/` contains passive and machine-readable input acquisition surfaces and current local runtime data locations such as `pull/data/garmin/` and `pull/data/health/`
+- `clean/health_model/` contains the main current deterministic cleaning and contract-oriented implementation namespace
+- `merge_human_inputs/` contains current human-input intake and manual logging surfaces
+- `reporting/` contains operator-facing docs, scripts, and checked-in proof artifacts
+- `writeback/agent_memory_write_cli.py` is the current explicit writeback entrypoint
+- `safety/` contains tests, compatibility wrappers, and safety-oriented proof enforcement surfaces
+- `research/` and `interpretation/` hold exploratory or model-oriented work within their respective buckets
+- `archive/legacy_product_surfaces/` contains older adjacent surfaces and is not part of the canonical current review path
+
+Important rule: namespaces inside a bucket, like `clean/health_model/`, are current implementation locations within that bucket. They are not separate canonical project-shape categories.
+
+## Bucket model
+
+### `pull`
+Deterministic acquisition of passive or machine-readable inputs.
+
+### `clean`
+Deterministic normalization, validation, bundle assembly, retrieval shaping, and preparation of interpretation-ready artifacts.
+
+### `merge_human_inputs`
+Human notes, voice-note intake, manual logs, and related merge surfaces that sit between deterministic infra and later interpretation.
+
+### `research`
+Exploration, notebooks, and bounded research material.
+
+### `interpretation`
+Model-oriented interpretation code and experiments. This bucket is distinct from the deterministic infra buckets.
+
+### `reporting`
+Docs, proof bundles, review artifacts, and operator-facing runnable demos.
+
+### `writeback`
+Explicit persisted state or memory update surfaces.
+
+### `safety`
+Compatibility wrappers, tests, fail-closed checks, and trust-boundary enforcement.
+
+## Current flagship proof path
+
+The clearest public proof is still the CLI-first loop:
 
 `contract describe -> bundle init -> voice-note submit -> context get -> recommendation create`
 
-That loop is implemented canonically under `health_model/`, with `health_agent_infra/` kept as a temporary compatibility path, covered by focused test and proof surfaces, and should be read as the current flagship Health Lab slice rather than as a claim that the whole repo or a hosted runtime is already productized. It is a narrow proof of the current deterministic infra lane plus one model handoff point, not a claim that interpretation and reporting belong inside the infrastructure layer.
+Today that loop is implemented mainly from `clean/health_model/`, with compatibility wrappers also present under `safety/health_agent_infra/` and the writeback surface exposed under `writeback/`.
 
-## Canonical sample demo path
+Start with:
 
-Start with the one-command canonical public demo from repo root:
+- `reporting/docs/health_lab_canonical_definition.md`
+- `reporting/docs/health_lab_canonical_public_demo.md`
+- `reporting/artifacts/public_demo/captured/`
+- `reporting/artifacts/flagship_loop_proof/2026-04-09/`
+- `STATUS.md`
 
-```bash
-python3 scripts/run_canonical_public_demo.py
-```
-
-The canonical public demo surface for this slice is:
-- one-command walkthrough doc: `docs/health_lab_canonical_public_demo.md`
-- disposable generated runtime outputs: `artifacts/public_demo/generated/`
-- checked-in public demo bundle: `artifacts/public_demo/captured/`
-- audited flagship proof bundle: `artifacts/flagship_loop_proof/2026-04-09/`
-- deterministic synthetic stress harness: `python3 scripts/run_synthetic_recommendation_stress_harness.py` with outputs under `artifacts/synthetic_stress_harness/latest/`
-
-The checked-in public demo bundle includes:
-- `artifacts/public_demo/captured/shared_input_bundle_2026-04-09.json`
-- `artifacts/public_demo/captured/agent_readable_daily_context_2026-04-09.json`
-- `artifacts/public_demo/captured/agent_readable_daily_context_latest.json`
-- `artifacts/public_demo/captured/agent_recommendation_2026-04-09.json`
-- `artifacts/public_demo/captured/agent_recommendation_latest.json`
-- `artifacts/public_demo/captured/recommendation_success_envelope.json`
-- `artifacts/public_demo/captured/recommendation_rejection_envelope_bad_evidence.json`
-- `artifacts/public_demo/captured/recommendation_rejection_non_mutation_proof.json`
-
-Use the one-command wrapper for a fresh disposable run, then inspect the captured bundle for the frozen public-safe proof, including explicit non-mutation evidence for the fail-closed rejection case.
-
-These checked-in bundles are proof objects for the protocol layer, not evidence that this repo is the durable home for private user health data.
-
-The broader CLI walkthroughs later in this README remain useful runtime examples, but they are not the canonical public demo proof object for this slice.
-
-## Self-usage day runner
-
-For the bounded one-day self-usage validation path, run from repo root:
+Run the canonical public demo from repo root:
 
 ```bash
-python3 scripts/run_self_usage_day.py \
-  --date 2026-04-10 \
-  --user-id user_dom \
-  --voice-note-payload-path artifacts/self_usage/week1/2026-04-10/voice_note_payload.json \
-  --recommendation-payload-path artifacts/self_usage/templates/recommendation_payload_example_2026-04-10.json \
-  --judgment-label useful \
-  --action-taken "Chose a lighter evening and skipped extra training load." \
-  --why "The recommendation matched the low-energy and soreness context and was specific enough to act on immediately." \
-  --caveat "No passive wearable or sleep-duration signals were present in this same-day proof run." \
-  --time-cost-note "About 10 minutes including one payload review." \
-  --friction-points "manual recommendation payload review" "proof copy now automated"
+python3 reporting/scripts/run_canonical_public_demo.py
 ```
 
-This wrapper stays thin on purpose. It does not generate recommendation content. It verifies repo-root preflight checks, reads the scoped context, validates that the recommendation artifact only references ids present in the day context, copies the proof bundle into `artifacts/self_usage/week1/YYYY-MM-DD/`, rewrites `judgment_log.csv`, and writes compact friction/usefulness capture to `runner_capture_YYYY-MM-DD.json`.
+## Current path truth
 
-Treat this as a reference proof of agent-operated retrieval, synthesis handoff, and judgment capture, not as an embedded always-on coaching runtime.
+Older docs often taught runtime outputs under top-level `data/`. Current repo truth is more mixed:
 
-## Non-clinical and privacy boundaries
+- checked-in public proof artifacts live under `reporting/artifacts/`
+- many disposable demo/runtime examples still write under `data/` paths in command examples
+- current repo-local runtime data also exists under bucketed locations such as `pull/data/`
 
-- This is a personal software project, not a clinical product or medical device.
-- The checked-in flagship proof bundle is fixture-backed and does not require private health data.
-- Runtime outputs belong under local `data/` paths or another local directory such as `/tmp/health_lab_demo/`; those files are disposable runtime outputs, not the public proof object.
-- The repo should be read as artifact-generation infrastructure, not diagnosis or treatment advice.
+When updating docs or commands, prefer the real path used by the specific script or CLI, and do not teach `data/...` as a universal canonical repo root.
 
-## Real now vs not yet
+## What is proven now
 
-### Real now
-- Contract discovery via `python3 -m health_model.agent_contract_cli describe`
-- Fresh bundle bootstrap via `python3 -m health_model.agent_bundle_cli init`
-- Voice-note submission into a persisted bundle via `python3 -m health_model.agent_voice_note_cli submit`
-- Scoped context reads via `python3 -m health_model.agent_context_cli get`
-- Recommendation artifact creation via `python3 -m health_model.agent_recommendation_cli create`
-- Same-day recommendation judgment writeback via `python3 -m health_model.agent_memory_write_cli recommendation-judgment`
+- contract discovery via `PYTHONPATH=clean:safety python3 -m health_model.agent_contract_cli describe`
+- bundle initialization via `PYTHONPATH=clean:safety python3 -m health_model.agent_bundle_cli init`
+- same-day voice-note submission via `PYTHONPATH=clean:safety python3 -m health_model.agent_voice_note_cli submit`
+- scoped context reads via `PYTHONPATH=clean:safety python3 -m health_model.agent_context_cli get`
+- recommendation creation via `PYTHONPATH=clean:safety python3 -m health_model.agent_recommendation_cli create`
+- bounded recommendation-judgment writeback via `PYTHONPATH=clean:safety python3 -m health_model.agent_memory_write_cli recommendation-judgment`
 
-### Legacy and adjacent repo surfaces
-- Older Garmin, food logging, dashboard, and web-app surfaces have been moved under `archive/legacy_product_surfaces/` as legacy or adjacent code. In particular, `archive/legacy_product_surfaces/dashboard/`, `archive/legacy_product_surfaces/web/`, and `archive/legacy_product_surfaces/garmin/` are explicitly archived and are not the canonical current Health Lab slice.
+## Not claimed
 
-### Not yet
-- No claim of clinical-grade guidance, diagnosis, or monitoring
-- No public multi-user product, hosted API, or polished install flow
-- No claim that private runtime data in local `data/` directories is demo-safe for sharing
-- No claim that the broader repo has been refactored around this CLI loop yet
+- not a clinical product or medical device
+- not a hosted multi-user product
+- not a polished general-user install flow
+- not a claim that `health_model` is a canonical project layer
+- not a claim that every repo surface has already been reorganized around the bucket model
 
-## Quick repo orientation
+## Contributing and review
 
-The current flagship loop lives canonically in `health_model/`, with `health_agent_infra/` preserved for temporary compatibility, and its canonical architecture boundary is frozen in `docs/health_lab_canonical_definition.md`. Older project surfaces for Garmin ingestion, dashboards, and the web app now live under `archive/legacy_product_surfaces/` as quarantined legacy or adjacent code, but they are not part of the current flagship proof path.
+For truthful review and contribution guidance, see:
 
-If you want the smallest trustworthy slice first, run `python3 scripts/run_canonical_public_demo.py`, inspect `artifacts/public_demo/generated/`, then compare that disposable run with `artifacts/public_demo/captured/` and the audited flagship proof bundle at `artifacts/flagship_loop_proof/2026-04-09/` or regenerate the stricter proof audit with `python3 scripts/run_flagship_loop_proof_audit.py`.
-
-For repo-level trust and contribution boundaries, see `docs/health_lab_canonical_definition.md`, `STATUS.md`, `CONTRIBUTING.md`, and `LICENSE` at the repo root.
-
-## Canonical Health Lab daily snapshot core
-
-The repo now includes a first bounded canonical snapshot layer under `health_model/`, while `health_agent_infra/` remains the temporary compatibility namespace.
-
-Inputs:
-- Garmin export daily + activity runtime files under `data/garmin/export/`
-- manual gym logs in `data/health/manual_gym_sessions.json` using `health_model/manual_gym_sessions.example.json` as the v1 format reference
-- nutrition totals from `data/health_log.db` when that SQLite file exists
-
-Run:
-
-```bash
-python3 health_model/daily_snapshot.py
-```
-
-Outputs:
-- `data/health/daily_snapshot_latest.json`
-- `data/health/daily_snapshot_YYYY-MM-DD.json`
-
-This v1 snapshot keeps unsupported fields explicit as `null` and separates data-backed observations from generic guidance.
-
-## Day-scoped nutrition brief
-
-For a compact read-only nutrition view in the self-usage lane, run:
-
-```bash
-python3 -m health_model.day_nutrition_brief \
-  --date 2026-04-08 \
-  --user-id 1
-```
-
-Outputs:
-- `data/health/day_nutrition_brief_YYYY-MM-DD.json`
-- `data/health/day_nutrition_brief_latest.json`
-
-This brief uses only accepted daily snapshot nutrition fields, keeps missing nutrition coverage explicit, and marks personalized bedtime guidance plus micronutrient-gap detection as unsupported in this slice.
-
-## Shared input backbone proof
-
-The repo now also includes the bounded shared input backbone validator in `health_model/shared_input_backbone.py`, with `health_agent_infra/shared_input_backbone.py` remaining available for temporary compatibility.
-
-It implements:
-- base canonical model validation for `source_artifact`, `input_event`, `subjective_daily_entry`, and `manual_log_entry`
-- semantic checks for the frozen shared-input contract rule set
-- a focused proof target in `tests/test_shared_input_backbone.py`
-
-Run:
-
-```bash
-python3 -m unittest tests.test_shared_input_backbone
-```
-
-## Atomic manual append + regenerate entrypoint
-
-Health Lab now includes a single bounded agent-facing transaction surface in `health_model/agent_interface.py`, with `health_agent_infra/agent_interface.py` kept as a temporary compatibility path:
-
-- `append_fragment_and_regenerate_daily_context(...)`
-- accepts one validated same-day `meal` or `hydration` fragment
-- appends it to the persisted shared-input bundle
-- regenerates both `agent_readable_daily_context_YYYY-MM-DD.json` and `agent_readable_daily_context_latest.json` from disk in the same call
-- returns the bundle path, dated/latest artifact paths, and accepted provenance ids
-- fails closed for invalid, wrong-day, or unsupported fragments without mutating persisted state
-
-Proof:
-
-```bash
-python3 -m unittest tests.test_persisted_bundle_append_regenerate
-```
-
-## Stable agent-facing submit-and-regenerate CLI
-
-External agents can now drive the same bounded transaction without importing Python directly:
-
-Zero-to-one bootstrap flow from fresh local state:
-
-```bash
-python3 -m health_model.agent_bundle_cli init \
-  --bundle-path data/health/shared_input_bundle_2026-04-09.json \
-  --user-id user_dom \
-  --date 2026-04-09
-```
-
-```bash
-python3 -m health_model.agent_voice_note_cli submit \
-  --bundle-path data/health/shared_input_bundle_2026-04-09.json \
-  --output-dir data/health \
-  --user-id user_dom \
-  --date 2026-04-09 \
-  --payload-path tests/fixtures/voice_note_intake/daily_voice_note_input.json
-```
-
-```bash
-python3 -m health_model.agent_context_cli get \
-  --artifact-path data/health/agent_readable_daily_context_2026-04-09.json \
-  --user-id user_dom \
-  --date 2026-04-09
-```
-
-```bash
-python3 -m health_model.agent_contract_cli describe
-```
-
-This bounded flow proves an external agent can discover the contract, initialize a canonical empty shared-input bundle from zero local state, submit one same-day transcribed voice note, and read back the regenerated daily context using only CLI surfaces.
-
-The current thin writeback extension for this loop is one same-day recommendation judgment op only:
-
-```bash
-python3 -m health_model.agent_memory_write_cli recommendation-judgment \
-  --output-dir data/health \
-  --payload-path artifacts/protocol_layer_proof/2026-04-11-writeback-judgment/writeback_recommendation_judgment_request.json
-```
-
-This writes `recommendation_judgment_YYYY-MM-DD.json` plus the latest alias, validates the referenced recommendation artifact scope and id, and fails closed without mutating existing judgment artifacts on rejection.
-
-The bounded closed-loop proof that carries one recommendation from `pending_judgment` through accepted writeback into truthful post-write resolution and feedback retrieval is frozen under `artifacts/protocol_layer_proof/2026-04-11-recommendation-resolution-transition/` and can be replayed with `python3 scripts/run_recommendation_resolution_transition_proof.py`.
-
-Each call returns machine-readable JSON with:
-
-- `ok`
-- `bundle_path`
-- `dated_artifact_path`
-- `latest_artifact_path`
-- `accepted_provenance`
-- `validation`
-- `error`
-
-The CLI fails closed with a non-zero exit code and the same JSON error envelope for invalid payloads, unsupported commands, parser-level argument or choice errors, and timestamp/date mismatches, and leaves the persisted bundle and generated artifacts unchanged on rejection.
-
-## End-to-end external agent write then read flow
-
-An external agent can now write through the submit CLI, then read back the exact scoped daily artifact through a separate read-only CLI without importing Python internals or guessing paths:
-
-```bash
-python3 -m health_model.agent_submit_cli hydration \
-  --bundle-path data/health/shared_input_bundle_2026-04-09.json \
-  --output-dir data/health \
-  --user-id user_1 \
-  --date 2026-04-09 \
-  --collected-at 2026-04-09T18:20:00+01:00 \
-  --ingested-at 2026-04-09T18:20:03+01:00 \
-  --raw-location healthlab://manual/hydration/2026-04-09/evening \
-  --confidence-score 0.98 \
-  --completeness-state complete \
-  --amount-ml 750 \
-  --beverage-type water
-```
-
-Then read the dated artifact:
-
-```bash
-python3 -m health_model.agent_context_cli get \
-  --artifact-path data/health/agent_readable_daily_context_2026-04-09.json \
-  --user-id user_1 \
-  --date 2026-04-09
-```
-
-Or read the latest scoped artifact:
-
-```bash
-python3 -m health_model.agent_context_cli get-latest \
-  --artifact-path data/health/agent_readable_daily_context_latest.json \
-  --user-id user_1
-```
-
-The read CLI returns a machine-readable JSON envelope with:
-
-- `ok`
-- `artifact_path`
-- `context`
-- `validation`
-- `error`
-
-It fails closed with a non-zero exit code and the same JSON envelope for missing files, invalid JSON, artifact type mismatch, and user/date scope mismatches.
-
-## CLI-driven contract discovery
-
-External agents can discover the current Health Lab contract from the CLI alone, without scraping this README or importing Python modules:
-
-```bash
-python3 -m health_model.agent_contract_cli describe
-```
-
-The discovery output is stable machine-readable JSON and includes:
-
-- `contract_id` and `contract_version`
-- supported operations for `health_model.agent_submit_cli`, `health_model.agent_context_cli`, and the discovery CLI itself
-- required arguments and accepted enum values
-- consumed and produced artifact types
-- default path conventions for the shared input bundle and generated daily context artifacts
-- response envelope keys for success and fail-closed errors
-
-The contract discovery CLI is read-only and currently supports one bounded command, `describe`.
-
-## Voice-note intake proof
-
-The canonical human-input lane for this slice now lives under `merge_human_inputs/`, with compatibility wrappers preserved at `health_model/voice_note_intake.py` and `health_model/manual_logging.py`.
-
-The repo also includes a bounded voice-note intake path in `health_model/voice_note_intake.py`.
-
-It implements:
-- one transcribed daily voice note to one canonical `source_artifact`
-- bounded derived `input_event` extraction with transcript-span provenance
-- optional `subjective_daily_entry` generation with explicit confidence
-
-Run:
-
-```bash
-python3 -m unittest tests.test_voice_note_intake
-```
-
-## Stable daily context artifact entrypoint
-
-The first stable external agent-consumption surface is the artifact writer entrypoint below. It validates a canonical shared-input bundle, fails closed on invalid input, and writes the exact daily context artifact files for `2026-04-09`:
-
-```bash
-python3 -m health_model.build_daily_context_artifact \
-  --bundle-path tests/fixtures/agent_readable_daily_context/fixture_day_bundle.json \
-  --user-id user_1 \
-  --date 2026-04-09 \
-  --output-dir data/health
-```
-
-This writes:
-
-- `data/health/agent_readable_daily_context_2026-04-09.json`
-- `data/health/agent_readable_daily_context_latest.json`
-
-## Canonical manual intake to daily context flow
-
-For the bounded manual nutrition + hydration golden path, use `health_model.agent_interface` to submit same-day fragments, merge them, then build the agent-facing daily artifact:
-
-```python
-from health_model.agent_interface import (
-    build_daily_context,
-    merge_bundle_fragments,
-    submit_hydration_log,
-    submit_nutrition_text_note,
-)
-
-hydration = submit_hydration_log(
-    user_id="user_1",
-    date="2026-04-09",
-    amount_ml=750,
-    beverage_type="water",
-    completeness_state="complete",
-    collected_at="2026-04-09T18:20:00+01:00",
-    ingested_at="2026-04-09T18:20:03+01:00",
-    raw_location="healthlab://manual/hydration/2026-04-09/evening",
-    confidence_score=0.98,
-)
-meal = submit_nutrition_text_note(
-    user_id="user_1",
-    date="2026-04-09",
-    note_text="Chicken rice bowl and fruit after run.",
-    meal_label="dinner",
-    estimated=True,
-    completeness_state="complete",
-    collected_at="2026-04-09T20:10:00+01:00",
-    ingested_at="2026-04-09T20:10:04+01:00",
-    raw_location="healthlab://manual/nutrition/2026-04-09/dinner",
-    confidence_score=0.94,
-)
-
-bundle = merge_bundle_fragments(existing_bundle, hydration["bundle_fragment"], meal["bundle_fragment"])
-context = build_daily_context(bundle=bundle, user_id="user_1", date="2026-04-09")
-```
-
-The resulting `agent_readable_daily_context` keeps same-day scoping, preserves provenance IDs in `generated_from`, and exposes grounded nutrition and hydration signals with explicit evidence refs.
-
-## Next steps
-
-- Improve the dashboard and daily readiness views
-- Expand the health analytics layer using engineered Garmin features
-- Tighten the bridge between offline export outputs and the live-pull feature pipeline
-- Add richer coaching logic on top of readiness scoring and subjective recovery signals
-- Improve food logging UX and input flexibility
-- Tighten deployment/dev setup for easier reproducibility
+- `STATUS.md`
+- `CONTRIBUTING.md`
+- `reporting/docs/offline_garmin_export_adapter.md`
+- `reporting/docs/health_lab_canonical_definition.md`

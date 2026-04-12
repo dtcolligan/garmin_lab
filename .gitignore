@@ -1,11 +1,19 @@
-# Runtime data (top-level only — not ml/data/)
+# Runtime data (top-level only, plus bucket-local pull runtime data)
 /data/
+pull/data/
 
 # Python
 .venv/
 __pycache__/
 *.pyc
 *.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+htmlcov/
 *.egg-info/
 
 # Jupyter
@@ -20,12 +28,15 @@ __pycache__/
 
 # Secrets
 .env
+.python-version
 
 # Claude Code
 .claude/
 
 # SQLite
 *.db
+*.db-shm
+*.db-wal
 
 # Generated outputs (source code is tracked, outputs aren't)
 ml/data/synthetic_training.csv

@@ -1,31 +1,38 @@
 # Offline Garmin export adapter
 
-Internal only. This adapter reads a local Garmin GDPR export zip and writes only derived runtime datasets under `data/garmin/export/`, which is already git-ignored.
+Internal adapter only.
+
+This document describes a current implementation surface that sits in the repo's bucket model, not a separate canonical layer. The adapter's role fits the `pull` bucket because it reads a local Garmin GDPR export zip and produces derived runtime datasets for later cleaning.
+
+## Current path truth
+
+- The script entrypoint currently lives at `archive/legacy_product_surfaces/garmin/import_export.py`.
+- The common runtime output location taught by this adapter doc is `pull/data/garmin/export/`.
+- Older docs that taught top-level `data/garmin/export/` are stale for the current bucket-organized repo shape.
 
 ## Run
 
 From the repo root:
 
 ```bash
-python3 garmin/import_export.py \
-  /Users/myapplemini01/.openclaw/media/inbound/fbe9407f-8390-4805-aa81-e7c79afce0a9_1---fa114bc3-dbe0-477b-a716-0e35523dd6f0.zip
+python3 archive/legacy_product_surfaces/garmin/import_export.py /path/to/export.zip
 ```
 
 Optional custom output location:
 
 ```bash
-python3 garmin/import_export.py /path/to/export.zip --output-dir /tmp/garmin-export
+python3 archive/legacy_product_surfaces/garmin/import_export.py /path/to/export.zip --output-dir /tmp/garmin-export
 ```
 
 ## Outputs
 
-The script writes these derived files:
+When using the default bucket-local location, the script writes derived files such as:
 
-- `data/garmin/export/daily_summary_export.csv`
-- `data/garmin/export/activities_export.csv`
-- `data/garmin/export/hydration_events_export.csv`
-- `data/garmin/export/health_status_pivot_export.csv`
-- `data/garmin/export/manifest.json`
+- `pull/data/garmin/export/daily_summary_export.csv`
+- `pull/data/garmin/export/activities_export.csv`
+- `pull/data/garmin/export/hydration_events_export.csv`
+- `pull/data/garmin/export/health_status_pivot_export.csv`
+- `pull/data/garmin/export/manifest.json`
 
 ## Current supported sources
 
@@ -40,9 +47,10 @@ The script writes these derived files:
 
 ## Current limitations
 
-- This is an offline adapter only, not a replacement for the live Garmin Connect pull path.
-- It normalizes a bounded subset and does not yet emit the exact `clean_garmin.py` daily JSON contract.
+- This is an offline adapter only, not a replacement for any live Garmin Connect pull path.
+- It is a current implementation surface around legacy Garmin import code, not a claim that Garmin import is a canonical top-level project layer.
+- It normalizes a bounded subset and does not promise a broader repo redesign.
 - Health status metrics are pivoted only for top-level `value`, `status`, and baseline ranges.
-- Activity units are normalized from export-style storage, using ms to sec, cm to m, and decimeters/sec to m/s assumptions from the provided file.
+- Activity units are normalized from export-style storage using the current assumptions in that script.
 - Some export files mix date strings and epoch timestamps, so unsupported new file variants may need matcher updates.
-- Nested FIT backups and richer activity splits/laps remain out of scope for this first pass.
+- Nested FIT backups and richer activity splits or laps remain out of scope for this slice.

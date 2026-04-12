@@ -1,67 +1,76 @@
 # Status
 
-## Repo status
+## Canonical repo framing
 
-This repo currently presents a truthful public shell around one proved flagship Health Lab slice. In public-facing terms, `health_agent_infra` is the Health Lab infrastructure repository: the deterministic `PULL` plus `CLEAN` layer for agent-mediated personal health work over user-owned memory, with later human-input merge and model-owned interpretation/reporting outside the infra boundary. It is implemented here as a bounded contract-and-proof system rather than a hosted product.
+This repo should be read through the canonical eight-bucket model only:
 
-The frozen canonical definition for this repo-visible slice lives at `docs/health_lab_canonical_definition.md`.
+- `pull`
+- `clean`
+- `merge_human_inputs`
+- `research`
+- `interpretation`
+- `reporting`
+- `writeback`
+- `safety`
 
-The current flagship loop is:
+Those eight buckets are the only canonical project-shape categories. Subpaths inside them, such as `clean/health_model/` or `writeback/agent_memory_write_cli.py`, are current implementation locations, not separate canonical layers.
+
+## Current repo reality
+
+The repo currently presents one bounded, CLI-first proof path plus supporting artifacts, tests, and compatibility surfaces. It is not a hosted product, consumer app, clinical system, or the durable private memory authority for user health data.
+
+Current implementation highlights by bucket:
+
+- `pull/` contains passive-data and machine-readable input acquisition surfaces plus current bucket-local runtime data paths such as `pull/data/`
+- `clean/health_model/` is the current main deterministic implementation namespace inside the `clean` bucket
+- `merge_human_inputs/` contains manual logging and intake surfaces
+- `reporting/` contains docs, scripts, public demo material, and proof bundles
+- `writeback/` contains explicit persisted-update surfaces
+- `safety/` contains tests, fail-closed proof checks, and compatibility wrappers
+- `research/` and `interpretation/` contain bounded exploratory and model-oriented work in their own buckets
+- `archive/legacy_product_surfaces/` remains legacy material outside the canonical bucket model
+
+## Proven now
+
+The clearest current proof loop is:
 
 `contract describe -> bundle init -> voice-note submit -> context get -> recommendation create`
 
-Canonical public-truth surfaces:
-- walkthrough doc: `docs/health_lab_canonical_public_demo.md`
-- checked-in public demo bundle: `artifacts/public_demo/captured/`
-- audited flagship proof bundle: `artifacts/flagship_loop_proof/2026-04-09/`
+That proof is currently taught through bucketed implementation paths, mainly `clean/health_model/`, with temporary compatibility wrappers under `safety/health_agent_infra/`.
 
-The flagship loop is real, CLI-first, locally runnable, and backed by checked-in proof artifacts plus focused unittest coverage. It should be read as the current flagship proof path, not as a claim that this repo already provides a polished consumer app, hosted runtime, or durable private memory layer.
+Public review surfaces:
 
-The current bounded writeback proof slice is `writeback.recommendation_judgment`, frozen under `artifacts/protocol_layer_proof/2026-04-11-writeback-judgment/` with success, wrong-scope rejection, missing-artifact rejection, and non-mutation evidence.
+- `reporting/docs/health_lab_canonical_definition.md`
+- `reporting/docs/health_lab_canonical_public_demo.md`
+- `reporting/artifacts/public_demo/captured/`
+- `reporting/artifacts/flagship_loop_proof/2026-04-09/`
 
-The current bounded closed-loop transition proof is `protocol_proof.recommendation_resolution_transition`, frozen under `artifacts/protocol_layer_proof/2026-04-11-recommendation-resolution-transition/` with one recommendation shown as `pending_judgment` before writeback, `judged` after accepted writeback, visible in post-write feedback retrieval, plus a rejected non-mutating writeback replay.
+Additional bounded writeback proof:
 
-## Architecture truth
+- `reporting/artifacts/protocol_layer_proof/2026-04-11-writeback-judgment/`
+- `reporting/artifacts/protocol_layer_proof/2026-04-11-recommendation-resolution-transition/`
 
-- PULL layer: this repo defines deterministic connectors, intake surfaces, and scoped acquisition paths for passive-data and machine-readable health inputs.
-- CLEAN layer: this repo defines deterministic normalization, validation, bundle assembly, retrieval shaping, and interpretation-ready dataset preparation.
-- Human-input merge: subjective user input is a separate lane that should merge after PULL/CLEAN and before interpretation.
-- Interpretation + report layers: an external model/agent performs synthesis, recommendation generation, explanation, guidance structure, and final reporting against the merged context.
-- Writeback layer: bounded persisted memory/state updates live behind explicit write surfaces.
-- Policy / proof layer: checked-in proof bundles and fail-closed enforcement own scope validation, rejection behavior, grounding, and non-mutation guarantees.
-- Private memory layer: user-owned health memory lives outside this repo and outside Health Lab.
+## Pathing truth to keep straight
 
-## What is proven now
+- checked-in proof artifacts live under `reporting/artifacts/`
+- some runtime examples still write to `data/` paths
+- current bucket-local runtime data also exists under `pull/data/`
 
-- contract discovery via `health_model.agent_contract_cli`, with `health_agent_infra.agent_contract_cli` retained temporarily for compatibility
-- bundle initialization via `health_model.agent_bundle_cli`, with `health_agent_infra.agent_bundle_cli` retained temporarily for compatibility
-- same-day voice-note submission via `health_model.agent_voice_note_cli`, with `health_agent_infra.agent_voice_note_cli` retained temporarily for compatibility
-- slice-1 human-input migration landed under `merge_human_inputs/`, with `health_model.manual_logging`, `health_model.voice_note_intake`, and `bot.*` preserved as compatibility wrappers
-- scoped context reads via `health_model.agent_context_cli`, with `health_agent_infra.agent_context_cli` retained temporarily for compatibility
-- recommendation creation with fail-closed behavior via `health_model.agent_recommendation_cli`, with `health_agent_infra.agent_recommendation_cli` retained temporarily for compatibility
-- same-day recommendation judgment writeback with fail-closed non-mutation via `health_model.agent_memory_write_cli`, with `health_agent_infra.agent_memory_write_cli` retained temporarily for compatibility
-- one closed-loop recommendation resolution transition proof from `pending_judgment` to judged and feedback-visible state, with rejected non-mutation replay
+So `data/...` should not be taught as the universal canonical repo layout.
 
 ## What this repo is not claiming
 
 - not a clinical product or medical device
-- not a hosted or multi-user product
+- not a hosted or multi-user runtime
 - not a polished install flow for general users
-- not the durable private memory authority for user health data
-- not yet a repo fully reorganized around the flagship loop
+- not a claim that `health_model` is a canonical project-shape category
+- not a claim that all older adjacent material has been deleted or reorganized
 
-## Repo-readiness audit note
+## Reviewer checklist
 
-Unresolved truths that still matter:
-- older Garmin, dashboard, web, and adjacent project surfaces have been moved under `archive/legacy_product_surfaces/`, which reduces root-level review noise but does not make those archived surfaces part of the canonical current slice
-- the cleanest public review path is the checked-in demo and proof bundles, not the whole repo
-- local runtime outputs under `data/` are not public-safe proof artifacts unless explicitly curated
-
-## Current reviewer checklist
-
-- [x] Root README points explicitly to the canonical demo and proof surfaces
-- [x] `LICENSE`, `CONTRIBUTING.md`, and this `STATUS.md` exist
-- [x] Proof-facing wording stays within current repo reality
-- [x] Frozen flagship CLI smoke-test command is defined for CI
-- [x] Root-level archive move for `dashboard/`, `web/`, and `garmin/` completed under `archive/legacy_product_surfaces/`
-- [ ] Any broader legacy-root wording cleanup beyond this bounded slice remains pending
+- [x] Root docs now frame the repo through the canonical eight buckets
+- [x] Touched public/operator-facing docs demote `health_model` to implementation-namespace status
+- [x] Current path teaching avoids treating `data/...` as universal repo truth
+- [x] Public proof surfaces remain rooted in `reporting/`
+- [x] Legacy material stays explicitly non-canonical
+- [ ] Destructive cleanup, moves, and archive pruning remain deferred to later slices

@@ -2,41 +2,61 @@
 
 Thanks for taking a look at Health Lab.
 
+## Canonical organizing rule
+
+Please review and change this repo through the canonical eight-bucket model:
+
+- `pull`
+- `clean`
+- `merge_human_inputs`
+- `research`
+- `interpretation`
+- `reporting`
+- `writeback`
+- `safety`
+
+These are the only canonical project-shape categories. Implementation namespaces inside them, like `clean/health_model/`, are real current paths but not separate canonical layers.
+
 ## Current contribution shape
 
-This repo is currently easiest to review as a bounded proof repo around the CLI-first flagship loop in `health_agent_infra/`, with `health_model/` retained as a temporary compatibility namespace, not as a broad platform or polished product.
+This repo is currently easiest to review as a bounded proof repo with one CLI-first flagship path, supporting proof artifacts, and compatibility surfaces.
 
 Start here:
-- `docs/health_lab_canonical_public_demo.md`
-- `artifacts/public_demo/captured/`
-- `artifacts/flagship_loop_proof/2026-04-09/`
+- `README.md`
 - `STATUS.md`
+- `reporting/docs/health_lab_canonical_definition.md`
+- `reporting/docs/health_lab_canonical_public_demo.md`
+- `reporting/artifacts/public_demo/captured/`
 
 ## Contribution boundaries
 
 Please keep contributions truthful to current repo reality:
+- do not introduce new canonical project categories outside the eight buckets
+- do not present `health_model` as a canonical repo layer rather than an implementation namespace inside `clean`
 - do not overclaim clinical, diagnostic, or production readiness
-- do not treat local runtime data under `data/` as public-safe demo material
-- prefer small changes that preserve fail-closed CLI behavior and artifact truth
-- separate proven flagship-loop work from older adjacent repo surfaces unless a change is explicitly a cleanup
+- do not treat local runtime data as public-safe demo material unless it is explicitly curated under reporting proof surfaces
+- prefer small changes that preserve fail-closed behavior, proof integrity, and honest docs
+- keep destructive moves, deletes, or package redesign out of scope unless explicitly approved
 
 ## Before opening a PR
 
-1. Read the canonical demo and proof surfaces above.
-2. Keep README and status wording aligned with what is actually proven on disk.
-3. Run the flagship CLI smoke tests:
+1. Check that your change fits one of the eight canonical buckets.
+2. Keep README, STATUS, and reporting docs aligned with actual repo paths and proofs.
+3. If you touch the flagship loop, run the relevant bounded tests.
+4. If you change proof-facing docs or artifacts, make sure links resolve from repo root and claims stay narrower than the checked-in evidence.
+
+Current flagship smoke test command:
 
 ```bash
-python3 -m unittest tests.test_agent_contract_cli tests.test_agent_bundle_cli tests.test_agent_voice_note_cli tests.test_agent_context_cli tests.test_agent_recommendation_cli
+PYTHONPATH=clean:safety python3 -m unittest safety.tests.test_agent_contract_cli safety.tests.test_agent_bundle_cli safety.tests.test_agent_voice_note_cli safety.tests.test_agent_context_cli safety.tests.test_agent_recommendation_cli
 ```
-
-4. If you change proof-facing docs or artifacts, make sure links resolve from the repo root and that claims stay narrower than the code and checked-in artifacts.
 
 ## Good first changes
 
-- repo truth and documentation cleanups
+- bucket-model documentation cleanup
 - bounded CLI reliability improvements
 - tighter proof artifacts and audit notes
 - tests that strengthen the existing flagship loop
+- truthful path corrections where old `data/...` teaching no longer matches repo reality
 
-Large renames, product reframes, hosted-service work, UI expansion, or broader data integrations should be discussed before implementation.
+Large renames, product reframes, hosted-service work, UI expansion, archive cleanup, or broader namespace redesign should be discussed before implementation.
