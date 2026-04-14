@@ -45,11 +45,12 @@ The plan says the repo should move toward a Health Lab product with Garmin as on
 Current repo drift includes:
 - `pull/hevy/`
 - `reporting/artifacts/protocol_layer_proof/2026-04-12-hevy-api-viability/`
-- large amounts of `wger`, `cronometer`, and other connector-specific proof material that can easily dominate the repo story
+- connector-specific proof material that can dominate the repo story if it is not clearly subordinated to the plan
 
 Rule from now on:
 - connectors not explicitly needed by the plan must not be taught as the live product direction
-- exploratory connectors should be archived, demoted, or clearly marked non-canonical
+- per `reporting/docs/wger_connector_plan_v1.md`, `wger` may remain only as a bounded exploratory non-flagship connector prototype while manual structured gym logs remain the source-of-truth path for this doctrine interval
+- exploratory connectors outside that doctrine should be archived, demoted, or clearly marked non-canonical
 
 ### Drift B — repo status has been explaining local proof lanes instead of the phased plan
 The user needs to know where the repo stands in the report phases, not just which local reconciliation slice passed.
@@ -80,10 +81,11 @@ A large amount of current readability still depends on historical proof bundles 
 - manual logging under `merge_human_inputs/`
 - daily health model work under `clean/health_model/`
 - canonical checked-in proof root under `reporting/artifacts/`
+- `wger` only in the bounded exploratory role defined by `reporting/docs/wger_connector_plan_v1.md`
 
 ### Cut or demote
 - any connector or proof surface that implies a live direction not supported by the transformation plan
-- repo-facing teaching that makes exploratory connectors look like the current MVP path
+- any repo-facing teaching that makes `Hevy` or other leftover connector exploration look like the current MVP path
 - status language that substitutes local proof-lane updates for phase tracking
 
 ### Defer

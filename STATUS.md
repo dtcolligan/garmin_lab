@@ -18,7 +18,7 @@ Source plan: `reporting/docs/health_lab_repo_transformation_plan_2026-04-09.md`
 
 - current_phase: Phase 3 — adapter reframing
 - current_bounded_lane: source-registry and connector-truth reconciliation
-- intended_stack_to_reconcile: Garmin + manual logging surfaces + nutrition pipeline, with exploratory external connectors kept clearly non-flagship until deliberately promoted
+- intended_stack_to_reconcile: Garmin + manual structured logging surfaces + nutrition pipeline, with `wger` kept only as the bounded exploratory non-flagship connector prototype defined in `reporting/docs/wger_connector_plan_v1.md`
 - current_truth: the last several local slices mainly hardened Phase 2 foundations and the Phase 2 -> Phase 3 handoff, not the later MVP phases
 - blocker: the connector/source-registry lane was interrupted, and repo-facing doctrine still needs to be reconciled cleanly against the intended stack
 
@@ -86,7 +86,9 @@ For truthful review right now:
 - treat the CLI-first loop above as the proved public path
 - treat Garmin plus typed manual readiness as the approved target flagship path still being formalized and built
 - treat the transformation plan as the only canonical direction for connector and ingestion scope
-- treat leftover exploratory connector surfaces elsewhere in the tree as non-canonical until a later plan phase explicitly promotes them
+- treat manual structured gym logs as the source-of-truth path for this doctrine interval
+- treat `wger` only as the bounded exploratory non-flagship connector prototype defined in `reporting/docs/wger_connector_plan_v1.md`
+- treat leftover connector surfaces outside that doctrine as non-canonical until a later plan phase explicitly promotes them
 
 ## Pathing truth to keep straight
 

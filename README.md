@@ -72,7 +72,7 @@ The approved target flagship doctrine is narrower and different from that curren
 
 That target flagship is a frozen direction for the next slices, not a claim that the repo already ships that exact end-to-end loop today.
 
-Repo-facing truth should follow the transformation plan. Exploratory or leftover connector surfaces elsewhere in the tree are not the canonical current direction unless they are explicitly promoted by that plan.
+Repo-facing truth should follow the transformation plan. For the current gym-source doctrine interval, manual structured gym logs remain the source-of-truth path, `wger` is a bounded exploratory non-flagship connector prototype, and leftover connector surfaces outside that doctrine are not the canonical current direction unless the plan explicitly promotes them.
 
 Start with:
 
