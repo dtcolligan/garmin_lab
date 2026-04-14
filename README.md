@@ -72,7 +72,7 @@ The approved target flagship doctrine is narrower and different from that curren
 
 That target flagship is a frozen direction for the next slices, not a claim that the repo already ships that exact end-to-end loop today.
 
-Cronometer export surfaces remain useful bridge/reference nutrition inputs. External gym connectors such as `wger` and `Hevy` remain non-flagship or exploratory connector surfaces. They are not required for truthful description of either the current proved path or the frozen target flagship.
+Repo-facing truth should follow the transformation plan. Exploratory or leftover connector surfaces elsewhere in the tree are not the canonical current direction unless they are explicitly promoted by that plan.
 
 Start with:
 

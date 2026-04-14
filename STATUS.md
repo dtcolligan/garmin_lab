@@ -85,8 +85,8 @@ That is the frozen doctrine, not a claim that the full end-to-end target loop is
 For truthful review right now:
 - treat the CLI-first loop above as the proved public path
 - treat Garmin plus typed manual readiness as the approved target flagship path still being formalized and built
-- treat Cronometer as a bridge/reference nutrition surface rather than a flagship-completion dependency
-- treat external gym connectors such as `wger` or `Hevy` as non-flagship or exploratory surfaces rather than the source of truth for the flagship path
+- treat the transformation plan as the only canonical direction for connector and ingestion scope
+- treat leftover exploratory connector surfaces elsewhere in the tree as non-canonical until a later plan phase explicitly promotes them
 
 ## Pathing truth to keep straight
 
@@ -113,7 +113,6 @@ So `data/...` should not be taught as the universal canonical repo layout.
 - [x] Touched public/operator-facing docs demote `health_model` to implementation-namespace status
 - [x] Current path teaching avoids treating `data/...` as universal repo truth
 - [x] Public proof surfaces remain rooted in `reporting/`
-- [x] Cronometer is described as bridge/reference rather than flagship-critical
-- [x] External gym connectors stay non-flagship in repo-facing doctrine
+- [x] Root docs now defer connector and ingestion scope to the transformation plan instead of teaching exploratory connector doctrine at repo root
 - [x] Legacy material stays explicitly non-canonical
 - [ ] Destructive cleanup, moves, and archive pruning remain deferred to later slices
