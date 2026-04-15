@@ -1,6 +1,6 @@
-# Health Lab
+# Health Agent  Infra
 
-Health Lab is a bucket-organized infrastructure repo for agent-mediated personal health work over user-owned memory.
+Health Agent Infra is a bucket-organized infrastructure repo for agent-mediated personal health work over user-owned memory.
 
 The canonical project shape is only these eight buckets:
 
