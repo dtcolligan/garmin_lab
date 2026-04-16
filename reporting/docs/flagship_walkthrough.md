@@ -173,8 +173,8 @@ different facet of the runtime:
 | `rhr_spike_three_days` | R4 escalation for persistent resting-HR spike |
 | `insufficient_signal` | R1 policy block; system defers rather than guesses |
 | `sparse_signal` | confidence downgrade when coverage is thin |
-| `tailoring_recovered_strength_block` | goal-conditioned action-parameter variance on identical evidence (paired) |
-| `tailoring_recovered_endurance_taper` | paired alternate goal produces different session-detail caps |
+| `tailoring_recovered_strength_block` | user's active goal surfaces in the recommendation output (paired) |
+| `tailoring_recovered_endurance_taper` | paired alternate goal — same evidence, different `active_goal` in `action_detail` |
 
 All eight are reproducible by swapping the `--scenario` argument in the
 command above. A ninth capture, `--source real`, runs the same loop

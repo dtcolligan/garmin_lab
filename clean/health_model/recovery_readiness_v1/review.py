@@ -90,41 +90,47 @@ def _event_already_written(path: Path, review_event_id: str) -> bool:
     return False
 
 
-def derive_confidence_adjustment(outcomes: list[ReviewOutcome]) -> float:
-    """Return a confidence delta in ``[-0.5, 0.5]`` derived from review history.
+def summarize_review_history(outcomes: list[ReviewOutcome]) -> dict[str, int]:
+    """Count review outcomes by category. Deterministic bookkeeping, not judgment.
 
-    Structural stub. No persistence, no per-user state, no learning loop: a
-    pure function over a list of past ``ReviewOutcome`` records. Callers may
-    use the returned delta to nudge future recommendation confidence.
+    The runtime surfaces structured summary state; the LLM consumer forms
+    its own view about what the numbers mean for future recommendation
+    confidence. This function does not encode any opinion about how good
+    or bad a given outcome distribution is.
 
-    TODO(founder): refine these first-pass deltas and add a decay term.
+    Returned keys (all non-negative integers, always present):
+      - ``total``: total number of outcomes in the input.
+      - ``followed_improved``: followed recommendation AND self-reported
+        improvement was ``True``.
+      - ``followed_no_change``: followed recommendation AND self-reported
+        improvement was ``False``.
+      - ``followed_unknown``: followed recommendation AND self-reported
+        improvement was ``None`` (ambiguous).
+      - ``not_followed``: did not follow the recommendation (improvement
+        field ignored — no counterfactual).
 
-    First-pass rules (explicit so a reviewer can push back):
-      - ``followed_recommendation=True`` + ``self_reported_improvement=True``
-        => +0.05 per outcome. System proposed something that helped.
-      - ``followed_recommendation=True`` + ``self_reported_improvement=False``
-        => -0.02 per outcome. Followed but did not help. Smaller magnitude
-        than the positive case because non-improvement has many benign
-        explanations (life stress, partial adherence, measurement noise).
-      - ``followed_recommendation=True`` + ``self_reported_improvement=None``
-        => 0.0. Ambiguous.
-      - ``followed_recommendation=False`` => 0.0. No counterfactual available;
-        the user may have disagreed for reasons unrelated to correctness.
-      - Sum clamped to ``[-0.25, 0.25]`` — half the contract envelope of
-        ``[-0.5, 0.5]`` — so one bad week cannot collapse the system.
-      - Empty history => 0.0.
+    The four non-total keys always sum to ``total``; a consumer can derive
+    any rate it wants from these counts without the runtime taking a
+    position on which rate matters.
     """
 
-    if not outcomes:
-        return 0.0
+    summary = {
+        "total": len(outcomes),
+        "followed_improved": 0,
+        "followed_no_change": 0,
+        "followed_unknown": 0,
+        "not_followed": 0,
+    }
 
-    delta = 0.0
     for outcome in outcomes:
         if not outcome.followed_recommendation:
+            summary["not_followed"] += 1
             continue
         if outcome.self_reported_improvement is True:
-            delta += 0.05
+            summary["followed_improved"] += 1
         elif outcome.self_reported_improvement is False:
-            delta -= 0.02
+            summary["followed_no_change"] += 1
+        else:
+            summary["followed_unknown"] += 1
 
-    return max(-0.25, min(0.25, delta))
+    return summary

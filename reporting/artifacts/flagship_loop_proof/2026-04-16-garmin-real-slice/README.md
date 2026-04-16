@@ -88,5 +88,5 @@ flow; the proof capture leaves that slice deliberately flat.
   capture (`tailoring_recovered_*` rows).
 - The readiness-score formula is a first-pass deterministic heuristic.
   Confidence calibration against review outcomes is a founder-authored
-  stub (see `clean/health_model/recovery_readiness_v1/review.py::derive_confidence_adjustment`).
+  bookkeeping summary (see `clean/health_model/recovery_readiness_v1/review.py::summarize_review_history`).
 - No diagnostic, clinical, or nutrition outputs are produced.

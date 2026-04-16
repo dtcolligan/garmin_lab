@@ -69,7 +69,7 @@ The implementation is a single module: `clean/health_model/recovery_readiness_v1
 - `clean.py` — deterministic CLEAN: validates, computes baselines, assembles `CleanedEvidence`.
 - `state.py` — builds `RecoveryState` with `signal_quality`, `uncertainties`, `recovery_status`, `readiness_score`.
 - `policy.py` — six executable rules (R1 block, R2 soften, R3 escalate-on-diagnosis-language, R4 RHR-spike, R5 no-unknown-action, R6 writeback-locality). Each rule returns a `PolicyDecision`.
-- `recommend.py` — builds the `TrainingRecommendation`; this is where goal-conditioned tailoring (`_goal_conditioned_detail`) lives.
+- `recommend.py` — builds the `TrainingRecommendation`. Goal handling (`_goal_conditioned_detail`) is deliberately thin: it surfaces the user's `active_goal` into `action_detail` for downstream LLM consumption but does not invent training judgment.
 - `action.py` — idempotent local writeback. Enforces writeback-locality at the I/O boundary.
 - `review.py` — schedules review events, records outcomes, computes confidence adjustment from outcome history.
 - `cli.py` — end-to-end CLI runner with `--scenario` (synthetic) and `--source real` (Garmin CSV export).
@@ -82,7 +82,7 @@ If a stage grows unwieldy, split it inside its file rather than introducing help
 
 Two sibling captured bundles demonstrate the loop end-to-end:
 
-- `reporting/artifacts/flagship_loop_proof/2026-04-16-recovery-readiness-v1/` — eight synthetic scenarios covering: green path, bounded downgrade, stronger downgrade, RHR-spike escalation, policy block on insufficient signal, confidence soften on sparse signal, and a paired tailoring demonstration (same evidence, different `active_goal`, different `action_detail`).
+- `reporting/artifacts/flagship_loop_proof/2026-04-16-recovery-readiness-v1/` — eight synthetic scenarios covering: green path, bounded downgrade, stronger downgrade, RHR-spike escalation, policy block on insufficient signal, confidence soften on sparse signal, and a paired tailoring demonstration (same evidence, different `active_goal` surfaced in `action_detail`).
 - `reporting/artifacts/flagship_loop_proof/2026-04-16-garmin-real-slice/` — the same loop running against a committed real Garmin CSV export. Same CLEAN→REVIEW code; only the PULL source differs.
 
 Each captured bundle contains:
@@ -122,12 +122,14 @@ PYTHONPATH=clean:safety uv run --with pytest pytest safety/tests/test_recovery_r
 
 ## 7. What's intentionally not done
 
-Two `TODO(founder)` markers are live in the codebase:
+No `TODO(founder)` markers remain in the codebase.
 
-- `_goal_conditioned_detail` in `recommend.py` — first-pass periodization heuristic (RPE caps for strength_block, Zone 2 caps for endurance_taper). The wiring is permanent; the heuristic values are placeholder.
-- `derive_confidence_adjustment` in `review.py` — first-pass asymmetric calibration (+0.05 per followed+improved, −0.02 per followed+no-improvement, clamp ±0.25). Same framing.
+Two functions previously carried those markers and have been deliberately narrowed to non-judgment roles after founder interview:
 
-These are explicit founder-authoring slots, not bugs. The loop is structurally complete; the judgment layer is where the next real investment belongs.
+- `_goal_conditioned_detail` in `recommend.py` previously proposed periodization heuristics (RPE caps, zone ceilings). Now it is a thin pass-through that surfaces the user's `active_goal` into `action_detail` for downstream LLM consumption. The runtime does not invent training judgment.
+- `derive_confidence_adjustment` in `review.py` previously returned a calibration delta over review history. It has been reshaped into `summarize_review_history`, which returns structured counts by outcome category (`followed_improved`, `followed_no_change`, `followed_unknown`, `not_followed`). Counts are bookkeeping; interpretation is LLM territory.
+
+Both changes follow the same principle: **the runtime's job is clean structured state and governed protocol, not judgment.** Heuristics that pretend to be judgment get stripped when caught.
 
 Other intentional not-dones:
 
@@ -150,7 +152,7 @@ If you come in with a specific question, start here:
 | "Does it actually run?" | `reporting/artifacts/flagship_loop_proof/2026-04-16-recovery-readiness-v1/captured/recovered_with_easy_plan.json` |
 | "Does it run on real data?" | `reporting/artifacts/flagship_loop_proof/2026-04-16-garmin-real-slice/captured/real_garmin_slice_2026-04-08.json` |
 | "What's the policy layer?" | `clean/health_model/recovery_readiness_v1/policy.py` + [`minimal_policy_rules.md`](minimal_policy_rules.md) |
-| "What's tailoring?" | Diff the two `tailoring_*.json` captures — identical evidence, different `action_detail`. |
+| "What's tailoring?" | Diff the two `tailoring_*.json` captures — identical evidence, different `active_goal` in `action_detail`. The runtime surfaces the goal; the LLM acts on it. |
 | "How did we get here?" | [`phase_timeline.md`](phase_timeline.md) |
 | "What's next?" | `STATUS.md` + the current plan file in `reporting/docs/plan_*.md` |
 

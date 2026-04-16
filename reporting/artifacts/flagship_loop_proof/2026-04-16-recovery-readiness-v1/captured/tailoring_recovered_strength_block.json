@@ -89,10 +89,7 @@
   "training_recommendation": {
     "action": "proceed_with_planned_session",
     "action_detail": {
-      "active_goal": "strength_block",
-      "rpe_cap": 8,
-      "session_focus": "compound_heavy",
-      "set_cap": 5
+      "active_goal": "strength_block"
     },
     "bounded": true,
     "confidence": "high",
@@ -116,8 +113,7 @@
       "resting_hr_vs_baseline=at",
       "training_load_trailing_7d=high",
       "hrv_vs_baseline=above",
-      "active_goal=strength_block",
-      "strength_block tailoring: RPE<=8, <=5 working sets, compound focus"
+      "active_goal=strength_block"
     ],
     "recommendation_id": "rec_2026-04-16_u_tailoring_recovered_strength_block_01",
     "schema_version": "training_recommendation.v1",

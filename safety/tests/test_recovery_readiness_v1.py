@@ -387,19 +387,14 @@ def test_tailoring_same_evidence_different_goal_surfaces_in_recommendation(tmp_p
     strength_detail = strength["training_recommendation"]["action_detail"]
     endurance_detail = endurance["training_recommendation"]["action_detail"]
     assert strength_detail is not None and endurance_detail is not None
+
+    # Tailoring is visible as goal presence in the recommendation output.
+    # The runtime deliberately does not invent caps or session-shape from
+    # the goal — that is LLM territory. Its job is to surface the goal so
+    # a downstream LLM can act on it.
     assert strength_detail["active_goal"] == "strength_block"
     assert endurance_detail["active_goal"] == "endurance_taper"
-
-    # Tailoring must be *visible as numeric caps in the action_detail*, not
-    # just as different goal labels. This is the §11.B "tailoring visible"
-    # assertion: a downstream agent can act on rpe_cap / zone_cap.
-    assert strength_detail.get("rpe_cap") is not None
-    assert strength_detail.get("set_cap") is not None
-    assert "rpe_cap" not in endurance_detail
-    assert endurance_detail.get("zone_cap") is not None
-    assert endurance_detail.get("duration_cap_min") is not None
-    assert "zone_cap" not in strength_detail
-    assert strength_detail.get("session_focus") != endurance_detail.get("session_focus")
+    assert strength_detail["active_goal"] != endurance_detail["active_goal"]
 
     assert "active_goal=strength_block" in strength["training_recommendation"]["rationale"]
     assert "active_goal=endurance_taper" in endurance["training_recommendation"]["rationale"]
@@ -431,59 +426,79 @@ def test_state_readiness_score_bounded_on_scorable_scenarios():
 
 
 # ---------------------------------------------------------------------------
-# REVIEW — confidence calibration stub (W3b)
+# REVIEW — outcome-history summary (structured state, not judgment)
 # ---------------------------------------------------------------------------
 
-def test_derive_confidence_adjustment_on_empty_history_returns_zero():
-    from health_model.recovery_readiness_v1.review import derive_confidence_adjustment
+def test_summarize_review_history_on_empty_returns_zeroed_counts():
+    from health_model.recovery_readiness_v1.review import summarize_review_history
 
-    assert derive_confidence_adjustment([]) == 0.0
+    summary = summarize_review_history([])
+    assert summary == {
+        "total": 0,
+        "followed_improved": 0,
+        "followed_no_change": 0,
+        "followed_unknown": 0,
+        "not_followed": 0,
+    }
 
 
-def test_derive_confidence_adjustment_returns_bounded_float():
+def test_summarize_review_history_counts_each_category():
+    """Every outcome lands in exactly one bucket; buckets sum to total."""
+
     from health_model.recovery_readiness_v1 import ReviewOutcome
-    from health_model.recovery_readiness_v1.review import derive_confidence_adjustment
+    from health_model.recovery_readiness_v1.review import summarize_review_history
 
-    outcomes = [
-        ReviewOutcome(
+    def _outcome(i: int, followed: bool, improvement) -> ReviewOutcome:
+        return ReviewOutcome(
             review_event_id=f"rev_{i}",
             recommendation_id=f"rec_{i}",
             user_id="u_local_1",
             recorded_at=NOW,
-            followed_recommendation=True,
-            self_reported_improvement=True,
+            followed_recommendation=followed,
+            self_reported_improvement=improvement,
         )
-        for i in range(5)
+
+    outcomes = [
+        _outcome(1, True, True),
+        _outcome(2, True, True),
+        _outcome(3, True, False),
+        _outcome(4, True, None),
+        _outcome(5, False, None),
     ]
-    delta = derive_confidence_adjustment(outcomes)
-    assert isinstance(delta, float)
-    assert -0.5 <= delta <= 0.5
+    summary = summarize_review_history(outcomes)
+    assert summary == {
+        "total": 5,
+        "followed_improved": 2,
+        "followed_no_change": 1,
+        "followed_unknown": 1,
+        "not_followed": 1,
+    }
+    # Non-total keys must sum to total so the LLM consumer can trust the
+    # partition.
+    assert sum(v for k, v in summary.items() if k != "total") == summary["total"]
 
 
-def test_derive_confidence_adjustment_returns_positive_on_followed_improved_history():
-    """A short history of followed+improved outcomes must nudge confidence up.
+def test_summarize_review_history_ignores_improvement_when_not_followed():
+    """If the user did not follow the recommendation, improvement is ignored.
 
-    This closes the review loop in structure: outcomes actually move the delta,
-    not just exist. Bounded per the first-pass clamp of ±0.25.
+    No counterfactual is available; classifying such an outcome by
+    improvement would encode a claim we cannot support.
     """
 
     from health_model.recovery_readiness_v1 import ReviewOutcome
-    from health_model.recovery_readiness_v1.review import derive_confidence_adjustment
+    from health_model.recovery_readiness_v1.review import summarize_review_history
 
-    outcomes = [
-        ReviewOutcome(
-            review_event_id=f"rev_{i}",
-            recommendation_id=f"rec_{i}",
-            user_id="u_local_1",
-            recorded_at=NOW,
-            followed_recommendation=True,
-            self_reported_improvement=True,
-        )
-        for i in range(2)
-    ]
-    delta = derive_confidence_adjustment(outcomes)
-    assert delta > 0.0
-    assert delta <= 0.25
+    outcome = ReviewOutcome(
+        review_event_id="rev_1",
+        recommendation_id="rec_1",
+        user_id="u_local_1",
+        recorded_at=NOW,
+        followed_recommendation=False,
+        self_reported_improvement=True,  # deliberately True, must be ignored
+    )
+    summary = summarize_review_history([outcome])
+    assert summary["not_followed"] == 1
+    assert summary["followed_improved"] == 0
 
 
 # ---------------------------------------------------------------------------

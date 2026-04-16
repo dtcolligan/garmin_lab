@@ -92,7 +92,7 @@ Chief Operational Brief's Phase 1 doctrine pass lands. The flagship `recovery_re
 
 - Key commits: `ce838e9` (Phase 1 doctrine), `adfca63` (Phase 2 flagship), `c98c921` (external-review tightening), `f3a73e6` (Phase 2 closure).
 
-**Why it mattered:** The thesis goes from "well-framed repo" to "running, inspectable, domain-credible proof." Tailoring is now visible as numeric caps in the recommendation payload. Review-loop calibration returns bounded, asymmetric deltas over real outcomes. One real-day Garmin slice runs through the unchanged CLEAN→REVIEW pipeline. Everything the brief asks for at this horizon is in the tree.
+**Why it mattered:** The thesis goes from "well-framed repo" to "running, inspectable, domain-credible proof." The user's `active_goal` is now surfaced in the recommendation payload so downstream LLM consumers can act on it. Review-loop calibration returns bounded deltas over real outcomes. One real-day Garmin slice runs through the unchanged CLEAN→REVIEW pipeline. Everything the brief asks for at this horizon is in the tree.
 
 ---
 
@@ -102,7 +102,7 @@ Chief Operational Brief's Phase 1 doctrine pass lands. The flagship `recovery_re
 - Phase 1 doctrine is controlling (`reporting/docs/canonical_doctrine.md`).
 - Phase 2 flagship is shipped and inspectable.
 - Phase 3 (adapter/connector reframing) is queued but not started — see `STATUS.md` for the specific lane.
-- Two `TODO(founder)` markers intentionally retained on `_goal_conditioned_detail` and `derive_confidence_adjustment` — first-pass heuristics, replaceable with authored judgment.
+- No `TODO(founder)` markers remain in code. `_goal_conditioned_detail` now surfaces `active_goal` as pass-through; `derive_confidence_adjustment` was reshaped into `summarize_review_history` returning structured counts. The runtime does not invent judgment; that work belongs to a downstream LLM consumer.
 
 ## Reading this timeline
 

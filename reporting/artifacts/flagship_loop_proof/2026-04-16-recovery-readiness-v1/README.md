@@ -27,18 +27,21 @@ layer is the real implementation under `clean/health_model/recovery_readiness_v1
 
 ### The tailoring pair
 
-The two `tailoring_*` rows demonstrate **personal tailoring as state-conditioned
-action variance on identical physiological evidence**. Both scenarios use the
-same Garmin sleep/RHR/HRV/training-load fixtures and the same low-soreness /
-high-energy manual readiness — only `active_goal` differs. The recommendation's
-`action_detail` and one `rationale` line reflect that difference.
+The two `tailoring_*` rows demonstrate **the user's active goal being surfaced
+in the recommendation output** on identical physiological evidence. Both
+scenarios use the same Garmin sleep/RHR/HRV/training-load fixtures and the
+same low-soreness / high-energy manual readiness — only `active_goal` differs.
+The recommendation's `action_detail` carries `{"active_goal": <string>}` and
+one `rationale` line names the goal.
 
-The current goal-conditioning is a **minimal honest stub**: it surfaces the
-goal name to prove the wiring. The founder-authored TODO in
+The tailoring layer is **deliberately thin**. The runtime does not invent
+RPE caps, zone ceilings, or session-shape decisions from the goal — that is
+periodization judgment that belongs to a downstream LLM consumer reading this
+recommendation. The runtime's contribution is making the goal visible at the
+point of recommendation, so the LLM (or human reader) can act on it with
+full structured context. See
 `clean/health_model/recovery_readiness_v1/recommend.py::_goal_conditioned_detail`
-is where real goal-specific caps (intensity, volume, target zones) land. Once
-that TODO is filled in, regenerating these two captures will show genuine
-action-parameter variance on identical evidence.
+for the shape of the hook.
 
 ## Files
 

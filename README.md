@@ -37,8 +37,8 @@ RECOMMEND  bounded TrainingRecommendation with confidence,
 ACTION     idempotent local writeback (JSONL + daily plan note)
   │        writeback_locality enforced at the I/O boundary
   ▼
-REVIEW     schedule + record outcome; outcomes feed
-           derive_confidence_adjustment for future calibration
+REVIEW     schedule + record outcome; summarize_review_history returns
+           counts by category for a downstream LLM to act on
 ```
 
 Each arrow increases commitment: raw evidence becomes a validated claim, then a typed state, then a policy-approved proposal, then a bounded local write, then a reviewable outcome. Nothing in this chain reaches outside the local writeback boundary.

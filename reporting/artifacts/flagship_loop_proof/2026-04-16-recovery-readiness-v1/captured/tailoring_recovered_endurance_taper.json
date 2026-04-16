@@ -89,10 +89,7 @@
   "training_recommendation": {
     "action": "proceed_with_planned_session",
     "action_detail": {
-      "active_goal": "endurance_taper",
-      "duration_cap_min": 45,
-      "session_focus": "aerobic_easy",
-      "zone_cap": 2
+      "active_goal": "endurance_taper"
     },
     "bounded": true,
     "confidence": "high",
@@ -116,8 +113,7 @@
       "resting_hr_vs_baseline=at",
       "training_load_trailing_7d=high",
       "hrv_vs_baseline=above",
-      "active_goal=endurance_taper",
-      "endurance_taper tailoring: Z2 ceiling, <=45 min, easy aerobic focus"
+      "active_goal=endurance_taper"
     ],
     "recommendation_id": "rec_2026-04-16_u_tailoring_recovered_endurance_taper_01",
     "schema_version": "training_recommendation.v1",

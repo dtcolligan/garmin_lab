@@ -177,57 +177,28 @@ def _goal_conditioned_detail(
     state: RecoveryState,
     planned_session_type: Optional[str],
 ) -> tuple[Optional[dict], list[str]]:
-    """Condition the recommendation on ``state.active_goal``.
+    """Surface ``state.active_goal`` in the recommendation payload.
 
-    Only the ``recovered`` status reaches this helper; downgrade and rest-day
-    actions are driven by policy bands, not by goal preference. This keeps
-    tailoring inside the envelope the policy layer has already allowed.
+    This helper is a deliberately thin hook. The runtime's job is to pass
+    clean, typed state to downstream LLM consumers — it is *not* to encode
+    periodization judgment. Caps, ceilings, and session-shape decisions
+    belong to the LLM layer that reads the recommendation, not to this
+    deterministic runtime.
 
-    TODO(founder): refine these first-pass heuristics.
+    Behaviour:
+      - if ``state.active_goal`` is set, attach it to the recommendation's
+        ``action_detail`` so an LLM or human reader sees, at the point of
+        recommendation, which goal the user is optimising for.
+      - if ``state.active_goal`` is empty, return ``None`` (no tailoring
+        surface — the recommendation proceeds goal-unaware).
 
-    First-pass assumptions (explicit so a reviewer can push back):
-      - ``strength_block``: a recovered athlete can push intensity, but volume
-        stays bounded to protect the CNS. Caps: RPE <= 8, <= 5 working sets,
-        compound-lift focus.
-      - ``endurance_taper``: intensity is deliberately held below threshold;
-        duration is trimmed. Caps: Zone 2 ceiling, <= 45 min, easy-aerobic
-        focus.
-      - other named goals fall through to the minimal surface (goal name
-        only) — no guess caps.
-      - missing ``active_goal`` returns ``None`` (no tailoring).
-
-    The values are deterministic heuristics, not clinically validated. They
-    exist to make tailoring *visible in the recommendation payload* (so a
-    downstream reader or agent can act on the caps), not to prescribe real
-    training periodization.
+    Only the ``recovered`` status reaches this helper; downgrade and
+    rest-day actions are driven by policy bands, not by goal preference.
     """
 
     goal = (state.active_goal or "").strip().lower()
     if not goal:
         return None, []
-
-    if goal == "strength_block":
-        return (
-            {
-                "active_goal": goal,
-                "rpe_cap": 8,
-                "set_cap": 5,
-                "session_focus": "compound_heavy",
-            },
-            [f"active_goal={goal}", "strength_block tailoring: RPE<=8, <=5 working sets, compound focus"],
-        )
-
-    if goal == "endurance_taper":
-        return (
-            {
-                "active_goal": goal,
-                "zone_cap": 2,
-                "duration_cap_min": 45,
-                "session_focus": "aerobic_easy",
-            },
-            [f"active_goal={goal}", "endurance_taper tailoring: Z2 ceiling, <=45 min, easy aerobic focus"],
-        )
-
     return {"active_goal": goal}, [f"active_goal={goal}"]
 
 
