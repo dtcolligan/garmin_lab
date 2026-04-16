@@ -1,5 +1,19 @@
 # Status
 
+## Phase 1 doctrine (adopted 2026-04-16)
+
+The Phase 1 doctrine pass per the Chief Operational Brief landed as a dated doc set under `reporting/docs/`. It is authoritative for current project direction:
+
+- `reporting/docs/chief_operational_brief_2026-04-16.md`
+- `reporting/docs/canonical_doctrine.md`
+- `reporting/docs/flagship_loop_spec.md`
+- `reporting/docs/state_object_schema.md`
+- `reporting/docs/recommendation_object_schema.md`
+- `reporting/docs/minimal_policy_rules.md`
+- `reporting/docs/explicit_non_goals.md`
+
+That set defines the runtime model (`PULL -> CLEAN -> STATE -> POLICY -> RECOMMEND -> ACTION -> REVIEW`), the single flagship loop (`recovery_readiness_v1`), and the explicit non-goals. Phase 2 (narrow end-to-end implementation) builds against those specs.
+
 ## Report-phase tracker
 
 Source plan: `reporting/docs/health_lab_repo_transformation_plan_2026-04-09.md`

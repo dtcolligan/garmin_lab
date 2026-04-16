@@ -58,6 +58,24 @@ Explicit persisted state or memory update surfaces.
 ### `safety`
 Compatibility wrappers, tests, fail-closed checks, and trust-boundary enforcement.
 
+## Phase 1 doctrine (adopted 2026-04-16)
+
+A dated Phase 1 doctrine set anchors current project direction. It is authoritative for what the project is trying to prove right now, what the runtime is shaped like, and what is explicitly out of scope.
+
+- `reporting/docs/chief_operational_brief_2026-04-16.md`
+- `reporting/docs/canonical_doctrine.md`
+- `reporting/docs/flagship_loop_spec.md`
+- `reporting/docs/state_object_schema.md`
+- `reporting/docs/recommendation_object_schema.md`
+- `reporting/docs/minimal_policy_rules.md`
+- `reporting/docs/explicit_non_goals.md`
+
+The canonical runtime architecture from that doctrine is:
+
+`PULL -> CLEAN -> STATE -> POLICY -> RECOMMEND -> ACTION -> REVIEW`
+
+That runtime model sits on top of the eight-bucket repo organisation, it does not replace it.
+
 ## Current proof path and frozen target flagship
 
 The clearest public proof is still the CLI-first loop:
