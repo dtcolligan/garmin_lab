@@ -1,6 +1,6 @@
 # Contributing
 
-Thanks for taking a look at Health Lab.
+Thanks for taking a look at Health Agent Infra (internal codename: Health Lab).
 
 ## Canonical organizing rule
 
@@ -24,12 +24,14 @@ This repo is currently easiest to review as a bounded proof repo with one CLI-fi
 Start here:
 - `README.md`
 - `STATUS.md`
+- `reporting/docs/canonical_doctrine.md`
+- `reporting/docs/flagship_loop_spec.md`
+- `reporting/docs/flagship_walkthrough.md`
+- `reporting/artifacts/flagship_loop_proof/2026-04-16-recovery-readiness-v1/` — current flagship synthetic proof
+- `reporting/artifacts/flagship_loop_proof/2026-04-16-garmin-real-slice/` — current flagship real Garmin slice
 - `reporting/docs/v1_source_scope.md`
 - `reporting/docs/source_registry_v1.md`
 - `reporting/docs/source_adapter_contract_v1.md`
-- `reporting/docs/health_lab_canonical_definition.md`
-- `reporting/docs/health_lab_canonical_public_demo.md`
-- `reporting/artifacts/public_demo/captured/`
 
 For current source-scope and connector-truth review, preserve this doctrine:
 - manual structured gym logs are the current source-of-truth path
@@ -58,7 +60,7 @@ Please keep contributions truthful to current repo reality:
 Current flagship smoke test command:
 
 ```bash
-PYTHONPATH=clean:safety python3 -m unittest safety.tests.test_agent_contract_cli safety.tests.test_agent_bundle_cli safety.tests.test_agent_voice_note_cli safety.tests.test_agent_context_cli safety.tests.test_agent_recommendation_cli
+PYTHONPATH=clean:safety uv run --with pytest pytest safety/tests/test_recovery_readiness_v1.py -v
 ```
 
 ## Good first changes

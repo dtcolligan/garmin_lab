@@ -99,9 +99,12 @@ satisfies them:
 
 ## Scope and honesty
 
-- PULL is a synthetic fixture, not a live Garmin API call. Wiring real
-  pulls is a Phase 2 follow-on slice; the cleaned-evidence shape is
-  stable and real pulls plug into it directly.
+- PULL in this bundle is a synthetic fixture, not a live Garmin API
+  call. Real Garmin evidence flows through the same CLEAN→REVIEW
+  pipeline in the sibling capture
+  `reporting/artifacts/flagship_loop_proof/2026-04-16-garmin-real-slice/`.
+  Live scheduled pulls are explicitly out of scope; the adapter reads
+  the already-committed offline CSV export.
 - The readiness-score formula is a first-pass deterministic heuristic.
   Confidence in the score itself is not yet calibrated against user
   outcomes; review data is the intended input to that calibration over

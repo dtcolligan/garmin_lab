@@ -14,11 +14,42 @@ It is not a chatbot, a wearable API, a broad AI health app, or a clinical produc
 
 That sequence takes a smart outsider from thesis to running code — over both synthetic and real evidence — in under three minutes.
 
+If you have ten minutes instead of three, read the [reading tour](reporting/docs/tour.md) — a guided walkthrough that explains *why* each piece exists, not just what it does.
+
+## Runtime at a glance
+
+```
+PULL       raw Garmin evidence + typed manual readiness intake
+  │
+  ▼
+CLEAN      validate, compute baselines, assemble CleanedEvidence
+  │
+  ▼
+STATE      typed RecoveryState with signal_quality + uncertainties
+  │
+  ▼
+POLICY     executable rules (R1 block, R2 soften, R6 escalate, …)
+  │        leaves a PolicyDecision audit trail
+  ▼
+RECOMMEND  bounded TrainingRecommendation with confidence,
+  │        uncertainty, rationale, goal-conditioned action_detail
+  ▼
+ACTION     idempotent local writeback (JSONL + daily plan note)
+  │        writeback_locality enforced at the I/O boundary
+  ▼
+REVIEW     schedule + record outcome; outcomes feed
+           derive_confidence_adjustment for future calibration
+```
+
+Each arrow increases commitment: raw evidence becomes a validated claim, then a typed state, then a policy-approved proposal, then a bounded local write, then a reviewable outcome. Nothing in this chain reaches outside the local writeback boundary.
+
 ## Scope
 
 - **Controlling doctrine**: [reporting/docs/canonical_doctrine.md](reporting/docs/canonical_doctrine.md) — wins any conflict with other docs until explicitly retired.
 - **Explicit non-goals**: [reporting/docs/explicit_non_goals.md](reporting/docs/explicit_non_goals.md) — 12 hard + 2 soft non-goals, including no second connector, no rich UI, no medical-style outputs, no connector sprawl.
 - **Phase 2 plan (executed 2026-04-16)**: [reporting/docs/plan_2026-04-16.md](reporting/docs/plan_2026-04-16.md).
+- **Reading tour**: [reporting/docs/tour.md](reporting/docs/tour.md) — 10-minute guided walkthrough.
+- **Phase timeline**: [reporting/docs/phase_timeline.md](reporting/docs/phase_timeline.md) — how the repo got to its current shape.
 - **How to contribute**: [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Repo organisation
@@ -119,19 +150,18 @@ PYTHONPATH=clean:safety python -m health_model.recovery_readiness_v1.cli run \
 
 The captured proof bundle demonstrates all six flagship-spec conditions: deterministic evidence path, typed state, policy audit trail, structured recommendation, bounded local writeback, and a recorded review outcome.
 
-## Current proof path and frozen target flagship
+## Current proof path
 
-The clearest public proof is still the CLI-first loop:
+The flagship public proof is `recovery_readiness_v1`:
 
-`contract describe -> bundle init -> voice-note submit -> context get -> recommendation create`
+`PULL -> CLEAN -> STATE -> POLICY -> RECOMMEND -> ACTION -> REVIEW`
 
-Today that loop is implemented mainly from `clean/health_model/`, with compatibility wrappers also present under `safety/health_agent_infra/` and the writeback surface exposed under `writeback/`.
+Implemented in `clean/health_model/recovery_readiness_v1/`, runs end-to-end over both synthetic fixtures and a committed real Garmin CSV export. Captured proof bundles:
 
-The approved target flagship doctrine is narrower and different from that current public proof path:
+- synthetic (8 scenarios): `reporting/artifacts/flagship_loop_proof/2026-04-16-recovery-readiness-v1/`
+- real Garmin slice: `reporting/artifacts/flagship_loop_proof/2026-04-16-garmin-real-slice/`
 
-`Garmin passive pull -> typed manual readiness intake -> deterministic normalization/bundle/context -> bounded recommendation -> bounded writeback`
-
-That target flagship is a frozen direction for the next slices, not a claim that the repo already ships that exact end-to-end loop today.
+An older CLI-first proof path — `contract describe -> bundle init -> voice-note submit -> context get -> recommendation create` — is still present under `clean/health_model/` with compatibility wrappers under `safety/health_agent_infra/` and writeback surface under `writeback/`. It predates the flagship and is retained as historical compatibility, not as the current proof path.
 
 Repo-facing truth should follow the transformation plan. For the current gym-source doctrine interval, manual structured gym logs remain the source-of-truth path, `wger` is a bounded exploratory non-flagship connector prototype, and leftover connector surfaces outside that doctrine are not the canonical current direction unless the plan explicitly promotes them.
 

@@ -30,6 +30,8 @@ Eight synthetic scenarios are captured (six original runtime facets plus two goa
 
 Source plan: `reporting/docs/health_lab_repo_transformation_plan_2026-04-09.md`
 
+Note: the Phase 1/2/3/4/5/6 numbering below is from the 2026-04-09 transformation plan and is **separate** from the 2026-04-16 doctrine's Phase 1 (doctrine pass) and Phase 2 (flagship). The two numbering systems coexist: doctrine phases track what the runtime proves; transformation-plan phases track how the repo shape evolves. They are not the same index.
+
 - Phase 1 — identity and contract correction: mostly done locally
   - evidence: `README.md` and `STATUS.md` now frame the repo as Health Lab rather than a Garmin-only repo, and distinguish current proof from target flagship doctrine
 - Phase 2 — canonical data model introduction: partially done locally
@@ -96,21 +98,26 @@ Current implementation highlights by bucket:
 
 ## Proven now
 
-The clearest current proof loop is:
+The flagship current proof loop is `recovery_readiness_v1`:
 
-`contract describe -> bundle init -> voice-note submit -> context get -> recommendation create`
+`PULL -> CLEAN -> STATE -> POLICY -> RECOMMEND -> ACTION -> REVIEW`
 
-That proof is currently taught through bucketed implementation paths, mainly `clean/health_model/`, with temporary compatibility wrappers under `safety/health_agent_infra/`.
+Implemented in `clean/health_model/recovery_readiness_v1/`; runs end-to-end over both synthetic fixtures and the committed real Garmin CSV export.
+
+An older CLI-first proof path (`contract describe -> bundle init -> voice-note submit -> context get -> recommendation create`) remains present under `clean/health_model/` with compatibility wrappers under `safety/health_agent_infra/`. It is retained as historical compatibility, not the current flagship.
 
 Public review surfaces:
 
+- `reporting/artifacts/flagship_loop_proof/2026-04-16-recovery-readiness-v1/` — 8 synthetic scenarios, full captured bundle
+- `reporting/artifacts/flagship_loop_proof/2026-04-16-garmin-real-slice/` — real Garmin slice, same pipeline
+- `reporting/docs/flagship_walkthrough.md` — narrative walkthrough
 - `reporting/docs/v1_source_scope.md`
 - `reporting/docs/source_registry_v1.md`
 - `reporting/docs/source_adapter_contract_v1.md`
 - `reporting/docs/health_lab_canonical_definition.md`
 - `reporting/docs/health_lab_canonical_public_demo.md`
-- `reporting/artifacts/public_demo/captured/`
-- `reporting/artifacts/flagship_loop_proof/2026-04-09/`
+- `reporting/artifacts/public_demo/captured/` — older CLI-path public demo
+- `reporting/artifacts/flagship_loop_proof/2026-04-09/` — pre-Phase-2 flagship bundle
 - `reporting/artifacts/protocol_layer_proof/2026-04-14-manual-gym-phase-4-prototype/`
 
 For checked-in proof review, `reporting/artifacts/` is the sole canonical root.
