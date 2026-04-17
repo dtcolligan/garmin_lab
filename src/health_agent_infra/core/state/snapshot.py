@@ -35,7 +35,12 @@ _DOMAIN_TABLES: dict[str, str] = {
     "running": "accepted_running_state_daily",
     "gym": "accepted_resistance_training_state_daily",
     "nutrition": "accepted_nutrition_state_daily",
-    "stress": "stress_manual_raw",
+    "sleep": "accepted_sleep_state_daily",
+    # Phase 3: stress points at the new accepted table; pre-Phase-3 it
+    # pointed at the raw stress_manual_raw. The raw table is still
+    # queryable via SQL for debugging; read_domain surfaces the accepted
+    # canonical state the agent consumes.
+    "stress": "accepted_stress_state_daily",
     "notes": "context_note",
     "recommendations": "recommendation_log",
     "reviews": "review_outcome",
@@ -48,6 +53,7 @@ _DOMAIN_DATE_COLUMN: dict[str, str] = {
     "running": "as_of_date",
     "gym": "as_of_date",
     "nutrition": "as_of_date",
+    "sleep": "as_of_date",
     "stress": "as_of_date",
     "notes": "as_of_date",
     "recommendations": "for_date",
@@ -61,6 +67,7 @@ _DOMAIN_HAS_USER_ID: dict[str, bool] = {
     "running": True,
     "gym": True,
     "nutrition": True,
+    "sleep": True,
     "stress": True,
     "notes": True,
     "recommendations": True,
@@ -102,18 +109,12 @@ _METADATA_COLUMNS: frozenset[str] = frozenset({
 # When 7B lands, these sets grow; the snapshot surface stays the same.
 _V1_REQUIRED_FIELDS: dict[str, frozenset[str]] = {
     "recovery": frozenset({
-        "sleep_hours", "resting_hr", "hrv_ms", "all_day_stress",
+        "resting_hr", "hrv_ms",
         "acute_load", "chronic_load", "acwr_ratio",
-        "body_battery_end_of_day",
         # Phase 7B: locally-computed mean of five Garmin component pcts.
         # A missing value here means Garmin didn't record ≥1 component that
         # day — surfaced as `unavailable_at_source`, not `partial`.
         "training_readiness_component_mean_pct",
-        # manual_stress_score is user-reported and must flow through
-        # stress_manual_raw → accepted recovery (7C). Until 7C ships, a
-        # clean-only pipeline cannot populate it, so it is NOT part of the
-        # v1 "required for present" set. Its NULL-ness still surfaces via
-        # the `stress` block's missingness token, which is the right place.
     }),
     "running": frozenset({
         "total_distance_m", "moderate_intensity_min", "vigorous_intensity_min",
@@ -123,6 +124,18 @@ _V1_REQUIRED_FIELDS: dict[str, frozenset[str]] = {
     }),
     "nutrition": frozenset({
         "calories", "protein_g", "carbs_g", "fat_g",
+    }),
+    # Phase 3: sleep + stress are first-class domains. sleep_hours is the
+    # headline signal; the minute breakdowns and scores are enrichments
+    # and NULLs on them do not count as partial. Stress's required set is
+    # the co-owned pair: Garmin's all-day stress (passive) plus the user
+    # manual score routes missingness separately via the stress block
+    # assembler below.
+    "sleep": frozenset({
+        "sleep_hours",
+    }),
+    "stress": frozenset({
+        "garmin_all_day_stress",
     }),
 }
 
@@ -320,11 +333,12 @@ def build_snapshot(
             user_id=user_id,
         )
 
-    # Passive (Garmin-backed) recovery/running: can only be `absent` or
-    # `present`/`partial`; never `pending_user_input` (Garmin doesn't need
-    # user action).
+    # Passive (Garmin-backed) recovery/running/sleep: can only be
+    # `absent` or `present`/`partial`; never `pending_user_input`
+    # (Garmin doesn't need user action).
     recovery_today, recovery_mx = _daily_today("recovery")
     running_today, running_mx = _daily_today("running")
+    sleep_today, sleep_mx = _daily_today("sleep")
 
     # User-reported domains: follow the pending_user_input rule.
     gym_today, gym_mx = _daily_today("gym")
@@ -347,34 +361,34 @@ def build_snapshot(
     # whatever's in the lookback.
     recent_notes = _history("notes")
 
-    # Stress is a derived view on accepted_recovery_state_daily — Garmin's
-    # all_day_stress + the user-reported manual_stress_score live together
-    # in that canonical row. The raw stress_manual_raw table exists for
-    # audit (queryable via `hai state read --domain stress`) but the
-    # snapshot pulls from the accepted row so the agent never sees
-    # pre-projection submissions.
-    today_garmin_stress: Optional[int] = None
-    today_manual_stress: Optional[int] = None
-    if isinstance(recovery_today, dict):
-        today_garmin_stress = recovery_today.get("all_day_stress")
-        today_manual_stress = recovery_today.get("manual_stress_score")
+    # Stress (Phase 3): first-class domain on its own accepted table.
+    # Two origins co-own it: Garmin (garmin_all_day_stress +
+    # body_battery_end_of_day) and user_manual (manual_stress_score).
+    # Missingness routes by origin per state_model_v1.md §5:
+    #   - Both present: `present`.
+    #   - Both null + today/before-cutover: `pending_user_input` (user
+    #     can still log; Garmin's absence doesn't resolve by user action
+    #     but we keep the bare token since the user can still contribute).
+    #   - Both null + day closed: `absent`.
+    #   - Garmin null only: `unavailable_at_source:garmin_all_day_stress`.
+    #   - Manual null only: routed by time —
+    #     `pending_user_input:manual_stress_score` pre-cutover,
+    #     `partial:manual_stress_score` post-cutover.
+    stress_rows = read_domain(
+        conn,
+        domain="stress",
+        since=as_of_date,
+        until=as_of_date,
+        user_id=user_id,
+    )
+    stress_today = stress_rows[0] if stress_rows else None
+    today_garmin_stress = stress_today.get("garmin_all_day_stress") if stress_today else None
+    today_manual_stress = stress_today.get("manual_stress_score") if stress_today else None
+    today_body_battery = stress_today.get("body_battery_end_of_day") if stress_today else None
 
     garmin_null = today_garmin_stress is None
     manual_null = today_manual_stress is None
 
-    # Stress blends two origins into one block: Garmin (passive) +
-    # user_manual (user-reported). Missingness routes by origin per
-    # state_model_v1.md §5:
-    #   - Both present: `present`.
-    #   - Both null + today/before-cutover: `pending_user_input` (user can
-    #     still log; Garmin's absence doesn't resolve by user action, but
-    #     we keep the bare token here since the user can still contribute).
-    #   - Both null + day closed: `absent` (no stress evidence at all).
-    #   - Garmin null only: `unavailable_at_source:all_day_stress` — the
-    #     source was queried and didn't return. Independent of time-of-day.
-    #   - Manual null only: routed by time. today/before-cutover →
-    #     `pending_user_input:manual_stress_score`; day closed →
-    #     `partial:manual_stress_score`.
     if not garmin_null and not manual_null:
         stress_mx = "present"
     elif garmin_null and manual_null:
@@ -383,7 +397,7 @@ def build_snapshot(
         else:
             stress_mx = "absent"
     elif garmin_null:
-        stress_mx = "unavailable_at_source:all_day_stress"
+        stress_mx = "unavailable_at_source:garmin_all_day_stress"
     else:
         # manual_null only
         if is_today and is_before_cutover:
@@ -393,6 +407,8 @@ def build_snapshot(
 
     recovery_history = _history("recovery")
     running_history = _history("running")
+    sleep_history = _history("sleep")
+    stress_history = _history("stress")
 
     recovery_block: dict[str, Any] = {
         "today": recovery_today,
@@ -453,6 +469,24 @@ def build_snapshot(
         "history_range": [lookback_start.isoformat(), (as_of_date - timedelta(days=1)).isoformat()],
         "recovery": recovery_block,
         "running": running_block,
+        "sleep": {
+            "today": sleep_today,
+            "history": sleep_history,
+            "missingness": sleep_mx,
+        },
+        "stress": {
+            "today": stress_today,
+            "history": stress_history,
+            "missingness": stress_mx,
+            # Convenience accessors so synthesis_policy and skills can read
+            # the day's stress signals without unpacking `today`. These
+            # mirror the pre-Phase-3 `today_garmin` / `today_manual` shape
+            # and add `today_body_battery` which moved onto the stress
+            # block with migration 004.
+            "today_garmin": today_garmin_stress,
+            "today_manual": today_manual_stress,
+            "today_body_battery": today_body_battery,
+        },
         "gym": {
             "today": gym_today,
             "history": _history("gym"),
@@ -462,11 +496,6 @@ def build_snapshot(
             "today": nutrition_today,
             "history": _history("nutrition"),
             "missingness": nutrition_mx,
-        },
-        "stress": {
-            "today_garmin": today_garmin_stress,
-            "today_manual": today_manual_stress,
-            "missingness": stress_mx,
         },
         "notes": {
             "recent": recent_notes,

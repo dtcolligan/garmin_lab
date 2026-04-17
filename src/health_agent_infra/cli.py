@@ -246,6 +246,8 @@ def _project_clean_into_state(
         open_connection,
         project_accepted_recovery_state_daily,
         project_accepted_running_state_daily,
+        project_accepted_sleep_state_daily,
+        project_accepted_stress_state_daily,
         project_source_daily_garmin,
         resolve_db_path,
     )
@@ -287,6 +289,22 @@ def _project_clean_into_state(
                 commit_after=False,
             )
             project_accepted_running_state_daily(
+                conn,
+                as_of_date=as_of_date,
+                user_id=user_id,
+                raw_row=raw_row,
+                source_row_ids=[source_row_id],
+                commit_after=False,
+            )
+            project_accepted_sleep_state_daily(
+                conn,
+                as_of_date=as_of_date,
+                user_id=user_id,
+                raw_row=raw_row,
+                source_row_ids=[source_row_id],
+                commit_after=False,
+            )
+            project_accepted_stress_state_daily(
                 conn,
                 as_of_date=as_of_date,
                 user_id=user_id,
@@ -1183,18 +1201,19 @@ def cmd_intake_stress(args: argparse.Namespace) -> int:
 
 
 def _project_stress_submission_into_state(db_path_arg, submission) -> None:
-    """Project stress raw + merge into accepted recovery atomically.
+    """Project stress raw + merge into accepted stress atomically.
 
     Two writes inside one ``BEGIN IMMEDIATE`` / ``COMMIT``:
       1. INSERT into ``stress_manual_raw`` (append-only).
-      2. UPDATE/INSERT into ``accepted_recovery_state_daily`` with
-         ``manual_stress_score`` set to the latest non-superseded raw
-         score for this (day, user). Garmin fields preserved on UPDATE
-         (the clean projector reciprocally preserves manual_stress_score).
+      2. UPDATE/INSERT into ``accepted_stress_state_daily`` with
+         ``manual_stress_score`` + ``stress_tags_json`` set to the latest
+         non-superseded raw row for this (day, user). Garmin fields
+         (``garmin_all_day_stress``, ``body_battery_end_of_day``)
+         preserved on UPDATE — the clean projector owns that dimension.
     """
 
     from health_agent_infra.core.state import (
-        merge_manual_stress_into_accepted_recovery,
+        merge_manual_stress_into_accepted_stress,
         open_connection,
         project_stress_manual_raw,
         resolve_db_path,
@@ -1225,7 +1244,7 @@ def _project_stress_submission_into_state(db_path_arg, submission) -> None:
                 supersedes_submission_id=submission.supersedes_submission_id,
                 commit_after=False,
             )
-            merge_manual_stress_into_accepted_recovery(
+            merge_manual_stress_into_accepted_stress(
                 conn,
                 as_of_date=submission.as_of_date,
                 user_id=submission.user_id,

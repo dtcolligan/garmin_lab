@@ -168,7 +168,19 @@ def _acwr_ratio(snapshot: dict[str, Any]) -> Optional[float]:
 
 
 def _body_battery(snapshot: dict[str, Any]) -> Optional[int]:
-    value = _get(snapshot, "recovery", "today", "body_battery_end_of_day")
+    """Read day-end body battery from the Phase 3 stress block.
+
+    Body battery moved off ``accepted_recovery_state_daily`` onto
+    ``accepted_stress_state_daily`` in migration 004. The snapshot
+    surfaces it both on ``stress.today.body_battery_end_of_day`` and as
+    the convenience key ``stress.today_body_battery``; this reader
+    prefers the convenience key (cheaper, no nested get), falling back
+    to the today row if only that is populated.
+    """
+
+    value = _get(snapshot, "stress", "today_body_battery")
+    if value is None:
+        value = _get(snapshot, "stress", "today", "body_battery_end_of_day")
     if value is None:
         return None
     try:
@@ -181,15 +193,28 @@ def _stress_band(
     snapshot: dict[str, Any],
     thresholds: dict[str, Any],
 ) -> Optional[str]:
-    """Derive a categorical stress band from numeric ``all_day_stress``.
+    """Derive a categorical stress band from the Phase 3 stress block.
 
-    Phase 3 will introduce an accepted ``stress`` domain with its own
-    classifier. Until then, X7 reads the numeric stress score directly
-    from ``recovery.today.all_day_stress`` and bands it locally using
-    config thresholds so X7 is evaluable pre-Phase-3.
+    Reads ``stress.today_garmin`` (Garmin's numeric 0-100 all-day stress)
+    as the X7 input. Migration 004 moved this signal off the recovery
+    accepted row onto ``accepted_stress_state_daily.garmin_all_day_stress``;
+    the snapshot exposes it as the convenience key ``stress.today_garmin``.
+
+    X7 still bands locally using the same numeric thresholds as pre-
+    Phase-3. Once the stress domain ships a dedicated
+    ``classify_stress_state`` (Phase 3 step 4) this reader will prefer
+    ``stress.classified_state.garmin_stress_band`` and fall back to the
+    local banding as a defensive second path — the band computation
+    moves to the domain but X7's trigger registry stays here.
     """
 
-    value = _get(snapshot, "recovery", "today", "all_day_stress")
+    classified_band = _get(snapshot, "stress", "classified_state", "garmin_stress_band")
+    if classified_band is not None:
+        return classified_band
+
+    value = _get(snapshot, "stress", "today_garmin")
+    if value is None:
+        value = _get(snapshot, "stress", "today", "garmin_all_day_stress")
     if value is None:
         return None
     try:
@@ -535,7 +560,7 @@ def evaluate_x7(
             recommended_mutation=None,  # cap is implicit in tier
             source_signals={
                 "stress_band": band,
-                "all_day_stress": _get(snapshot, "recovery", "today", "all_day_stress"),
+                "garmin_all_day_stress": _get(snapshot, "stress", "today_garmin"),
             },
             phase="A",
         ))

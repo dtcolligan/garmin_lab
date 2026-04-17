@@ -450,17 +450,19 @@ def project_accepted_recovery_state_daily(
     per the hybrid correction grammar (state_model_v1.md §3). Returns
     ``True`` if this was an insert, ``False`` on update.
 
-    **Scope.** Writes Garmin-sourced fields only.
-    ``manual_stress_score`` is intentionally **not** written here — it is a
-    user-reported fact that must land in ``stress_manual_raw`` first (so the
-    raw→accepted audit chain holds), then be merged into this row by a
-    separate projection step. That merge arrives with 7C's ``hai intake
-    stress`` command. Until then, ``manual_stress_score`` stays NULL on
-    every accepted recovery row written by this function.
+    **Scope after Phase 3 (migration 004).** Recovery accepted state now
+    carries only the recovery-domain signals: resting_hr, hrv_ms, acute
+    and chronic load + acwr, and the training readiness component mean.
+    Sleep fields are owned by ``accepted_sleep_state_daily`` and stress /
+    body-battery fields by ``accepted_stress_state_daily``; those are
+    written by :func:`project_accepted_sleep_state_daily` and
+    :func:`project_accepted_stress_state_daily` respectively. Callers
+    composing a full "clean" write should run all three in one
+    transaction (see ``_dual_write_clean_projection`` in cli.py).
 
     ``training_readiness_component_mean_pct`` is populated as the
-    arithmetic mean of the five Garmin readiness component pcts (7B). It
-    is **not** Garmin's own overall Training Readiness score — that number
+    arithmetic mean of the five Garmin readiness component pcts. It is
+    **not** Garmin's own overall Training Readiness score — that number
     isn't exported in the daily CSV. None if any component is missing.
 
     ``commit_after``: set False when composing inside an outer transaction.
@@ -476,38 +478,29 @@ def project_accepted_recovery_state_daily(
     ).fetchone()
     is_insert = existing is None
 
-    sleep_hours = _sleep_hours_from_raw(raw_row)
     acwr = _acwr_ratio_from_raw(raw_row)
     readiness_mean = _training_readiness_component_mean_pct_from_raw(raw_row)
 
     if is_insert:
-        # Insert path: every column written, manual_stress_score=NULL
-        # because no stress raw row exists yet for this day. A subsequent
-        # `hai intake stress` will UPDATE it via the dedicated merge
-        # projector below.
         derived_from_json = json.dumps(sorted(set(new_ids)), sort_keys=True)
         conn.execute(
             """
             INSERT INTO accepted_recovery_state_daily (
-                sleep_hours, resting_hr, hrv_ms, all_day_stress,
-                manual_stress_score, acute_load, chronic_load, acwr_ratio,
-                training_readiness_component_mean_pct, body_battery_end_of_day,
+                resting_hr, hrv_ms,
+                acute_load, chronic_load, acwr_ratio,
+                training_readiness_component_mean_pct,
                 derived_from, source, ingest_actor,
                 projected_at, corrected_at,
                 as_of_date, user_id
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
-                sleep_hours,
                 raw_row.get("resting_hr"),
                 raw_row.get("health_hrv_value"),
-                raw_row.get("all_day_stress"),
-                None,  # manual_stress_score — owned by stress_manual_raw flow
                 raw_row.get("acute_load"),
                 raw_row.get("chronic_load"),
                 acwr,
                 readiness_mean,
-                raw_row.get("body_battery"),
                 derived_from_json,
                 source,
                 ingest_actor,
@@ -518,14 +511,10 @@ def project_accepted_recovery_state_daily(
             ),
         )
     else:
-        # Update path: only Garmin-sourced fields. manual_stress_score is
-        # explicitly NOT in this UPDATE — preserves whatever value was
-        # set by `hai intake stress`, even across Garmin re-pulls. This
-        # closes the bug where re-running clean would silently wipe an
-        # earlier stress merge.
         # derived_from: per-dimension slot replacement. The Garmin clean
         # owns the "non-intake" dimension — replace its prior contributor
-        # IDs with the new ones, preserve any stress / nutrition slots.
+        # IDs with the new ones, preserve any intake-sourced slots that
+        # may appear here in future co-ownership flows.
         merged_derived = _replace_dimension_in_derived_from(
             existing["derived_from"],
             new_ids=new_ids,
@@ -534,29 +523,266 @@ def project_accepted_recovery_state_daily(
         conn.execute(
             """
             UPDATE accepted_recovery_state_daily SET
-                sleep_hours = ?, resting_hr = ?, hrv_ms = ?, all_day_stress = ?,
+                resting_hr = ?, hrv_ms = ?,
                 acute_load = ?, chronic_load = ?,
                 acwr_ratio = ?, training_readiness_component_mean_pct = ?,
+                derived_from = ?, source = ?, ingest_actor = ?,
+                projected_at = ?, corrected_at = ?
+            WHERE as_of_date = ? AND user_id = ?
+            """,
+            (
+                raw_row.get("resting_hr"),
+                raw_row.get("health_hrv_value"),
+                raw_row.get("acute_load"),
+                raw_row.get("chronic_load"),
+                acwr,
+                readiness_mean,
+                merged_derived,
+                source,
+                ingest_actor,
+                now_iso,
+                now_iso,  # corrected_at on update
+                as_of_date.isoformat(),
+                user_id,
+            ),
+        )
+    if commit_after:
+        conn.commit()
+    return is_insert
+
+
+# ---------------------------------------------------------------------------
+# Accepted sleep state — UPSERT + corrected_at (Phase 3)
+# ---------------------------------------------------------------------------
+
+def _sleep_minutes_from_sec(raw_row: dict, col: str) -> Optional[float]:
+    value = raw_row.get(col)
+    if value is None:
+        return None
+    try:
+        return round(float(value) / 60.0, 1)
+    except (TypeError, ValueError):
+        return None
+
+
+def project_accepted_sleep_state_daily(
+    conn: sqlite3.Connection,
+    *,
+    as_of_date: date,
+    user_id: str,
+    raw_row: dict,
+    source_row_ids: Optional[list[str]] = None,
+    source: str = "garmin",
+    ingest_actor: str = "garmin_csv_adapter",
+    commit_after: bool = True,
+) -> bool:
+    """UPSERT one day's accepted sleep state from a Garmin raw row.
+
+    Maps the Garmin daily fields that describe sleep:
+
+      - ``sleep_hours`` = (deep + light + rem) / 3600, rounded to 2dp.
+      - minute breakdowns from the raw ``sleep_{deep,light,rem,awake}_sec``
+        columns, rounded to 0.1 min.
+      - score overall / quality / duration / recovery pass through.
+      - awake_count, avg_sleep_respiration, avg_sleep_stress pass through.
+      - ``sleep_start_ts``, ``sleep_end_ts``, ``avg_sleep_hrv`` are v1.1
+        enrichments and stay NULL in v1.
+
+    Behaves like :func:`project_accepted_recovery_state_daily`: first
+    insert stamps projected_at; subsequent updates stamp corrected_at.
+    ``commit_after=False`` lets callers compose inside an outer
+    transaction (the clean flow writes recovery + sleep + stress + running
+    under one BEGIN/COMMIT).
+    """
+
+    now_iso = _now_iso()
+    new_ids = list(source_row_ids or [])
+
+    existing = conn.execute(
+        "SELECT derived_from FROM accepted_sleep_state_daily "
+        "WHERE as_of_date = ? AND user_id = ?",
+        (as_of_date.isoformat(), user_id),
+    ).fetchone()
+    is_insert = existing is None
+
+    sleep_hours = _sleep_hours_from_raw(raw_row)
+    deep_min = _sleep_minutes_from_sec(raw_row, "sleep_deep_sec")
+    light_min = _sleep_minutes_from_sec(raw_row, "sleep_light_sec")
+    rem_min = _sleep_minutes_from_sec(raw_row, "sleep_rem_sec")
+    awake_min = _sleep_minutes_from_sec(raw_row, "sleep_awake_sec")
+
+    values = (
+        sleep_hours,
+        raw_row.get("sleep_score_overall"),
+        raw_row.get("sleep_score_quality"),
+        raw_row.get("sleep_score_duration"),
+        raw_row.get("sleep_score_recovery"),
+        deep_min, light_min, rem_min, awake_min,
+        raw_row.get("awake_count"),
+        None,  # sleep_start_ts (v1.1 enrichment)
+        None,  # sleep_end_ts
+        raw_row.get("avg_sleep_respiration"),
+        raw_row.get("avg_sleep_stress"),
+        None,  # avg_sleep_hrv (v1.1 enrichment)
+    )
+
+    if is_insert:
+        derived_from_json = json.dumps(sorted(set(new_ids)), sort_keys=True)
+        conn.execute(
+            """
+            INSERT INTO accepted_sleep_state_daily (
+                sleep_hours,
+                sleep_score_overall, sleep_score_quality,
+                sleep_score_duration, sleep_score_recovery,
+                sleep_deep_min, sleep_light_min, sleep_rem_min, sleep_awake_min,
+                awake_count, sleep_start_ts, sleep_end_ts,
+                avg_sleep_respiration, avg_sleep_stress, avg_sleep_hrv,
+                derived_from, source, ingest_actor,
+                projected_at, corrected_at,
+                as_of_date, user_id
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                *values,
+                derived_from_json,
+                source,
+                ingest_actor,
+                now_iso,
+                None,
+                as_of_date.isoformat(),
+                user_id,
+            ),
+        )
+    else:
+        merged_derived = _replace_dimension_in_derived_from(
+            existing["derived_from"],
+            new_ids=new_ids,
+            owns=lambda rid: not _is_intake_submission_id(rid),
+        )
+        conn.execute(
+            """
+            UPDATE accepted_sleep_state_daily SET
+                sleep_hours = ?,
+                sleep_score_overall = ?, sleep_score_quality = ?,
+                sleep_score_duration = ?, sleep_score_recovery = ?,
+                sleep_deep_min = ?, sleep_light_min = ?,
+                sleep_rem_min = ?, sleep_awake_min = ?,
+                awake_count = ?, sleep_start_ts = ?, sleep_end_ts = ?,
+                avg_sleep_respiration = ?, avg_sleep_stress = ?, avg_sleep_hrv = ?,
+                derived_from = ?, source = ?, ingest_actor = ?,
+                projected_at = ?, corrected_at = ?
+            WHERE as_of_date = ? AND user_id = ?
+            """,
+            (
+                *values,
+                merged_derived,
+                source,
+                ingest_actor,
+                now_iso,
+                now_iso,
+                as_of_date.isoformat(),
+                user_id,
+            ),
+        )
+    if commit_after:
+        conn.commit()
+    return is_insert
+
+
+# ---------------------------------------------------------------------------
+# Accepted stress state — UPSERT + corrected_at (Phase 3)
+# ---------------------------------------------------------------------------
+
+def project_accepted_stress_state_daily(
+    conn: sqlite3.Connection,
+    *,
+    as_of_date: date,
+    user_id: str,
+    raw_row: dict,
+    source_row_ids: Optional[list[str]] = None,
+    source: str = "garmin",
+    ingest_actor: str = "garmin_csv_adapter",
+    commit_after: bool = True,
+) -> bool:
+    """UPSERT the Garmin-sourced portion of one day's accepted stress state.
+
+    Writes ``garmin_all_day_stress`` (from raw ``all_day_stress``) and
+    ``body_battery_end_of_day`` (from raw ``body_battery``). The
+    user-reported ``manual_stress_score`` is owned by
+    :func:`merge_manual_stress_into_accepted_stress` and is never touched
+    here — on UPDATE, any pre-existing manual score is preserved, same
+    per-dimension ownership pattern we use for recovery (now just for
+    sleep/stress co-ownership if it arises) and nutrition.
+
+    ``stress_event_count`` and ``stress_tags_json`` are v1.1 enrichments;
+    they stay NULL on Garmin-only writes.
+    """
+
+    now_iso = _now_iso()
+    new_ids = list(source_row_ids or [])
+
+    existing = conn.execute(
+        "SELECT derived_from FROM accepted_stress_state_daily "
+        "WHERE as_of_date = ? AND user_id = ?",
+        (as_of_date.isoformat(), user_id),
+    ).fetchone()
+    is_insert = existing is None
+
+    if is_insert:
+        derived_from_json = json.dumps(sorted(set(new_ids)), sort_keys=True)
+        conn.execute(
+            """
+            INSERT INTO accepted_stress_state_daily (
+                garmin_all_day_stress, manual_stress_score,
+                stress_event_count, stress_tags_json,
+                body_battery_end_of_day,
+                derived_from, source, ingest_actor,
+                projected_at, corrected_at,
+                as_of_date, user_id
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                raw_row.get("all_day_stress"),
+                None,  # manual_stress_score — owned by stress_manual_raw flow
+                None,  # stress_event_count — v1.1
+                None,  # stress_tags_json — v1.1 (manual tags flow through merge)
+                raw_row.get("body_battery"),
+                derived_from_json,
+                source,
+                ingest_actor,
+                now_iso,
+                None,
+                as_of_date.isoformat(),
+                user_id,
+            ),
+        )
+    else:
+        # Preserve manual_stress_score + stress_tags_json across Garmin
+        # re-pulls by never touching them in the UPDATE. The clean flow
+        # owns the Garmin dimension of derived_from; the intake flow
+        # owns the m_stress_* dimension.
+        merged_derived = _replace_dimension_in_derived_from(
+            existing["derived_from"],
+            new_ids=new_ids,
+            owns=lambda rid: not _is_intake_submission_id(rid),
+        )
+        conn.execute(
+            """
+            UPDATE accepted_stress_state_daily SET
+                garmin_all_day_stress = ?,
                 body_battery_end_of_day = ?,
                 derived_from = ?, source = ?, ingest_actor = ?,
                 projected_at = ?, corrected_at = ?
             WHERE as_of_date = ? AND user_id = ?
             """,
             (
-                sleep_hours,
-                raw_row.get("resting_hr"),
-                raw_row.get("health_hrv_value"),
                 raw_row.get("all_day_stress"),
-                raw_row.get("acute_load"),
-                raw_row.get("chronic_load"),
-                acwr,
-                readiness_mean,
                 raw_row.get("body_battery"),
                 merged_derived,
                 source,
                 ingest_actor,
                 now_iso,
-                now_iso,  # corrected_at on update
+                now_iso,
                 as_of_date.isoformat(),
                 user_id,
             ),
@@ -1086,7 +1312,7 @@ def project_stress_manual_raw(
     return True
 
 
-def merge_manual_stress_into_accepted_recovery(
+def merge_manual_stress_into_accepted_stress(
     conn: sqlite3.Connection,
     *,
     as_of_date: date,
@@ -1096,26 +1322,31 @@ def merge_manual_stress_into_accepted_recovery(
 ) -> bool:
     """Pull the latest non-superseded stress score from
     ``stress_manual_raw`` and merge it into
-    ``accepted_recovery_state_daily.manual_stress_score``.
+    ``accepted_stress_state_daily.manual_stress_score``.
 
     Two cases:
 
-      - Existing recovery row (likely from ``hai clean``): UPDATE only
-        ``manual_stress_score`` + ``derived_from`` + provenance fields +
-        ``corrected_at``. Garmin-sourced fields are preserved (the clean
-        projector now also preserves manual_stress_score reciprocally,
-        so the two flows compose without clobbering).
-      - No recovery row yet (stress logged before clean): INSERT a
-        minimal row with ``manual_stress_score`` populated and Garmin
-        fields NULL. Snapshot will tag those Garmin fields as
-        ``unavailable_at_source`` until ``hai clean`` fills them in.
+      - Existing stress row (likely from ``hai clean``): UPDATE only
+        ``manual_stress_score`` + ``stress_tags_json`` +
+        ``derived_from`` + provenance fields + ``corrected_at``.
+        Garmin-sourced fields (``garmin_all_day_stress``,
+        ``body_battery_end_of_day``) are preserved by omission.
+      - No stress row yet (stress logged before clean): INSERT a
+        minimal row with manual fields populated and Garmin fields NULL.
+        Snapshot will tag the Garmin fields as ``unavailable_at_source``
+        until ``hai clean`` fills them in.
 
-    Returns ``True`` on insert, ``False`` on update.
+    Returns ``True`` on insert, ``False`` on update. (Pre-Phase-3 this
+    function wrote to accepted_recovery_state_daily; migration 004 moved
+    the manual_stress_score column onto the new stress table and this
+    function moves with it. The legacy name survives as an alias at the
+    module export level for one deprecation window — see
+    ``core/state/__init__.py``.)
     """
 
     latest = conn.execute(
         """
-        SELECT submission_id, score
+        SELECT submission_id, score, tags
         FROM stress_manual_raw smr
         WHERE smr.as_of_date = ? AND smr.user_id = ?
           AND smr.submission_id NOT IN (
@@ -1134,7 +1365,7 @@ def merge_manual_stress_into_accepted_recovery(
         return False
 
     existing = conn.execute(
-        "SELECT derived_from FROM accepted_recovery_state_daily "
+        "SELECT derived_from FROM accepted_stress_state_daily "
         "WHERE as_of_date = ? AND user_id = ?",
         (as_of_date.isoformat(), user_id),
     ).fetchone()
@@ -1142,20 +1373,27 @@ def merge_manual_stress_into_accepted_recovery(
 
     now_iso = _now_iso()
     new_ids = [latest["submission_id"]]
+    tags_value = latest["tags"]  # stored as JSON string or None
 
     if is_insert:
         # Stress-first scenario: minimal row, Garmin fields NULL.
         conn.execute(
             """
-            INSERT INTO accepted_recovery_state_daily (
-                manual_stress_score,
+            INSERT INTO accepted_stress_state_daily (
+                garmin_all_day_stress, manual_stress_score,
+                stress_event_count, stress_tags_json,
+                body_battery_end_of_day,
                 derived_from, source, ingest_actor,
                 projected_at, corrected_at,
                 as_of_date, user_id
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
+                None,  # garmin_all_day_stress — no clean yet
                 int(latest["score"]),
+                None,  # stress_event_count — v1.1
+                tags_value,
+                None,  # body_battery_end_of_day — no clean yet
                 json.dumps(sorted(set(new_ids)), sort_keys=True),
                 "user_manual", ingest_actor,
                 now_iso, None,
@@ -1163,14 +1401,6 @@ def merge_manual_stress_into_accepted_recovery(
             ),
         )
     else:
-        # Merge into existing row: Garmin fields untouched, manual_stress_score
-        # set, source/ingest reflect this most-recent write, derived_from
-        # uses per-dimension slot replacement — strip prior stress IDs
-        # (the previous m_stress_* contributor was superseded; only the
-        # latest non-superseded raw stress row contributes to the current
-        # accepted manual_stress_score), keep Garmin contributors, add
-        # this submission. Per state_model_v1.md §4 derived_from lists
-        # the raw rows that justify the CURRENT accepted values.
         merged_derived = _replace_dimension_in_derived_from(
             existing["derived_from"],
             new_ids=new_ids,
@@ -1178,14 +1408,16 @@ def merge_manual_stress_into_accepted_recovery(
         )
         conn.execute(
             """
-            UPDATE accepted_recovery_state_daily SET
+            UPDATE accepted_stress_state_daily SET
                 manual_stress_score = ?,
+                stress_tags_json = ?,
                 derived_from = ?, source = ?, ingest_actor = ?,
                 projected_at = ?, corrected_at = ?
             WHERE as_of_date = ? AND user_id = ?
             """,
             (
                 int(latest["score"]),
+                tags_value,
                 merged_derived,
                 "user_manual", ingest_actor,
                 now_iso, now_iso,
@@ -1195,6 +1427,11 @@ def merge_manual_stress_into_accepted_recovery(
     if commit_after:
         conn.commit()
     return is_insert
+
+
+# Legacy alias: kept so any in-transit imports during Phase 3 continue to
+# work. The body above writes to accepted_stress_state_daily now.
+merge_manual_stress_into_accepted_recovery = merge_manual_stress_into_accepted_stress
 
 
 # ---------------------------------------------------------------------------
@@ -1332,7 +1569,7 @@ def reproject_from_jsonl(conn: sqlite3.Connection, base_dir, *, allow_empty: boo
         "nutrition_intake_raw": 0,
         "accepted_nutrition_state_daily": 0,
         "stress_manual_raw": 0,
-        "accepted_recovery_manual_stress_merged": 0,
+        "accepted_stress_manual_merged": 0,
         "context_notes": 0,
     }
 
@@ -1356,27 +1593,29 @@ def reproject_from_jsonl(conn: sqlite3.Connection, base_dir, *, allow_empty: boo
             conn.execute("DELETE FROM accepted_nutrition_state_daily")
             conn.execute("DELETE FROM nutrition_intake_raw")
         if has_stress_group:
-            # Stress group: only stress_manual_raw is owned outright.
-            # accepted_recovery_state_daily.manual_stress_score is a
-            # MERGED column — co-owned with the Garmin-clean flow. We
-            # don't truncate accepted_recovery_state_daily here (would
-            # wipe Garmin fields). Instead:
+            # Stress group (post-Phase-3): manual_stress_score now lives
+            # on accepted_stress_state_daily, which is co-owned with the
+            # Garmin-clean flow (garmin_all_day_stress +
+            # body_battery_end_of_day come from clean). We can't truncate
+            # accepted_stress_state_daily here — that would wipe Garmin
+            # fields. Instead:
             #   1. Clear stress_manual_raw.
-            #   2. Surgical hygiene: NULL out manual_stress_score on every
-            #      accepted_recovery row + strip stress submission IDs from
-            #      derived_from. Without this step a day previously logged
-            #      via stress but absent from the new JSONL would keep its
-            #      old manual_stress_score, breaking the "accepted derives
-            #      from raw" invariant.
+            #   2. Surgical hygiene: NULL out manual_stress_score +
+            #      stress_tags_json on every accepted_stress row and
+            #      strip stress submission IDs from derived_from. Without
+            #      this step a day previously logged via stress but absent
+            #      from the new JSONL would keep its old manual score,
+            #      breaking the "accepted derives from raw" invariant.
             #   3. Replay raw stress rows.
             #   4. Re-merge per touched (day, user) — UPDATE only the
-            #      manual_stress_score column for days present in the new
-            #      JSONL; days dropped from the JSONL stay NULL.
+            #      manual fields for days present in the new JSONL; days
+            #      dropped from the JSONL stay NULL.
             conn.execute("DELETE FROM stress_manual_raw")
             stress_orphans = conn.execute(
                 "SELECT as_of_date, user_id, derived_from, source, ingest_actor "
-                "FROM accepted_recovery_state_daily "
+                "FROM accepted_stress_state_daily "
                 "WHERE manual_stress_score IS NOT NULL "
+                "   OR stress_tags_json IS NOT NULL "
                 "   OR derived_from LIKE '%\"m_stress_%'"
             ).fetchall()
             for row in stress_orphans:
@@ -1394,13 +1633,12 @@ def reproject_from_jsonl(conn: sqlite3.Connection, base_dir, *, allow_empty: boo
                 surviving_json = json.dumps(
                     sorted(set(surviving_ids)), sort_keys=True,
                 )
-                # If the surviving contributors include a garmin-shaped ID,
-                # source/ingest_actor must reflect that — leaving them at
-                # 'user_manual'/'hai_cli_direct' (set by the now-evicted
-                # stress merge) would violate state_model_v1.md §4. If no
-                # garmin survives either (degenerate stress-only row that's
-                # now empty), leave source/ingest as-is — the row carries
-                # no current evidence and a future write will overwrite.
+                # Provenance recovery: if a Garmin contributor remains in
+                # derived_from but source/ingest_actor got flipped to the
+                # manual dimension by a prior merge, restore them so the
+                # row's provenance matches what's actually contributing
+                # (state_model_v1.md §4). If no Garmin survives, leave
+                # provenance as-is — the row carries no current evidence.
                 has_garmin_survivor = any(
                     not _is_intake_submission_id(rid)
                     for rid in surviving_ids
@@ -1410,8 +1648,9 @@ def reproject_from_jsonl(conn: sqlite3.Connection, base_dir, *, allow_empty: boo
                     or row["ingest_actor"] != "garmin_csv_adapter"
                 ):
                     conn.execute(
-                        "UPDATE accepted_recovery_state_daily SET "
-                        "manual_stress_score = NULL, derived_from = ?, "
+                        "UPDATE accepted_stress_state_daily SET "
+                        "manual_stress_score = NULL, stress_tags_json = NULL, "
+                        "derived_from = ?, "
                         "source = 'garmin', "
                         "ingest_actor = 'garmin_csv_adapter' "
                         "WHERE as_of_date = ? AND user_id = ?",
@@ -1420,8 +1659,9 @@ def reproject_from_jsonl(conn: sqlite3.Connection, base_dir, *, allow_empty: boo
                     )
                 else:
                     conn.execute(
-                        "UPDATE accepted_recovery_state_daily SET "
-                        "manual_stress_score = NULL, derived_from = ? "
+                        "UPDATE accepted_stress_state_daily SET "
+                        "manual_stress_score = NULL, stress_tags_json = NULL, "
+                        "derived_from = ? "
                         "WHERE as_of_date = ? AND user_id = ?",
                         (surviving_json,
                          row["as_of_date"], row["user_id"]),
@@ -1688,14 +1928,14 @@ def reproject_from_jsonl(conn: sqlite3.Connection, base_dir, *, allow_empty: boo
 
             from datetime import date as _date
             for as_of_iso, user_id in sorted(stress_days_touched):
-                merge_manual_stress_into_accepted_recovery(
+                merge_manual_stress_into_accepted_stress(
                     conn,
                     as_of_date=_date.fromisoformat(as_of_iso),
                     user_id=user_id,
                     ingest_actor="hai_state_reproject",
                     commit_after=False,
                 )
-                counts["accepted_recovery_manual_stress_merged"] += 1
+                counts["accepted_stress_manual_merged"] += 1
 
         if notes_log.exists():
             for line_no, line in enumerate(

@@ -53,27 +53,71 @@ def _seed_recovery(conn: sqlite3.Connection, *, as_of: date, user_id: str,
                     acwr_ratio: float | None = 1.05,
                     training_readiness_component_mean_pct: float | None = 72.0,
                     body_battery_end_of_day: int | None = 65) -> None:
+    """Seed recovery + sleep + stress accepted rows for a (date, user).
+
+    Phase 3 split: sleep_hours lives on accepted_sleep_state_daily,
+    stress/body battery on accepted_stress_state_daily. Test helper
+    continues to accept the pre-split field set so existing callers
+    don't need to rewrite every call site; it fan-outs to the three
+    tables internally.
+    """
+
     conn.execute(
         """
         INSERT INTO accepted_recovery_state_daily (
             as_of_date, user_id,
-            sleep_hours, resting_hr, hrv_ms, all_day_stress,
-            manual_stress_score, acute_load, chronic_load,
+            resting_hr, hrv_ms,
+            acute_load, chronic_load,
             acwr_ratio, training_readiness_component_mean_pct,
-            body_battery_end_of_day,
             derived_from, source, ingest_actor, projected_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             as_of.isoformat(), user_id,
-            sleep_hours, resting_hr, hrv_ms, all_day_stress,
-            manual_stress_score, acute_load, chronic_load,
+            resting_hr, hrv_ms,
+            acute_load, chronic_load,
             acwr_ratio, training_readiness_component_mean_pct,
-            body_battery_end_of_day,
             "[]", "garmin", "garmin_csv_adapter",
             "2026-04-17T06:00:00Z",
         ),
     )
+    # Sleep row — only seed when sleep_hours isn't None so callers can
+    # suppress the sleep row by explicitly passing sleep_hours=None.
+    if sleep_hours is not None:
+        conn.execute(
+            """
+            INSERT INTO accepted_sleep_state_daily (
+                as_of_date, user_id, sleep_hours,
+                derived_from, source, ingest_actor, projected_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                as_of.isoformat(), user_id, sleep_hours,
+                "[]", "garmin", "garmin_csv_adapter",
+                "2026-04-17T06:00:00Z",
+            ),
+        )
+    # Stress row — only seed when any stress signal is non-NULL.
+    if any(v is not None for v in (
+        all_day_stress, manual_stress_score, body_battery_end_of_day,
+    )):
+        conn.execute(
+            """
+            INSERT INTO accepted_stress_state_daily (
+                as_of_date, user_id,
+                garmin_all_day_stress, manual_stress_score,
+                body_battery_end_of_day,
+                derived_from, source, ingest_actor, projected_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                as_of.isoformat(), user_id,
+                all_day_stress, manual_stress_score,
+                body_battery_end_of_day,
+                "[]", "garmin", "garmin_csv_adapter",
+                "2026-04-17T06:00:00Z",
+            ),
+        )
     conn.commit()
 
 
@@ -139,8 +183,41 @@ def test_read_domain_returns_rows_from_canonical_table(tmp_path: Path):
 
     assert len(rows) == 1
     assert rows[0]["as_of_date"] == "2026-04-17"
-    assert rows[0]["sleep_hours"] == 7.8
     assert rows[0]["resting_hr"] == 52.0
+
+
+def test_read_domain_returns_rows_from_sleep_table(tmp_path: Path):
+    """Phase 3: sleep is a first-class domain with its own accepted table."""
+
+    db = _init_db(tmp_path)
+    conn = open_connection(db)
+    try:
+        _seed_recovery(conn, as_of=AS_OF, user_id=USER, sleep_hours=7.8)
+        sleep_rows = read_domain(conn, domain="sleep", since=AS_OF, until=AS_OF, user_id=USER)
+    finally:
+        conn.close()
+
+    assert len(sleep_rows) == 1
+    assert sleep_rows[0]["sleep_hours"] == 7.8
+
+
+def test_read_domain_returns_rows_from_stress_table(tmp_path: Path):
+    """Phase 3: stress domain points at the accepted stress table, not raw."""
+
+    db = _init_db(tmp_path)
+    conn = open_connection(db)
+    try:
+        _seed_recovery(conn, as_of=AS_OF, user_id=USER,
+                       all_day_stress=45, manual_stress_score=3,
+                       body_battery_end_of_day=40)
+        stress_rows = read_domain(conn, domain="stress", since=AS_OF, until=AS_OF, user_id=USER)
+    finally:
+        conn.close()
+
+    assert len(stress_rows) == 1
+    assert stress_rows[0]["garmin_all_day_stress"] == 45
+    assert stress_rows[0]["manual_stress_score"] == 3
+    assert stress_rows[0]["body_battery_end_of_day"] == 40
 
 
 def test_read_domain_honours_date_range(tmp_path: Path):
@@ -261,7 +338,8 @@ def test_snapshot_surfaces_present_when_all_fields_populated(tmp_path: Path):
     finally:
         conn.close()
 
-    assert snap["recovery"]["today"]["sleep_hours"] == 7.8
+    # Phase 3: sleep_hours lives on the sleep block's today row.
+    assert snap["sleep"]["today"]["sleep_hours"] == 7.8
     assert snap["recovery"]["missingness"] == "present"
     assert snap["stress"]["today_garmin"] == 30
     assert snap["stress"]["today_manual"] == 2
@@ -270,7 +348,13 @@ def test_snapshot_surfaces_present_when_all_fields_populated(tmp_path: Path):
 def test_snapshot_emits_unavailable_at_source_for_passive_null_fields(tmp_path: Path):
     """If a passive (Garmin) today-row exists but some columns are NULL,
     missingness reports `unavailable_at_source:<fields>` per state_model_v1.md
-    §5. `partial` is reserved for user-reported domains with closed-day gaps."""
+    §5. `partial` is reserved for user-reported domains with closed-day gaps.
+
+    Phase 3: the recovery required-field set no longer includes sleep_hours
+    or body_battery_end_of_day (those are owned by sleep / stress blocks now),
+    so nulling them on the recovery row no longer affects recovery's
+    missingness. The null HRV and load columns remain recovery-required
+    and still surface."""
 
     db = _init_db(tmp_path)
     conn = open_connection(db)
@@ -288,7 +372,6 @@ def test_snapshot_emits_unavailable_at_source_for_passive_null_fields(tmp_path: 
 
     mx = snap["recovery"]["missingness"]
     assert mx.startswith("unavailable_at_source:"), f"got {mx!r}"
-    # A few explicit fields we know are NULL — each should appear.
     for field in ("hrv_ms", "acute_load", "chronic_load"):
         assert field in mx
 
@@ -526,7 +609,8 @@ def test_available_domains_matches_plan_list():
     """Guard against accidental domain-name drift from state_model_v1.md §1."""
 
     expected = {
-        "recovery", "running", "gym", "nutrition", "stress",
+        "recovery", "running", "gym", "nutrition",
+        "sleep", "stress",
         "notes", "recommendations", "reviews", "goals",
     }
     assert set(available_domains()) == expected

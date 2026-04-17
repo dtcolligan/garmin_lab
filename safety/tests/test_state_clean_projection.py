@@ -41,6 +41,8 @@ from health_agent_infra.core.state import (
     open_connection,
     project_accepted_recovery_state_daily,
     project_accepted_running_state_daily,
+    project_accepted_sleep_state_daily,
+    project_accepted_stress_state_daily,
     project_source_daily_garmin,
     read_domain,
 )
@@ -223,6 +225,9 @@ def test_source_daily_garmin_different_batch_id_is_append(tmp_path: Path):
 # ---------------------------------------------------------------------------
 
 def test_accepted_recovery_insert_sets_projected_at_and_null_corrected_at(tmp_path: Path):
+    """Phase 3: recovery is shrunk to its own fields. Sleep/stress
+    content moves to accepted_sleep_state_daily + accepted_stress_state_daily."""
+
     db = _init_db(tmp_path)
     conn = open_connection(db)
     try:
@@ -240,27 +245,94 @@ def test_accepted_recovery_insert_sets_projected_at_and_null_corrected_at(tmp_pa
             (AS_OF.isoformat(), USER),
         ).fetchone()
         assert row is not None
-        assert row["sleep_hours"] == pytest.approx((5400 + 12600 + 5400) / 3600.0, rel=0.01)
+        # Recovery-owned fields only:
         assert row["resting_hr"] == 52.0
         assert row["hrv_ms"] == 48.0
-        assert row["all_day_stress"] == 30
-        # manual_stress_score is NEVER populated by this projector in v1 —
-        # it must flow through stress_manual_raw first (7C). Stays NULL.
-        assert row["manual_stress_score"] is None
         assert row["acute_load"] == 400.0
         assert row["chronic_load"] == 380.0
         # acwr_ratio is computed: 400/380
         assert row["acwr_ratio"] == pytest.approx(400.0 / 380.0, rel=0.001)
-        # Phase 7B: training_readiness_component_mean_pct = mean of
-        # (82,70,75,88,65) = 76.0 (locally computed; not a Garmin overall).
+        # training_readiness_component_mean_pct = mean of (82,70,75,88,65) = 76.0
         assert row["training_readiness_component_mean_pct"] == pytest.approx(76.0, rel=0.01)
-        assert row["body_battery_end_of_day"] == 65
         assert row["projected_at"] is not None
         assert row["corrected_at"] is None
         derived = json.loads(row["derived_from"])
         assert derived == ["batch_x:0"]
+
+        # Columns that moved must be gone from the recovery table.
+        cols = {r["name"] for r in conn.execute(
+            "PRAGMA table_info(accepted_recovery_state_daily)"
+        ).fetchall()}
+        for moved in (
+            "sleep_hours", "all_day_stress",
+            "manual_stress_score", "body_battery_end_of_day",
+        ):
+            assert moved not in cols, (
+                f"{moved!r} must not exist on accepted_recovery_state_daily post-migration 004"
+            )
     finally:
         conn.close()
+
+
+def test_accepted_sleep_insert_derives_from_raw_minutes_and_scores(tmp_path: Path):
+    """Phase 3 step 1: the dedicated sleep projector derives sleep_hours,
+    the minute breakdowns, and passes scores through."""
+
+    db = _init_db(tmp_path)
+    conn = open_connection(db)
+    try:
+        assert project_accepted_sleep_state_daily(
+            conn, as_of_date=AS_OF, user_id=USER,
+            raw_row=_full_raw_row(), source_row_ids=["batch_x:0"],
+        ) is True
+        row = conn.execute(
+            "SELECT * FROM accepted_sleep_state_daily "
+            "WHERE as_of_date = ? AND user_id = ?",
+            (AS_OF.isoformat(), USER),
+        ).fetchone()
+    finally:
+        conn.close()
+
+    assert row is not None
+    assert row["sleep_hours"] == pytest.approx((5400 + 12600 + 5400) / 3600.0, rel=0.01)
+    assert row["sleep_deep_min"] == pytest.approx(90.0, rel=0.01)
+    assert row["sleep_light_min"] == pytest.approx(210.0, rel=0.01)
+    assert row["sleep_rem_min"] == pytest.approx(90.0, rel=0.01)
+    assert row["sleep_awake_min"] == pytest.approx(10.0, rel=0.01)
+    assert row["sleep_score_overall"] == 84
+    assert row["awake_count"] == 2
+    assert row["avg_sleep_respiration"] == pytest.approx(14.1, rel=0.01)
+    # v1.1 enrichments not in daily CSV stay NULL:
+    assert row["sleep_start_ts"] is None
+    assert row["sleep_end_ts"] is None
+    assert row["avg_sleep_hrv"] is None
+
+
+def test_accepted_stress_insert_writes_garmin_and_body_battery(tmp_path: Path):
+    """Phase 3 step 1: the dedicated stress projector writes
+    garmin_all_day_stress + body_battery_end_of_day; manual fields NULL."""
+
+    db = _init_db(tmp_path)
+    conn = open_connection(db)
+    try:
+        assert project_accepted_stress_state_daily(
+            conn, as_of_date=AS_OF, user_id=USER,
+            raw_row=_full_raw_row(), source_row_ids=["batch_x:0"],
+        ) is True
+        row = conn.execute(
+            "SELECT * FROM accepted_stress_state_daily "
+            "WHERE as_of_date = ? AND user_id = ?",
+            (AS_OF.isoformat(), USER),
+        ).fetchone()
+    finally:
+        conn.close()
+
+    assert row is not None
+    assert row["garmin_all_day_stress"] == 30
+    assert row["body_battery_end_of_day"] == 65
+    assert row["manual_stress_score"] is None
+    assert row["stress_event_count"] is None
+    assert row["stress_tags_json"] is None
 
 
 def test_accepted_recovery_upsert_sets_corrected_at(tmp_path: Path):
@@ -277,12 +349,12 @@ def test_accepted_recovery_upsert_sets_corrected_at(tmp_path: Path):
         )
         assert inserted is False  # it was an UPDATE
         row = conn.execute(
-            "SELECT resting_hr, manual_stress_score, corrected_at FROM "
+            "SELECT resting_hr, hrv_ms, corrected_at FROM "
             "accepted_recovery_state_daily WHERE as_of_date = ? AND user_id = ?",
             (AS_OF.isoformat(), USER),
         ).fetchone()
         assert row["resting_hr"] == 49.0
-        assert row["manual_stress_score"] is None  # still NULL on upsert
+        assert row["hrv_ms"] == 48.0
         assert row["corrected_at"] is not None
     finally:
         conn.close()
@@ -503,23 +575,20 @@ def test_snapshot_recovery_passive_null_is_source_tag_even_before_cutover(tmp_pa
 
 def test_snapshot_stress_garmin_null_manual_present_uses_unavailable_at_source(tmp_path: Path):
     """Stress block: Garmin null + manual present must not flatten to
-    `partial:all_day_stress` — the Garmin side is passive and its NULL is
-    `unavailable_at_source`, not "incomplete logging."""
+    `partial:garmin_all_day_stress` — the Garmin side is passive and its
+    NULL is `unavailable_at_source`, not "incomplete logging"."""
 
     db = _init_db(tmp_path)
     conn = open_connection(db)
     try:
-        # Seed recovery with all_day_stress=NULL and manual_stress_score=3
-        # directly via SQL (the cmd_clean path can't do this in v1 since
-        # manual stress is 7C territory — but 7C's intake will eventually
-        # merge into this same row, and we need the semantics locked now).
+        # Seed the new stress table with Garmin NULL + manual=3 directly.
         raw = _full_raw_row()
         raw["all_day_stress"] = None
-        project_accepted_recovery_state_daily(
+        project_accepted_stress_state_daily(
             conn, as_of_date=AS_OF, user_id=USER, raw_row=raw,
         )
         conn.execute(
-            "UPDATE accepted_recovery_state_daily "
+            "UPDATE accepted_stress_state_daily "
             "SET manual_stress_score = 3 "
             "WHERE as_of_date = ? AND user_id = ?",
             (AS_OF.isoformat(), USER),
@@ -533,7 +602,7 @@ def test_snapshot_stress_garmin_null_manual_present_uses_unavailable_at_source(t
         conn.close()
 
     mx = snap["stress"]["missingness"]
-    assert mx == "unavailable_at_source:all_day_stress", f"got {mx!r}"
+    assert mx == "unavailable_at_source:garmin_all_day_stress", f"got {mx!r}"
 
 
 # ---------------------------------------------------------------------------
@@ -541,18 +610,18 @@ def test_snapshot_stress_garmin_null_manual_present_uses_unavailable_at_source(t
 # ---------------------------------------------------------------------------
 
 def test_snapshot_stress_garmin_present_manual_null_after_cutover_is_partial(tmp_path: Path):
-    """Garmin all_day_stress=30, manual_stress_score=NULL, day closed →
+    """Garmin garmin_all_day_stress=30, manual_stress_score=NULL, day closed →
     missingness must be `partial:manual_stress_score`, not `absent`."""
 
     db = _init_db(tmp_path)
     conn = open_connection(db)
     try:
-        project_accepted_recovery_state_daily(
+        project_accepted_stress_state_daily(
             conn, as_of_date=AS_OF, user_id=USER,
             raw_row=_full_raw_row(),  # carries all_day_stress=30
         )
         # manual_stress_score is NOT populated by this projector; it stays
-        # NULL until 7C lands the stress_manual_raw path.
+        # NULL until the stress intake path merges it in.
         snap = build_snapshot(
             conn, as_of_date=AS_OF, user_id=USER,
             now_local=datetime(2026, 5, 1, 10, 0),  # day well-closed
@@ -572,7 +641,7 @@ def test_snapshot_stress_garmin_present_manual_null_before_cutover_is_pending(tm
     db = _init_db(tmp_path)
     conn = open_connection(db)
     try:
-        project_accepted_recovery_state_daily(
+        project_accepted_stress_state_daily(
             conn, as_of_date=AS_OF, user_id=USER, raw_row=_full_raw_row(),
         )
         snap = build_snapshot(
@@ -587,25 +656,25 @@ def test_snapshot_stress_garmin_present_manual_null_before_cutover_is_pending(tm
 
 
 def test_snapshot_stress_both_null_day_closed_is_absent(tmp_path: Path):
-    """Both stress signals null, day closed → `absent` (unchanged behaviour)."""
+    """Both stress signals null, day closed → `absent`."""
 
     db = _init_db(tmp_path)
     conn = open_connection(db)
     try:
-        # Seed a recovery row with all_day_stress=NULL and manual=NULL.
+        # Seed the stress row with both signals NULL directly.
         conn.execute(
             """
-            INSERT INTO accepted_recovery_state_daily (
-                as_of_date, user_id, sleep_hours, resting_hr, hrv_ms,
-                all_day_stress, manual_stress_score,
-                acute_load, chronic_load, acwr_ratio,
+            INSERT INTO accepted_stress_state_daily (
+                as_of_date, user_id,
+                garmin_all_day_stress, manual_stress_score,
+                stress_event_count, stress_tags_json,
                 body_battery_end_of_day,
                 derived_from, source, ingest_actor, projected_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
-                AS_OF.isoformat(), USER, 7.8, 52.0, 48.0,
-                None, None, 400.0, 380.0, 1.05, 65,
+                AS_OF.isoformat(), USER,
+                None, None, None, None, None,
                 "[]", "garmin", "garmin_csv_adapter",
                 "2026-04-17T06:00:00Z",
             ),
@@ -688,15 +757,35 @@ def test_cli_clean_projects_recovery_and_running(tmp_path: Path):
 
     assert len(recovery) == 1
     assert recovery[0]["resting_hr"] == 52.0
-    # manual_stress_score stays NULL — it must flow through stress_manual_raw
-    # (7C), never via `hai clean`.
-    assert recovery[0]["manual_stress_score"] is None
     assert recovery[0]["source"] == "garmin"
     assert recovery[0]["ingest_actor"] == "garmin_csv_adapter"
     assert len(running) == 1
     assert running[0]["derivation_path"] == "garmin_daily"
     assert running[0]["session_count"] is None
     assert raw_count == 1
+
+    # Phase 3: manual_stress_score lives on accepted_stress_state_daily
+    # now and stays NULL after clean (it arrives via stress_manual_raw).
+    conn2 = open_connection(db)
+    try:
+        stress_row = conn2.execute(
+            "SELECT garmin_all_day_stress, manual_stress_score, "
+            "       body_battery_end_of_day "
+            "FROM accepted_stress_state_daily "
+            "WHERE as_of_date = ? AND user_id = ?",
+            (AS_OF.isoformat(), USER),
+        ).fetchone()
+        sleep_row = conn2.execute(
+            "SELECT sleep_hours FROM accepted_sleep_state_daily "
+            "WHERE as_of_date = ? AND user_id = ?",
+            (AS_OF.isoformat(), USER),
+        ).fetchone()
+    finally:
+        conn2.close()
+    assert stress_row["garmin_all_day_stress"] == 30
+    assert stress_row["body_battery_end_of_day"] == 65
+    assert stress_row["manual_stress_score"] is None
+    assert sleep_row["sleep_hours"] == pytest.approx((5400 + 12600 + 5400) / 3600.0, rel=0.01)
 
 
 def test_cli_clean_then_snapshot_returns_present_recovery_and_running(tmp_path: Path):
@@ -720,12 +809,17 @@ def test_cli_clean_then_snapshot_returns_present_recovery_and_running(tmp_path: 
 
     assert snap["recovery"]["missingness"] == "present"
     assert snap["running"]["missingness"] == "present"
-    assert snap["recovery"]["today"]["sleep_hours"] == pytest.approx(6.5, rel=0.01)
-    assert snap["recovery"]["today"]["all_day_stress"] == 30
-    assert snap["recovery"]["today"]["manual_stress_score"] is None
+    # Phase 3: sleep moved to its own block, stress too. Headline values
+    # land on the relevant top-level block.
+    assert snap["sleep"]["today"]["sleep_hours"] == pytest.approx(
+        (5400 + 12600 + 5400) / 3600.0, rel=0.01,
+    )
+    assert snap["stress"]["today_garmin"] == 30
+    assert snap["stress"]["today_manual"] is None
+    assert snap["stress"]["today_body_battery"] == 65
     assert snap["running"]["today"]["total_distance_m"] == 8500.0
     # Stress is `partial:manual_stress_score` because Garmin landed but
-    # no stress_manual_raw row exists yet — 7C territory.
+    # no stress_manual_raw row exists yet.
     assert snap["stress"]["missingness"] == "partial:manual_stress_score"
 
 
@@ -893,9 +987,9 @@ def test_cli_clean_projection_recovers_on_retry_after_rollback(tmp_path, monkeyp
 
 def test_cli_clean_never_populates_manual_stress_score(tmp_path):
     """Even if a future intake path attaches manual stress to the readiness
-    payload, `hai clean` must leave accepted_recovery_state_daily's
+    payload, `hai clean` must leave accepted_stress_state_daily's
     manual_stress_score NULL. That fact must enter via stress_manual_raw
-    (7C) so the raw→accepted audit chain holds."""
+    so the raw→accepted audit chain holds."""
 
     db = _init_db(tmp_path)
     payload = {
@@ -924,9 +1018,10 @@ def test_cli_clean_never_populates_manual_stress_score(tmp_path):
 
     conn = open_connection(db)
     try:
-        row = conn.execute(
-            "SELECT manual_stress_score, source, ingest_actor FROM "
-            "accepted_recovery_state_daily WHERE as_of_date = ? AND user_id = ?",
+        stress_row = conn.execute(
+            "SELECT manual_stress_score, source, ingest_actor "
+            "FROM accepted_stress_state_daily "
+            "WHERE as_of_date = ? AND user_id = ?",
             (AS_OF.isoformat(), USER),
         ).fetchone()
         # stress_manual_raw must stay empty — clean does not touch it.
@@ -936,9 +1031,9 @@ def test_cli_clean_never_populates_manual_stress_score(tmp_path):
     finally:
         conn.close()
 
-    assert row["manual_stress_score"] is None
-    assert row["source"] == "garmin"
-    assert row["ingest_actor"] == "garmin_csv_adapter"
+    assert stress_row["manual_stress_score"] is None
+    assert stress_row["source"] == "garmin"
+    assert stress_row["ingest_actor"] == "garmin_csv_adapter"
     assert raw_count == 0
 
 

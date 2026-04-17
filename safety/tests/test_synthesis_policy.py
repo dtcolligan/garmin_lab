@@ -53,16 +53,29 @@ def _snapshot(
     body_battery=None,
     all_day_stress=None,
 ):
+    """Build a minimal snapshot matching the Phase-3 block layout.
+
+    Post-migration 004, body_battery and Garmin all-day-stress live on
+    the stress block (`stress.today_body_battery`, `stress.today_garmin`).
+    Synthesis policy reads them from there. Sleep_debt_band still comes
+    off `recovery.classified_state.sleep_debt_band` in this helper —
+    Phase 3 step 5 will move it to `sleep.classified_state.sleep_debt_band`
+    once the sleep-domain classifier lands.
+    """
+
     recovery: dict = {"classified_state": {}, "today": {}}
+    stress: dict = {"today": {}}
     if sleep_debt_band is not None:
         recovery["classified_state"]["sleep_debt_band"] = sleep_debt_band
     if acwr_ratio is not None:
         recovery["today"]["acwr_ratio"] = acwr_ratio
     if body_battery is not None:
-        recovery["today"]["body_battery_end_of_day"] = body_battery
+        stress["today_body_battery"] = body_battery
+        stress["today"]["body_battery_end_of_day"] = body_battery
     if all_day_stress is not None:
-        recovery["today"]["all_day_stress"] = all_day_stress
-    return {"recovery": recovery}
+        stress["today_garmin"] = all_day_stress
+        stress["today"]["garmin_all_day_stress"] = all_day_stress
+    return {"recovery": recovery, "stress": stress}
 
 
 def _running_hard_proposal(**overrides):

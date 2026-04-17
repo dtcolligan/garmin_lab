@@ -1,19 +1,26 @@
 """Phase 7C.3 — `hai intake stress` + `hai intake note` tests.
 
+Phase 3 step 1 moved manual_stress_score + all_day_stress +
+body_battery_end_of_day off ``accepted_recovery_state_daily`` onto the
+new ``accepted_stress_state_daily`` and ``accepted_sleep_state_daily``
+tables. Contracts below are updated to target the new surface; the
+behavioural invariants are unchanged.
+
 Stress contracts pinned:
 
   1. Manual stress flows raw → accepted with proper provenance —
-     stress_manual_raw row, then accepted_recovery_state_daily UPSERT
+     stress_manual_raw row, then accepted_stress_state_daily UPSERT
      with `derived_from = [stress_submission_id]`, `source='user_manual'`,
-     `corrected_at` set on update. This closes the 7A.3 deferred loop.
-  2. Stress-before-clean creates a minimal recovery row (only
-     manual_stress_score populated, Garmin fields NULL).
-  3. Clean-before-stress merges into the existing recovery row and
-     preserves Garmin fields.
+     `corrected_at` set on update.
+  2. Stress-before-clean creates a minimal stress row (only
+     manual_stress_score populated, Garmin stress + body_battery NULL).
+  3. Clean-before-stress merges into the existing stress row and
+     preserves Garmin-sourced fields (garmin_all_day_stress,
+     body_battery_end_of_day).
   4. Re-running stress is a correction: supersedes chain in JSONL,
      accepted row reflects latest score, corrected_at set.
   5. After stress is set, re-running `hai clean` does NOT wipe
-     manual_stress_score (the bug the 7A.3 patch warned about).
+     manual_stress_score.
   6. Score outside 1-5 rejected at CLI boundary (argparse choices).
   7. Snapshot stress.today_manual reflects the merged value, missingness
      becomes 'present' once both Garmin + manual are set.
@@ -43,6 +50,8 @@ from health_agent_infra.core.state import (
     initialize_database,
     open_connection,
     project_accepted_recovery_state_daily,
+    project_accepted_sleep_state_daily,
+    project_accepted_stress_state_daily,
     read_domain,
 )
 
@@ -82,6 +91,30 @@ def _full_garmin_raw_row() -> dict:
     }
 
 
+def _seed_full_clean(conn, *, source_row_ids: list[str]) -> None:
+    """Run the three clean projectors atomically inside a test.
+
+    Mirrors ``_dual_write_clean_projection`` in cli.py without going
+    through the CLI. Any test that wants the full post-clean accepted
+    state (recovery + sleep + stress) should call this instead of
+    invoking project_accepted_recovery_state_daily in isolation.
+    """
+
+    row = _full_garmin_raw_row()
+    project_accepted_recovery_state_daily(
+        conn, as_of_date=AS_OF, user_id=USER,
+        raw_row=row, source_row_ids=source_row_ids,
+    )
+    project_accepted_sleep_state_daily(
+        conn, as_of_date=AS_OF, user_id=USER,
+        raw_row=row, source_row_ids=source_row_ids,
+    )
+    project_accepted_stress_state_daily(
+        conn, as_of_date=AS_OF, user_id=USER,
+        raw_row=row, source_row_ids=source_row_ids,
+    )
+
+
 def _stress_args(base: Path, db: Path, *, score: int = 3,
                   as_of: str = AS_OF.isoformat(), tags: str | None = None) -> list[str]:
     args = [
@@ -109,7 +142,7 @@ def _note_args(base: Path, db: Path, *, text: str = "Felt great today",
 
 
 # ---------------------------------------------------------------------------
-# STRESS: closes the 7A.3 manual-stress provenance loop
+# STRESS: raw + merge into accepted_stress_state_daily
 # ---------------------------------------------------------------------------
 
 def test_stress_intake_writes_jsonl_and_raw_and_merges_into_accepted(tmp_path: Path):
@@ -135,9 +168,9 @@ def test_stress_intake_writes_jsonl_and_raw_and_merges_into_accepted(tmp_path: P
             (USER, AS_OF.isoformat()),
         ).fetchone()
         accepted = conn.execute(
-            "SELECT manual_stress_score, derived_from, source, "
-            "       ingest_actor, corrected_at "
-            "FROM accepted_recovery_state_daily "
+            "SELECT manual_stress_score, stress_tags_json, derived_from, "
+            "       source, ingest_actor, corrected_at "
+            "FROM accepted_stress_state_daily "
             "WHERE user_id = ? AND as_of_date = ?",
             (USER, AS_OF.isoformat()),
         ).fetchone()
@@ -148,8 +181,9 @@ def test_stress_intake_writes_jsonl_and_raw_and_merges_into_accepted(tmp_path: P
     assert raw["score"] == 3
     assert json.loads(raw["tags"]) == ["work", "deadline"]
 
-    # Accepted row was INSERTed (no clean had run yet):
+    # Accepted stress row was INSERTed (no clean had run yet):
     assert accepted["manual_stress_score"] == 3
+    assert json.loads(accepted["stress_tags_json"]) == ["work", "deadline"]
     # derived_from points back to the raw submission_id — provenance chain held.
     assert json.loads(accepted["derived_from"]) == [raw["submission_id"]]
     assert accepted["source"] == "user_manual"
@@ -157,19 +191,25 @@ def test_stress_intake_writes_jsonl_and_raw_and_merges_into_accepted(tmp_path: P
     assert accepted["corrected_at"] is None  # first insert
 
 
-def test_stress_before_clean_creates_minimal_recovery_row_with_null_garmin(tmp_path: Path):
-    """Stress logged before any Garmin pull → recovery row exists with
-    only manual_stress_score populated. Snapshot tags Garmin fields as
-    `unavailable_at_source`."""
+def test_stress_before_clean_creates_minimal_stress_row_with_null_garmin(tmp_path: Path):
+    """Stress logged before any Garmin pull → stress row exists with
+    only manual_stress_score populated. Snapshot tags Garmin stress
+    fields as `unavailable_at_source`."""
 
     base, db = _init_intake_dirs(tmp_path)
     assert cli_main(_stress_args(base, db, score=4)) == 0
 
     conn = open_connection(db)
     try:
-        row = conn.execute(
-            "SELECT manual_stress_score, sleep_hours, resting_hr, "
-            "       all_day_stress, training_readiness_component_mean_pct "
+        stress_row = conn.execute(
+            "SELECT manual_stress_score, garmin_all_day_stress, "
+            "       body_battery_end_of_day "
+            "FROM accepted_stress_state_daily "
+            "WHERE user_id = ? AND as_of_date = ?",
+            (USER, AS_OF.isoformat()),
+        ).fetchone()
+        recovery_row = conn.execute(
+            "SELECT resting_hr, training_readiness_component_mean_pct "
             "FROM accepted_recovery_state_daily "
             "WHERE user_id = ? AND as_of_date = ?",
             (USER, AS_OF.isoformat()),
@@ -181,48 +221,41 @@ def test_stress_before_clean_creates_minimal_recovery_row_with_null_garmin(tmp_p
     finally:
         conn.close()
 
-    assert row["manual_stress_score"] == 4
-    assert row["sleep_hours"] is None
-    assert row["resting_hr"] is None
-    assert row["all_day_stress"] is None
-    assert row["training_readiness_component_mean_pct"] is None
+    assert stress_row["manual_stress_score"] == 4
+    assert stress_row["garmin_all_day_stress"] is None
+    assert stress_row["body_battery_end_of_day"] is None
+    # Recovery accepted row is untouched by the stress flow now — no
+    # Garmin clean has run, so no recovery row exists.
+    assert recovery_row is None
 
-    # Recovery missingness: every Garmin-required field is NULL.
-    mx = snap["recovery"]["missingness"]
-    assert mx.startswith("unavailable_at_source:"), f"got {mx!r}"
-    assert "sleep_hours" in mx
-    assert "training_readiness_component_mean_pct" in mx
-    # Stress block: Garmin null + manual present → unavailable_at_source:all_day_stress
+    # Stress block: Garmin null + manual present
     assert snap["stress"]["today_manual"] == 4
-    assert snap["stress"]["missingness"] == "unavailable_at_source:all_day_stress"
+    assert snap["stress"]["missingness"] == "unavailable_at_source:garmin_all_day_stress"
 
 
 def test_stress_after_clean_merges_into_existing_row_preserving_garmin(tmp_path: Path):
-    """Run hai clean first (Garmin fields populated), then hai intake stress.
-    Manual stress merges in; Garmin fields untouched; corrected_at set."""
+    """Run hai clean-style projection first, then hai intake stress.
+    Manual stress merges in; Garmin stress + body battery untouched;
+    corrected_at set."""
 
     base, db = _init_intake_dirs(tmp_path)
 
-    # Project Garmin recovery row directly via the projector (testing the
-    # composition; full hai clean pipeline tested elsewhere).
     conn = open_connection(db)
     try:
-        project_accepted_recovery_state_daily(
-            conn, as_of_date=AS_OF, user_id=USER,
-            raw_row=_full_garmin_raw_row(),
-            source_row_ids=["batch_a:0"],
-        )
-        garmin_resting_hr_before = conn.execute(
-            "SELECT resting_hr, source, manual_stress_score "
-            "FROM accepted_recovery_state_daily "
+        _seed_full_clean(conn, source_row_ids=["batch_a:0"])
+        before = conn.execute(
+            "SELECT garmin_all_day_stress, body_battery_end_of_day, "
+            "       manual_stress_score, source "
+            "FROM accepted_stress_state_daily "
             "WHERE user_id = ? AND as_of_date = ?",
             (USER, AS_OF.isoformat()),
         ).fetchone()
     finally:
         conn.close()
-    assert garmin_resting_hr_before["resting_hr"] == 52.0
-    assert garmin_resting_hr_before["source"] == "garmin"
-    assert garmin_resting_hr_before["manual_stress_score"] is None
+    assert before["garmin_all_day_stress"] == 30
+    assert before["body_battery_end_of_day"] == 65
+    assert before["manual_stress_score"] is None
+    assert before["source"] == "garmin"
 
     # Now stress intake.
     assert cli_main(_stress_args(base, db, score=2)) == 0
@@ -230,10 +263,9 @@ def test_stress_after_clean_merges_into_existing_row_preserving_garmin(tmp_path:
     conn = open_connection(db)
     try:
         after = conn.execute(
-            "SELECT manual_stress_score, resting_hr, hrv_ms, all_day_stress, "
-            "       training_readiness_component_mean_pct, source, "
-            "       ingest_actor, corrected_at "
-            "FROM accepted_recovery_state_daily "
+            "SELECT manual_stress_score, garmin_all_day_stress, "
+            "       body_battery_end_of_day, source, ingest_actor, corrected_at "
+            "FROM accepted_stress_state_daily "
             "WHERE user_id = ? AND as_of_date = ?",
             (USER, AS_OF.isoformat()),
         ).fetchone()
@@ -242,11 +274,9 @@ def test_stress_after_clean_merges_into_existing_row_preserving_garmin(tmp_path:
 
     # Manual stress merged:
     assert after["manual_stress_score"] == 2
-    # Garmin fields preserved:
-    assert after["resting_hr"] == 52.0
-    assert after["hrv_ms"] == 48.0
-    assert after["all_day_stress"] == 30
-    assert after["training_readiness_component_mean_pct"] == pytest.approx(76.0, rel=0.01)
+    # Garmin-sourced fields preserved:
+    assert after["garmin_all_day_stress"] == 30
+    assert after["body_battery_end_of_day"] == 65
     # Source/ingest reflect the most recent write (the stress merge):
     assert after["source"] == "user_manual"
     assert after["ingest_actor"] == "hai_cli_direct"
@@ -254,37 +284,30 @@ def test_stress_after_clean_merges_into_existing_row_preserving_garmin(tmp_path:
 
 
 def test_clean_re_run_after_stress_does_not_wipe_manual_stress(tmp_path: Path):
-    """The 7A.3 patch's note: clean's UPDATE path must NOT touch
-    manual_stress_score. After stress merges, a second clean run must
-    keep manual_stress_score intact."""
+    """Clean's UPDATE path must NOT touch manual_stress_score. After
+    stress merges into accepted_stress_state_daily, a second clean run
+    must keep manual_stress_score intact (now preserved by omission in
+    the stress projector's UPDATE)."""
 
     base, db = _init_intake_dirs(tmp_path)
 
     conn = open_connection(db)
     try:
-        # Initial Garmin clean.
-        project_accepted_recovery_state_daily(
-            conn, as_of_date=AS_OF, user_id=USER,
-            raw_row=_full_garmin_raw_row(), source_row_ids=["a:0"],
-        )
+        _seed_full_clean(conn, source_row_ids=["a:0"])
     finally:
         conn.close()
 
     # Stress merges in.
     assert cli_main(_stress_args(base, db, score=4)) == 0
 
-    # Second Garmin clean (e.g. user re-pulled): would have wiped
-    # manual_stress before the patch. Use the projector directly, mimicking
-    # what the second `hai clean` invocation would do.
+    # Second clean (e.g. user re-pulled).
     conn = open_connection(db)
     try:
-        project_accepted_recovery_state_daily(
-            conn, as_of_date=AS_OF, user_id=USER,
-            raw_row=_full_garmin_raw_row(), source_row_ids=["b:0"],
-        )
+        _seed_full_clean(conn, source_row_ids=["b:0"])
         row = conn.execute(
-            "SELECT manual_stress_score, resting_hr "
-            "FROM accepted_recovery_state_daily "
+            "SELECT manual_stress_score, garmin_all_day_stress, "
+            "       body_battery_end_of_day "
+            "FROM accepted_stress_state_daily "
             "WHERE user_id = ? AND as_of_date = ?",
             (USER, AS_OF.isoformat()),
         ).fetchone()
@@ -294,7 +317,8 @@ def test_clean_re_run_after_stress_does_not_wipe_manual_stress(tmp_path: Path):
     assert row["manual_stress_score"] == 4, (
         "clean re-run wiped manual_stress_score — preservation contract broken"
     )
-    assert row["resting_hr"] == 52.0
+    assert row["garmin_all_day_stress"] == 30
+    assert row["body_battery_end_of_day"] == 65
 
 
 def test_stress_correction_chain_via_jsonl_supersedes(tmp_path: Path):
@@ -321,7 +345,7 @@ def test_stress_correction_chain_via_jsonl_supersedes(tmp_path: Path):
         ).fetchall()
         accepted = conn.execute(
             "SELECT manual_stress_score, corrected_at, derived_from "
-            "FROM accepted_recovery_state_daily WHERE user_id = ? AND as_of_date = ?",
+            "FROM accepted_stress_state_daily WHERE user_id = ? AND as_of_date = ?",
             (USER, AS_OF.isoformat()),
         ).fetchone()
     finally:
@@ -376,7 +400,7 @@ def test_stress_intake_atomic_on_middle_failure(tmp_path, monkeypatch):
         raise RuntimeError("injected merge failure")
 
     monkeypatch.setattr(
-        state_pkg, "merge_manual_stress_into_accepted_recovery", boom,
+        state_pkg, "merge_manual_stress_into_accepted_stress", boom,
     )
     rc = cli_main(_stress_args(base, db, score=3))
     assert rc == 0  # fail-soft
@@ -387,24 +411,21 @@ def test_stress_intake_atomic_on_middle_failure(tmp_path, monkeypatch):
     conn = open_connection(db)
     try:
         n_raw = conn.execute("SELECT COUNT(*) FROM stress_manual_raw").fetchone()[0]
-        n_accepted = conn.execute(
-            "SELECT COUNT(*) FROM accepted_recovery_state_daily"
+        n_stress_accepted = conn.execute(
+            "SELECT COUNT(*) FROM accepted_stress_state_daily"
         ).fetchone()[0]
     finally:
         conn.close()
     # Both rolled back together.
     assert n_raw == 0
-    assert n_accepted == 0
+    assert n_stress_accepted == 0
 
 
 def test_stress_snapshot_present_when_garmin_and_manual_both_set(tmp_path: Path):
     base, db = _init_intake_dirs(tmp_path)
     conn = open_connection(db)
     try:
-        project_accepted_recovery_state_daily(
-            conn, as_of_date=AS_OF, user_id=USER,
-            raw_row=_full_garmin_raw_row(),
-        )
+        _seed_full_clean(conn, source_row_ids=["g:0"])
     finally:
         conn.close()
     assert cli_main(_stress_args(base, db, score=3)) == 0
@@ -420,6 +441,7 @@ def test_stress_snapshot_present_when_garmin_and_manual_both_set(tmp_path: Path)
 
     assert snap["stress"]["today_garmin"] == 30
     assert snap["stress"]["today_manual"] == 3
+    assert snap["stress"]["today_body_battery"] == 65
     assert snap["stress"]["missingness"] == "present"
 
 
@@ -504,23 +526,20 @@ def test_note_snapshot_recent_lookback(tmp_path: Path):
 
 # ---------------------------------------------------------------------------
 # Provenance: derived_from carries both Garmin + stress contributors
-# (7C.3 patch — per-dimension slot replacement)
+# (7C.3 patch — per-dimension slot replacement, now on accepted_stress_state_daily)
 # ---------------------------------------------------------------------------
 
 def test_derived_from_carries_both_garmin_and_stress_after_clean_then_stress(tmp_path: Path):
-    """After clean populates Garmin fields and stress merges manual score,
-    derived_from must list BOTH the garmin contributor AND the stress
-    submission_id. The state model says accepted state lists every raw
-    row that contributed to its current values."""
+    """After clean populates Garmin stress fields and intake merges manual
+    score, derived_from on the stress row must list BOTH the garmin
+    contributor AND the stress submission_id. The state model says
+    accepted state lists every raw row that contributed to its current
+    values."""
 
     base, db = _init_intake_dirs(tmp_path)
     conn = open_connection(db)
     try:
-        project_accepted_recovery_state_daily(
-            conn, as_of_date=AS_OF, user_id=USER,
-            raw_row=_full_garmin_raw_row(),
-            source_row_ids=["garmin_batch_a:0"],
-        )
+        _seed_full_clean(conn, source_row_ids=["garmin_batch_a:0"])
     finally:
         conn.close()
 
@@ -530,7 +549,7 @@ def test_derived_from_carries_both_garmin_and_stress_after_clean_then_stress(tmp
     try:
         row = conn.execute(
             "SELECT derived_from, manual_stress_score FROM "
-            "accepted_recovery_state_daily WHERE user_id = ? AND as_of_date = ?",
+            "accepted_stress_state_daily WHERE user_id = ? AND as_of_date = ?",
             (USER, AS_OF.isoformat()),
         ).fetchone()
     finally:
@@ -549,19 +568,15 @@ def test_derived_from_carries_both_garmin_and_stress_after_clean_then_stress(tmp
 
 
 def test_derived_from_evicts_old_garmin_when_clean_re_runs(tmp_path: Path):
-    """clean → stress → clean must end with [latest_garmin, latest_stress].
-    The first garmin batch is replaced by the second; the stress slot is
-    preserved across the second clean."""
+    """clean → stress → clean must end with [latest_garmin, latest_stress]
+    on the stress accepted row. The first garmin batch is replaced by the
+    second; the stress slot is preserved across the second clean."""
 
     base, db = _init_intake_dirs(tmp_path)
 
     conn = open_connection(db)
     try:
-        project_accepted_recovery_state_daily(
-            conn, as_of_date=AS_OF, user_id=USER,
-            raw_row=_full_garmin_raw_row(),
-            source_row_ids=["garmin_batch_a:0"],
-        )
+        _seed_full_clean(conn, source_row_ids=["garmin_batch_a:0"])
     finally:
         conn.close()
 
@@ -570,14 +585,10 @@ def test_derived_from_evicts_old_garmin_when_clean_re_runs(tmp_path: Path):
     conn = open_connection(db)
     try:
         # Second Garmin clean (e.g. user re-pulled).
-        project_accepted_recovery_state_daily(
-            conn, as_of_date=AS_OF, user_id=USER,
-            raw_row=_full_garmin_raw_row(),
-            source_row_ids=["garmin_batch_b:0"],
-        )
+        _seed_full_clean(conn, source_row_ids=["garmin_batch_b:0"])
         row = conn.execute(
             "SELECT derived_from, manual_stress_score FROM "
-            "accepted_recovery_state_daily WHERE user_id = ? AND as_of_date = ?",
+            "accepted_stress_state_daily WHERE user_id = ? AND as_of_date = ?",
             (USER, AS_OF.isoformat()),
         ).fetchone()
     finally:
@@ -601,19 +612,15 @@ def test_derived_from_evicts_old_garmin_when_clean_re_runs(tmp_path: Path):
 
 def test_derived_from_evicts_superseded_stress_on_correction(tmp_path: Path):
     """Stress correction (sub_b supersedes sub_a) must leave only
-    [garmin_contributor, sub_b] — sub_a is no longer a current
-    contributor (the merge function pulls only the latest non-superseded
-    raw to source from)."""
+    [garmin_contributor, sub_b] on the stress accepted row — sub_a is no
+    longer a current contributor (the merge function pulls only the
+    latest non-superseded raw to source from)."""
 
     base, db = _init_intake_dirs(tmp_path)
 
     conn = open_connection(db)
     try:
-        project_accepted_recovery_state_daily(
-            conn, as_of_date=AS_OF, user_id=USER,
-            raw_row=_full_garmin_raw_row(),
-            source_row_ids=["garmin_only:0"],
-        )
+        _seed_full_clean(conn, source_row_ids=["garmin_only:0"])
     finally:
         conn.close()
 
@@ -628,7 +635,7 @@ def test_derived_from_evicts_superseded_stress_on_correction(tmp_path: Path):
             (USER, AS_OF.isoformat()),
         ).fetchall()
         derived = json.loads(conn.execute(
-            "SELECT derived_from FROM accepted_recovery_state_daily "
+            "SELECT derived_from FROM accepted_stress_state_daily "
             "WHERE user_id = ? AND as_of_date = ?",
             (USER, AS_OF.isoformat()),
         ).fetchone()["derived_from"])
@@ -645,14 +652,14 @@ def test_derived_from_evicts_superseded_stress_on_correction(tmp_path: Path):
 
 # ---------------------------------------------------------------------------
 # Reproject hygiene: drop manual_stress_score for days no longer in JSONL
-# (7C.3 patch — co-owned column orphan cleanup)
+# (7C.3 patch — co-owned column orphan cleanup, now on stress table)
 # ---------------------------------------------------------------------------
 
 def test_reproject_clears_manual_stress_for_days_dropped_from_jsonl(tmp_path: Path):
-    """Stress reproject must NULL out manual_stress_score for any
-    accepted_recovery row whose day is no longer in the replayed
-    stress_manual.jsonl. Without this, accepted has data with no raw
-    backing — the "accepted derives from raw" invariant breaks."""
+    """Stress reproject must NULL out manual_stress_score on
+    accepted_stress_state_daily for any row whose day is no longer in the
+    replayed stress_manual.jsonl. Without this, accepted has data with
+    no raw backing — the "accepted derives from raw" invariant breaks."""
 
     from health_agent_infra.core.state import reproject_from_jsonl
 
@@ -672,7 +679,7 @@ def test_reproject_clears_manual_stress_for_days_dropped_from_jsonl(tmp_path: Pa
         counts = reproject_from_jsonl(conn, base)
         rows = conn.execute(
             "SELECT as_of_date, manual_stress_score, derived_from "
-            "FROM accepted_recovery_state_daily ORDER BY as_of_date"
+            "FROM accepted_stress_state_daily ORDER BY as_of_date"
         ).fetchall()
         n_raw = conn.execute("SELECT COUNT(*) FROM stress_manual_raw").fetchone()[0]
     finally:
@@ -695,30 +702,23 @@ def test_reproject_clears_manual_stress_for_days_dropped_from_jsonl(tmp_path: Pa
     assert by_date["2026-04-18"]["manual_stress_score"] == 4
     derived_18 = json.loads(by_date["2026-04-18"]["derived_from"])
     assert any(d.startswith("m_stress_") for d in derived_18)
-    assert counts["accepted_recovery_manual_stress_merged"] == 1
+    assert counts["accepted_stress_manual_merged"] == 1
 
 
 def test_reproject_hygiene_restores_garmin_provenance_when_stress_dropped(tmp_path: Path):
     """After stress hygiene strips the manual contributor, source +
-    ingest_actor must reflect the surviving garmin contributor — not the
-    stale 'user_manual'/'hai_cli_direct' values left by the evicted
-    stress merge. State model §4 says provenance propagates from the
-    primary raw row(s); when stress is removed and only garmin remains,
-    that's the primary."""
+    ingest_actor on the stress accepted row must reflect the surviving
+    garmin contributor — not the stale 'user_manual'/'hai_cli_direct'
+    values left by the evicted stress merge."""
 
     from health_agent_infra.core.state import reproject_from_jsonl
 
     base, db = _init_intake_dirs(tmp_path)
 
-    # Seed with garmin clean, then merge in a stress score. After the
-    # merge, source='user_manual' (stress was the most recent write).
+    # Seed with garmin clean, then merge in a stress score.
     conn = open_connection(db)
     try:
-        project_accepted_recovery_state_daily(
-            conn, as_of_date=AS_OF, user_id=USER,
-            raw_row=_full_garmin_raw_row(),
-            source_row_ids=["garmin_keep:0"],
-        )
+        _seed_full_clean(conn, source_row_ids=["garmin_keep:0"])
     finally:
         conn.close()
     assert cli_main(_stress_args(base, db, score=4)) == 0
@@ -727,7 +727,7 @@ def test_reproject_hygiene_restores_garmin_provenance_when_stress_dropped(tmp_pa
     try:
         before = conn.execute(
             "SELECT source, ingest_actor, manual_stress_score "
-            "FROM accepted_recovery_state_daily "
+            "FROM accepted_stress_state_daily "
             "WHERE user_id = ? AND as_of_date = ?",
             (USER, AS_OF.isoformat()),
         ).fetchone()
@@ -754,7 +754,7 @@ def test_reproject_hygiene_restores_garmin_provenance_when_stress_dropped(tmp_pa
         reproject_from_jsonl(conn, base)
         after = conn.execute(
             "SELECT manual_stress_score, derived_from, source, ingest_actor "
-            "FROM accepted_recovery_state_daily "
+            "FROM accepted_stress_state_daily "
             "WHERE user_id = ? AND as_of_date = ?",
             (USER, AS_OF.isoformat()),
         ).fetchone()
@@ -775,33 +775,23 @@ def test_reproject_hygiene_restores_garmin_provenance_when_stress_dropped(tmp_pa
 
 
 def test_reproject_preserves_garmin_contributors_on_stress_hygiene(tmp_path: Path):
-    """The reproject hygiene step must only strip stress IDs from
-    derived_from; Garmin contributor IDs must survive."""
+    """The reproject hygiene step must only strip stress IDs from the
+    stress table's derived_from; Garmin contributor IDs must survive."""
 
     from health_agent_infra.core.state import reproject_from_jsonl
 
     base, db = _init_intake_dirs(tmp_path)
 
-    # Pre-seed a recovery row with both Garmin + stress contributors.
+    # Pre-seed with both Garmin + stress contributors on the stress row.
     conn = open_connection(db)
     try:
-        project_accepted_recovery_state_daily(
-            conn, as_of_date=AS_OF, user_id=USER,
-            raw_row=_full_garmin_raw_row(),
-            source_row_ids=["garmin_keepme:0"],
-        )
+        _seed_full_clean(conn, source_row_ids=["garmin_keepme:0"])
     finally:
         conn.close()
     assert cli_main(_stress_args(base, db, score=3)) == 0
 
-    # Now empty the stress JSONL (simulate "reproject with no current
-    # stress evidence for any day").
-    (base / "stress_manual.jsonl").write_text("")
-    # Drop any other JSONLs to keep the reproject focused; we only have
-    # the stress group registered here.
-    # We need at least one log file present for reproject; inject a
-    # single-line stress JSONL for an unrelated day so the group is
-    # "present" without affecting AS_OF.
+    # Inject a single-line stress JSONL for an unrelated day so the
+    # stress group is "present" without affecting AS_OF.
     (base / "stress_manual.jsonl").write_text(json.dumps({
         "submission_id": "m_stress_2099-01-01_zzz",
         "user_id": "u_other",
@@ -817,7 +807,7 @@ def test_reproject_preserves_garmin_contributors_on_stress_hygiene(tmp_path: Pat
         reproject_from_jsonl(conn, base)
         row = conn.execute(
             "SELECT manual_stress_score, derived_from "
-            "FROM accepted_recovery_state_daily "
+            "FROM accepted_stress_state_daily "
             "WHERE user_id = ? AND as_of_date = ?",
             (USER, AS_OF.isoformat()),
         ).fetchone()
@@ -853,7 +843,7 @@ def test_reproject_rebuilds_stress_and_merges_into_accepted(tmp_path: Path):
     try:
         raw_count = conn.execute("SELECT COUNT(*) FROM stress_manual_raw").fetchone()[0]
         days = conn.execute(
-            "SELECT as_of_date, manual_stress_score FROM accepted_recovery_state_daily "
+            "SELECT as_of_date, manual_stress_score FROM accepted_stress_state_daily "
             "ORDER BY as_of_date"
         ).fetchall()
     finally:

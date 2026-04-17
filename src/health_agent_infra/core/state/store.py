@@ -252,3 +252,137 @@ def list_applied_migrations(conn: sqlite3.Connection) -> Iterable[sqlite3.Row]:
     return conn.execute(
         "SELECT version, filename, applied_at FROM schema_migrations ORDER BY version"
     ).fetchall()
+
+
+# ---------------------------------------------------------------------------
+# Dry-run diff gates (per-migration, safety net before forward-running)
+# ---------------------------------------------------------------------------
+
+def migration_004_dry_run_diff(conn: sqlite3.Connection) -> dict:
+    """Compare accepted_recovery columns the migration moves against raw.
+
+    Run against a DB at schema version 3 (before 004 applies). For each
+    ``accepted_recovery_state_daily`` row, derives the value the
+    post-migration sleep / stress projectors would produce from the
+    latest non-superseded raw rows (source_daily_garmin +
+    stress_manual_raw), and reports any field where the current accepted
+    value differs from what the projector would produce.
+
+    A non-empty diff means the existing accepted rows hold values that
+    wouldn't survive a clean re-projection — either because the raw has
+    drifted, because a manual patch was applied, or because a past bug
+    left inconsistent state. The operator must investigate before the
+    migration runs forward.
+
+    Returns a dict shaped::
+
+        {
+            "migration": "004_sleep_stress_tables",
+            "schema_version": <int>,
+            "rows_checked": <int>,
+            "mismatches": [
+                {
+                    "as_of_date": "YYYY-MM-DD",
+                    "user_id": "...",
+                    "field": "sleep_hours" | ...,
+                    "accepted_value": ...,
+                    "reprojected_value": ...,
+                },
+                ...
+            ],
+        }
+
+    If the DB has already moved past migration 003 the helper raises —
+    callers are expected to run this gate on a pre-004 DB.
+    """
+
+    version = current_schema_version(conn)
+    if version < 3:
+        raise RuntimeError(
+            f"dry-run diff for migration 004 needs schema version ≥ 3 "
+            f"(synthesis scaffolding); got {version}"
+        )
+    if version >= 4:
+        raise RuntimeError(
+            f"dry-run diff for migration 004 is a pre-apply gate; DB is "
+            f"already at schema version {version}"
+        )
+
+    mismatches: list[dict] = []
+    rows_checked = 0
+
+    accepted_rows = conn.execute(
+        "SELECT as_of_date, user_id, sleep_hours, all_day_stress, "
+        "manual_stress_score, body_battery_end_of_day "
+        "FROM accepted_recovery_state_daily "
+        "ORDER BY as_of_date, user_id"
+    ).fetchall()
+
+    for row in accepted_rows:
+        rows_checked += 1
+        as_of = row["as_of_date"]
+        uid = row["user_id"]
+
+        garmin = conn.execute(
+            "SELECT sleep_deep_sec, sleep_light_sec, sleep_rem_sec, "
+            "all_day_stress, body_battery "
+            "FROM source_daily_garmin "
+            "WHERE as_of_date = ? AND user_id = ? "
+            "  AND export_batch_id NOT IN ("
+            "      SELECT supersedes_export_batch_id FROM source_daily_garmin "
+            "      WHERE supersedes_export_batch_id IS NOT NULL"
+            "  ) "
+            "ORDER BY ingested_at DESC LIMIT 1",
+            (as_of, uid),
+        ).fetchone()
+
+        reprojected_sleep_hours = None
+        reprojected_all_day_stress = None
+        reprojected_body_battery = None
+        if garmin is not None:
+            total_sec = 0.0
+            seen = False
+            for col in ("sleep_deep_sec", "sleep_light_sec", "sleep_rem_sec"):
+                v = garmin[col]
+                if v is not None:
+                    total_sec += float(v)
+                    seen = True
+            if seen and total_sec > 0:
+                reprojected_sleep_hours = round(total_sec / 3600.0, 2)
+            reprojected_all_day_stress = garmin["all_day_stress"]
+            reprojected_body_battery = garmin["body_battery"]
+
+        stress_raw = conn.execute(
+            "SELECT score FROM stress_manual_raw "
+            "WHERE as_of_date = ? AND user_id = ? "
+            "  AND submission_id NOT IN ("
+            "      SELECT supersedes_submission_id FROM stress_manual_raw "
+            "      WHERE supersedes_submission_id IS NOT NULL"
+            "  ) "
+            "ORDER BY ingested_at DESC LIMIT 1",
+            (as_of, uid),
+        ).fetchone()
+        reprojected_manual_score = stress_raw["score"] if stress_raw else None
+
+        checks = (
+            ("sleep_hours", row["sleep_hours"], reprojected_sleep_hours),
+            ("all_day_stress", row["all_day_stress"], reprojected_all_day_stress),
+            ("manual_stress_score", row["manual_stress_score"], reprojected_manual_score),
+            ("body_battery_end_of_day", row["body_battery_end_of_day"], reprojected_body_battery),
+        )
+        for field, accepted_value, reproj_value in checks:
+            if accepted_value != reproj_value:
+                mismatches.append({
+                    "as_of_date": as_of,
+                    "user_id": uid,
+                    "field": field,
+                    "accepted_value": accepted_value,
+                    "reprojected_value": reproj_value,
+                })
+
+    return {
+        "migration": "004_sleep_stress_tables",
+        "schema_version": version,
+        "rows_checked": rows_checked,
+        "mismatches": mismatches,
+    }
