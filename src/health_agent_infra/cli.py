@@ -446,6 +446,205 @@ SORENESS_CHOICES = ("low", "moderate", "high")
 ENERGY_CHOICES = ("low", "moderate", "high")
 
 
+def cmd_intake_gym(args: argparse.Namespace) -> int:
+    """Log a gym session (or one set of a session) as raw user-reported evidence.
+
+    Two modes:
+
+      - **Per-set flags**: ``--session-id --exercise --set-number --weight-kg
+        --reps [--rpe]``. Multiple invocations with the same session_id
+        accumulate sets under one session. Deterministic ``set_id =
+        f"set_{session_id}_{set_number:03d}"`` makes re-invocation idempotent.
+      - **Bulk JSON**: ``--session-json <path>`` with ``{session_id,
+        session_name?, as_of_date?, notes?, sets: [...]}``. Session_id in the
+        JSON takes precedence over ``--session-id`` if both are given.
+
+    Writes:
+      - JSONL audit (always first): ``<base_dir>/gym_sessions.jsonl`` with
+        one line per set.
+      - DB projection (fail-soft, atomic): ``gym_session`` + ``gym_set`` +
+        recomputed ``accepted_resistance_training_state_daily`` for the day,
+        all inside a single ``BEGIN IMMEDIATE`` / ``COMMIT``.
+    """
+
+    from health_agent_infra.intake.gym import (
+        GymSessionSubmission,
+        GymSet,
+        append_submission_jsonl,
+        parse_bulk_session_json,
+    )
+
+    base_dir = Path(args.base_dir).expanduser()
+
+    if args.session_json:
+        try:
+            payload = json.loads(
+                Path(args.session_json).expanduser().read_text(encoding="utf-8")
+            )
+            parse_bulk_session_json(payload)
+        except (json.JSONDecodeError, ValueError) as exc:
+            print(f"intake gym rejected: {exc}", file=sys.stderr)
+            return 2
+        session_id = payload["session_id"]
+        session_name = payload.get("session_name")
+        notes = payload.get("notes")
+        as_of = _coerce_date(payload.get("as_of_date", args.as_of))
+        sets = [
+            GymSet(
+                set_number=int(s["set_number"]),
+                exercise_name=str(s["exercise_name"]),
+                weight_kg=s.get("weight_kg"),
+                reps=s.get("reps"),
+                rpe=s.get("rpe"),
+                supersedes_set_id=s.get("supersedes_set_id"),
+            )
+            for s in payload["sets"]
+        ]
+    else:
+        missing = [
+            f for f in ("session_id", "exercise", "set_number")
+            if getattr(args, f.replace("-", "_"), None) in (None, "")
+        ]
+        if missing:
+            print(
+                "intake gym requires per-set flags or --session-json. "
+                f"Missing: {missing}",
+                file=sys.stderr,
+            )
+            return 2
+        if args.reps is None and args.weight_kg is None:
+            print(
+                "intake gym: at least one of --reps or --weight-kg must be given",
+                file=sys.stderr,
+            )
+            return 2
+        session_id = args.session_id
+        session_name = args.session_name
+        notes = args.notes
+        as_of = _coerce_date(args.as_of)
+        sets = [
+            GymSet(
+                set_number=int(args.set_number),
+                exercise_name=args.exercise,
+                weight_kg=args.weight_kg,
+                reps=args.reps,
+                rpe=args.rpe,
+            )
+        ]
+
+    issued_at = datetime.now(timezone.utc)
+    suffix = issued_at.strftime("%H%M%S%f")
+    submission = GymSessionSubmission(
+        session_id=session_id,
+        user_id=args.user_id,
+        as_of_date=as_of,
+        session_name=session_name,
+        notes=notes,
+        sets=sets,
+        submission_id=f"m_gym_{as_of.isoformat()}_{suffix}",
+        ingest_actor=args.ingest_actor,
+        submitted_at=issued_at,
+    )
+
+    # JSONL audit first (durable boundary). If this fails, nothing landed.
+    jsonl_path = append_submission_jsonl(submission, base_dir=base_dir)
+
+    # DB projection is atomic + fail-soft.
+    _project_gym_submission_into_state(args.db_path, submission)
+
+    _emit_json({
+        "submission_id": submission.submission_id,
+        "session_id": submission.session_id,
+        "user_id": submission.user_id,
+        "as_of_date": submission.as_of_date.isoformat(),
+        "sets_logged": len(submission.sets),
+        "jsonl_path": str(jsonl_path),
+    })
+    return 0
+
+
+def _project_gym_submission_into_state(db_path_arg, submission) -> None:
+    """Project a gym submission into the state DB atomically (fail-soft).
+
+    Pattern: same as ``_project_clean_into_state``. All three writes
+    (gym_session, one-or-more gym_set rows, recomputed
+    accepted_resistance_training_state_daily) land inside a single
+    ``BEGIN IMMEDIATE``/``COMMIT``. A mid-flight failure rolls back; the
+    JSONL audit write already happened so ``hai state reproject
+    --base-dir <d>`` can rebuild the DB.
+    """
+
+    from health_agent_infra.intake.gym import deterministic_set_id
+    from health_agent_infra.state import (
+        open_connection,
+        project_accepted_resistance_training_state_daily,
+        project_gym_session,
+        project_gym_set,
+        resolve_db_path,
+    )
+
+    db_path = resolve_db_path(db_path_arg)
+    if not db_path.exists():
+        print(
+            f"note: state DB projection skipped ({db_path} not found). "
+            f"JSONL audit record is durable. Run `hai state init` to enable "
+            f"DB dual-write.",
+            file=sys.stderr,
+        )
+        return
+
+    conn = open_connection(db_path)
+    try:
+        conn.execute("BEGIN IMMEDIATE")
+        try:
+            project_gym_session(
+                conn,
+                session_id=submission.session_id,
+                user_id=submission.user_id,
+                as_of_date=submission.as_of_date,
+                session_name=submission.session_name,
+                notes=submission.notes,
+                submission_id=submission.submission_id,
+                ingest_actor=submission.ingest_actor,
+                commit_after=False,
+            )
+            for s in submission.sets:
+                project_gym_set(
+                    conn,
+                    set_id=deterministic_set_id(
+                        submission.session_id, s.set_number,
+                    ),
+                    session_id=submission.session_id,
+                    set_number=s.set_number,
+                    exercise_name=s.exercise_name,
+                    weight_kg=s.weight_kg,
+                    reps=s.reps,
+                    rpe=s.rpe,
+                    supersedes_set_id=s.supersedes_set_id,
+                    commit_after=False,
+                )
+            project_accepted_resistance_training_state_daily(
+                conn,
+                as_of_date=submission.as_of_date,
+                user_id=submission.user_id,
+                ingest_actor=submission.ingest_actor,
+                commit_after=False,
+            )
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            raise
+    except Exception as exc:  # noqa: BLE001
+        print(
+            f"warning: gym intake projection into state DB failed and was "
+            f"rolled back: {exc}. JSONL audit is durable; run `hai state "
+            f"reproject --base-dir <writeback-root>` to recover.",
+            file=sys.stderr,
+        )
+    finally:
+        conn.close()
+
+
 def cmd_intake_readiness(args: argparse.Namespace) -> int:
     """Emit a typed manual-readiness JSON blob to stdout.
 
@@ -740,6 +939,49 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_intake = sub.add_parser("intake", help="Typed human-input intake surfaces")
     intake_sub = p_intake.add_subparsers(dest="intake_command", required=True)
+
+    p_ig = intake_sub.add_parser(
+        "gym",
+        help="Log a gym session (or one set) as raw user-reported evidence",
+    )
+    # Per-set mode
+    p_ig.add_argument("--session-id", default=None,
+                      help="Stable identifier for the session; multiple invocations "
+                           "with the same id accumulate sets under one session")
+    p_ig.add_argument("--session-name", default=None,
+                      help="Human-readable label (e.g. 'Bench day')")
+    p_ig.add_argument("--notes", default=None,
+                      help="Free-text notes for the session header")
+    p_ig.add_argument("--exercise", default=None,
+                      help="Exercise name for this set (e.g. 'Bench Press')")
+    p_ig.add_argument("--set-number", type=int, default=None,
+                      help="1-based set ordinal within the session")
+    p_ig.add_argument("--weight-kg", type=float, default=None,
+                      help="Weight lifted in kilograms (omit for bodyweight)")
+    p_ig.add_argument("--reps", type=int, default=None,
+                      help="Reps completed in this set")
+    p_ig.add_argument("--rpe", type=float, default=None,
+                      help="Rate of perceived exertion (1-10). Optional.")
+    # Bulk mode
+    p_ig.add_argument("--session-json", default=None,
+                      help="Path to a JSON file with {session_id, session_name?, "
+                           "as_of_date?, notes?, sets: [...]}. Bulk alternative to "
+                           "per-set flags.")
+    # Common
+    p_ig.add_argument("--as-of", default=None,
+                      help="Civil date this session belongs to (ISO-8601, "
+                           "default today UTC)")
+    p_ig.add_argument("--user-id", default="u_local_1")
+    p_ig.add_argument("--ingest-actor", default="hai_cli_direct",
+                      choices=("hai_cli_direct", "claude_agent_v1"),
+                      help="Transport identity. 'hai_cli_direct' for typed-by-user; "
+                           "'claude_agent_v1' when the agent mediates.")
+    p_ig.add_argument("--base-dir", required=True,
+                      help="Intake root (where gym_sessions.jsonl will be appended)")
+    p_ig.add_argument("--db-path", default=None,
+                      help="State DB path (same semantics as `hai writeback --db-path`)")
+    p_ig.set_defaults(func=cmd_intake_gym)
+
     p_ir = intake_sub.add_parser("readiness",
                                  help="Emit a typed manual-readiness JSON to stdout")
     p_ir.add_argument("--soreness", required=True, choices=SORENESS_CHOICES,

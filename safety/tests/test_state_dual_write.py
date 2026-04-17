@@ -400,9 +400,16 @@ def test_reproject_reads_all_three_jsonl_files_into_db(tmp_path: Path, capsys):
     assert rc == 0
 
     report = json.loads(out)
-    assert report["reprojected"] == {
-        "recommendations": 1, "review_events": 1, "review_outcomes": 1,
-    }
+    # The count keys expand as new domains land; this test pins the three
+    # recommendation/review counts specifically, other keys may be present
+    # (e.g. gym_sessions/gym_sets from 7C) and should be 0 since no gym
+    # JSONL was written in this fixture.
+    assert report["reprojected"]["recommendations"] == 1
+    assert report["reprojected"]["review_events"] == 1
+    assert report["reprojected"]["review_outcomes"] == 1
+    for k, v in report["reprojected"].items():
+        if k not in ("recommendations", "review_events", "review_outcomes"):
+            assert v == 0, f"unexpected non-zero reproject count for {k}: {v}"
 
     conn = open_connection(db)
     try:

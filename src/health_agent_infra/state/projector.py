@@ -562,6 +562,209 @@ def project_accepted_running_state_daily(
 
 
 # ---------------------------------------------------------------------------
+# Gym intake -> gym_session + gym_set (raw) + accepted_resistance_training_state_daily
+# ---------------------------------------------------------------------------
+
+def project_gym_session(
+    conn: sqlite3.Connection,
+    *,
+    session_id: str,
+    user_id: str,
+    as_of_date: date,
+    session_name: Optional[str],
+    notes: Optional[str],
+    submission_id: str,
+    ingest_actor: str,
+    source: str = "user_manual",
+    commit_after: bool = True,
+) -> bool:
+    """Insert one gym_session header row. Idempotent on session_id.
+
+    Returns ``True`` on insert, ``False`` if the session_id already exists.
+    A session is raw evidence; header metadata is immutable once logged.
+    Corrections apply at the set level via ``supersedes_set_id``.
+    """
+
+    existing = conn.execute(
+        "SELECT 1 FROM gym_session WHERE session_id = ?",
+        (session_id,),
+    ).fetchone()
+    if existing is not None:
+        return False
+
+    conn.execute(
+        """
+        INSERT INTO gym_session (
+            session_id, user_id, as_of_date, session_name, notes,
+            source, ingest_actor, submission_id, ingested_at,
+            supersedes_session_id
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            session_id, user_id, as_of_date.isoformat(),
+            session_name, notes,
+            source, ingest_actor, submission_id, _now_iso(),
+            None,
+        ),
+    )
+    if commit_after:
+        conn.commit()
+    return True
+
+
+def project_gym_set(
+    conn: sqlite3.Connection,
+    *,
+    set_id: str,
+    session_id: str,
+    set_number: int,
+    exercise_name: str,
+    weight_kg: Optional[float],
+    reps: Optional[int],
+    rpe: Optional[float],
+    supersedes_set_id: Optional[str] = None,
+    commit_after: bool = True,
+) -> bool:
+    """Insert one gym_set. Idempotent on set_id (deterministic per session/number).
+
+    Returns ``True`` on insert, ``False`` if the set_id already exists.
+    Append-only raw grammar (state_model_v1.md §3): corrections pass a fresh
+    set_id + ``supersedes_set_id`` pointing at the row being replaced.
+    """
+
+    existing = conn.execute(
+        "SELECT 1 FROM gym_set WHERE set_id = ?",
+        (set_id,),
+    ).fetchone()
+    if existing is not None:
+        return False
+
+    conn.execute(
+        """
+        INSERT INTO gym_set (
+            set_id, session_id, set_number, exercise_name,
+            weight_kg, reps, rpe,
+            ingested_at, supersedes_set_id
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            set_id, session_id, set_number, exercise_name,
+            weight_kg, reps, rpe,
+            _now_iso(), supersedes_set_id,
+        ),
+    )
+    if commit_after:
+        conn.commit()
+    return True
+
+
+def project_accepted_resistance_training_state_daily(
+    conn: sqlite3.Connection,
+    *,
+    as_of_date: date,
+    user_id: str,
+    ingest_actor: str,
+    source: str = "user_manual",
+    commit_after: bool = True,
+) -> bool:
+    """Recompute + UPSERT the day's accepted resistance-training aggregate.
+
+    Aggregates every non-superseded gym_set via the row's session, filtered
+    to (as_of_date, user_id). Superseded rows are excluded by checking
+    whether their set_id appears as another row's ``supersedes_set_id`` —
+    kept simple for v1 (no corrections in 7C.1's CLI, so this is
+    forward-compatible when set-level corrections land).
+
+    Returns ``True`` on insert, ``False`` on update (corrected_at set).
+
+    **Provenance.** ``derived_from`` is a JSON list of session_ids that
+    contributed. Auditors can JOIN back to gym_session for per-session
+    provenance (source, ingest_actor, submission_id).
+    """
+
+    rows = conn.execute(
+        """
+        SELECT
+            gs.session_id,
+            gset.set_id, gset.exercise_name, gset.weight_kg, gset.reps
+        FROM gym_session gs
+        JOIN gym_set gset ON gset.session_id = gs.session_id
+        WHERE gs.as_of_date = ? AND gs.user_id = ?
+          AND gset.set_id NOT IN (
+              SELECT supersedes_set_id FROM gym_set
+              WHERE supersedes_set_id IS NOT NULL
+          )
+        """,
+        (as_of_date.isoformat(), user_id),
+    ).fetchall()
+
+    session_ids = sorted({r["session_id"] for r in rows})
+    exercises = sorted({r["exercise_name"] for r in rows})
+    total_sets = len(rows)
+    total_volume = None
+    if rows:
+        vol_values = [
+            (r["weight_kg"] or 0) * (r["reps"] or 0)
+            for r in rows
+            if r["weight_kg"] is not None and r["reps"] is not None
+        ]
+        if vol_values:
+            total_volume = round(sum(vol_values), 2)
+
+    now_iso = _now_iso()
+    derived_from_json = json.dumps(session_ids, sort_keys=True)
+    exercises_json = json.dumps(exercises, sort_keys=True)
+
+    existing = conn.execute(
+        "SELECT 1 FROM accepted_resistance_training_state_daily "
+        "WHERE as_of_date = ? AND user_id = ?",
+        (as_of_date.isoformat(), user_id),
+    ).fetchone()
+    is_insert = existing is None
+
+    values = (
+        len(session_ids),
+        total_sets,
+        total_volume,
+        exercises_json,
+        derived_from_json,
+        source,
+        ingest_actor,
+        now_iso,
+        None if is_insert else now_iso,
+        as_of_date.isoformat(),
+        user_id,
+    )
+
+    if is_insert:
+        conn.execute(
+            """
+            INSERT INTO accepted_resistance_training_state_daily (
+                session_count, total_sets, total_volume_kg_reps, exercises,
+                derived_from, source, ingest_actor,
+                projected_at, corrected_at,
+                as_of_date, user_id
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            values,
+        )
+    else:
+        conn.execute(
+            """
+            UPDATE accepted_resistance_training_state_daily SET
+                session_count = ?, total_sets = ?, total_volume_kg_reps = ?,
+                exercises = ?, derived_from = ?, source = ?, ingest_actor = ?,
+                projected_at = ?, corrected_at = ?
+            WHERE as_of_date = ? AND user_id = ?
+            """,
+            values,
+        )
+    if commit_after:
+        conn.commit()
+    return is_insert
+
+
+# ---------------------------------------------------------------------------
 # Reprojection from JSONL audit logs
 # ---------------------------------------------------------------------------
 
@@ -600,19 +803,24 @@ def reproject_from_jsonl(conn: sqlite3.Connection, base_dir, *, allow_empty: boo
     rec_log = base / "recommendation_log.jsonl"
     events_log = base / "review_events.jsonl"
     outcomes_log = base / "review_outcomes.jsonl"
+    gym_log = base / "gym_sessions.jsonl"
 
     if not allow_empty:
-        expected = (rec_log, events_log, outcomes_log)
+        expected = (rec_log, events_log, outcomes_log, gym_log)
         if not any(p.exists() for p in expected):
             raise ReprojectBaseDirError(
                 f"no audit JSONL files found under {base}. Expected at least "
                 f"one of: recommendation_log.jsonl, review_events.jsonl, "
-                f"review_outcomes.jsonl. Refusing to truncate the projection "
-                f"tables. Pass allow_empty=True / --allow-empty-reproject to "
-                f"override."
+                f"review_outcomes.jsonl, gym_sessions.jsonl. Refusing to "
+                f"truncate the projection tables. Pass allow_empty=True / "
+                f"--allow-empty-reproject to override."
             )
 
-    counts = {"recommendations": 0, "review_events": 0, "review_outcomes": 0}
+    counts = {
+        "recommendations": 0, "review_events": 0, "review_outcomes": 0,
+        "gym_sessions": 0, "gym_sets": 0,
+        "accepted_resistance_training_state_daily": 0,
+    }
 
     conn.execute("BEGIN EXCLUSIVE")
     try:
@@ -621,6 +829,11 @@ def reproject_from_jsonl(conn: sqlite3.Connection, base_dir, *, allow_empty: boo
         conn.execute("DELETE FROM review_outcome")
         conn.execute("DELETE FROM review_event")
         conn.execute("DELETE FROM recommendation_log")
+        # Gym: gym_set FK -> gym_session. Accepted resistance daily has no
+        # FK but is derived from gym data and must be rebuilt alongside.
+        conn.execute("DELETE FROM accepted_resistance_training_state_daily")
+        conn.execute("DELETE FROM gym_set")
+        conn.execute("DELETE FROM gym_session")
 
         if rec_log.exists():
             for line_no, line in enumerate(rec_log.read_text(encoding="utf-8").splitlines(), start=1):
@@ -707,6 +920,87 @@ def reproject_from_jsonl(conn: sqlite3.Connection, base_dir, *, allow_empty: boo
                     ),
                 )
                 counts["review_outcomes"] += 1
+
+        if gym_log.exists():
+            # Each line is one set submission with session metadata inline.
+            # Sessions: inserted once on first mention, subsequent lines
+            # referencing the same session_id are no-ops. Sets are inserted
+            # on their set_id (deterministic on session_id + set_number for
+            # first-time logging; corrections carry supersedes_set_id).
+            seen_sessions: set[str] = set()
+            days_touched: set[tuple[str, str]] = set()
+            for line_no, line in enumerate(
+                gym_log.read_text(encoding="utf-8").splitlines(), start=1,
+            ):
+                if not line.strip():
+                    continue
+                data = json.loads(line)
+                session_id = data["session_id"]
+                user_id = data["user_id"]
+                as_of_iso = data["as_of_date"]
+
+                if session_id not in seen_sessions:
+                    conn.execute(
+                        """
+                        INSERT OR IGNORE INTO gym_session (
+                            session_id, user_id, as_of_date, session_name, notes,
+                            source, ingest_actor, submission_id, ingested_at,
+                            supersedes_session_id
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        """,
+                        (
+                            session_id, user_id, as_of_iso,
+                            data.get("session_name"), data.get("notes"),
+                            data.get("source", "user_manual"),
+                            data.get("ingest_actor", "claude_agent_v1"),
+                            data.get("submission_id"),
+                            data.get("submitted_at", _now_iso()),
+                            None,
+                        ),
+                    )
+                    seen_sessions.add(session_id)
+                    counts["gym_sessions"] += 1
+
+                set_id = f"set_{session_id}_{int(data['set_number']):03d}"
+                # If the JSONL explicitly carries a non-deterministic set_id
+                # (e.g., a correction row with supersedes_set_id), honour it.
+                if data.get("set_id"):
+                    set_id = data["set_id"]
+                conn.execute(
+                    """
+                    INSERT OR IGNORE INTO gym_set (
+                        set_id, session_id, set_number, exercise_name,
+                        weight_kg, reps, rpe,
+                        ingested_at, supersedes_set_id
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        set_id, session_id, int(data["set_number"]),
+                        data["exercise_name"],
+                        data.get("weight_kg"), data.get("reps"), data.get("rpe"),
+                        data.get("submitted_at", _now_iso()),
+                        data.get("supersedes_set_id"),
+                    ),
+                )
+                counts["gym_sets"] += 1
+                days_touched.add((as_of_iso, user_id))
+
+            # Rebuild every touched day's accepted resistance-training row.
+            from datetime import date as _date
+            for as_of_iso, user_id in sorted(days_touched):
+                # Inline the accepted-state recomputation; we can't call the
+                # public helper here because it would call conn.commit()
+                # mid-transaction (commit_after=True default). Defensive:
+                # explicitly pass commit_after=False.
+                project_accepted_resistance_training_state_daily(
+                    conn,
+                    as_of_date=_date.fromisoformat(as_of_iso),
+                    user_id=user_id,
+                    ingest_actor="hai_state_reproject",
+                    source="user_manual",
+                    commit_after=False,
+                )
+                counts["accepted_resistance_training_state_daily"] += 1
 
         conn.commit()
     except Exception:
