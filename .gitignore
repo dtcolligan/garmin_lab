@@ -42,3 +42,4 @@ htmlcov/
 ml/data/synthetic_training.csv
 ml/data/usda_raw_pull.json
 dashboard/dashboard_data.json
+build/
