@@ -503,6 +503,260 @@ def test_note_snapshot_recent_lookback(tmp_path: Path):
 
 
 # ---------------------------------------------------------------------------
+# Provenance: derived_from carries both Garmin + stress contributors
+# (7C.3 patch — per-dimension slot replacement)
+# ---------------------------------------------------------------------------
+
+def test_derived_from_carries_both_garmin_and_stress_after_clean_then_stress(tmp_path: Path):
+    """After clean populates Garmin fields and stress merges manual score,
+    derived_from must list BOTH the garmin contributor AND the stress
+    submission_id. The state model says accepted state lists every raw
+    row that contributed to its current values."""
+
+    base, db = _init_intake_dirs(tmp_path)
+    conn = open_connection(db)
+    try:
+        project_accepted_recovery_state_daily(
+            conn, as_of_date=AS_OF, user_id=USER,
+            raw_row=_full_garmin_raw_row(),
+            source_row_ids=["garmin_batch_a:0"],
+        )
+    finally:
+        conn.close()
+
+    assert cli_main(_stress_args(base, db, score=4)) == 0
+
+    conn = open_connection(db)
+    try:
+        row = conn.execute(
+            "SELECT derived_from, manual_stress_score FROM "
+            "accepted_recovery_state_daily WHERE user_id = ? AND as_of_date = ?",
+            (USER, AS_OF.isoformat()),
+        ).fetchone()
+    finally:
+        conn.close()
+
+    derived = json.loads(row["derived_from"])
+    assert "garmin_batch_a:0" in derived, (
+        "Garmin contributor evicted by stress merge — derived_from is "
+        "supposed to be cumulative across dimensions"
+    )
+    stress_ids = [d for d in derived if d.startswith("m_stress_")]
+    assert len(stress_ids) == 1, (
+        f"expected exactly one stress submission in derived_from, got {derived}"
+    )
+    assert row["manual_stress_score"] == 4
+
+
+def test_derived_from_evicts_old_garmin_when_clean_re_runs(tmp_path: Path):
+    """clean → stress → clean must end with [latest_garmin, latest_stress].
+    The first garmin batch is replaced by the second; the stress slot is
+    preserved across the second clean."""
+
+    base, db = _init_intake_dirs(tmp_path)
+
+    conn = open_connection(db)
+    try:
+        project_accepted_recovery_state_daily(
+            conn, as_of_date=AS_OF, user_id=USER,
+            raw_row=_full_garmin_raw_row(),
+            source_row_ids=["garmin_batch_a:0"],
+        )
+    finally:
+        conn.close()
+
+    assert cli_main(_stress_args(base, db, score=3)) == 0
+
+    conn = open_connection(db)
+    try:
+        # Second Garmin clean (e.g. user re-pulled).
+        project_accepted_recovery_state_daily(
+            conn, as_of_date=AS_OF, user_id=USER,
+            raw_row=_full_garmin_raw_row(),
+            source_row_ids=["garmin_batch_b:0"],
+        )
+        row = conn.execute(
+            "SELECT derived_from, manual_stress_score FROM "
+            "accepted_recovery_state_daily WHERE user_id = ? AND as_of_date = ?",
+            (USER, AS_OF.isoformat()),
+        ).fetchone()
+    finally:
+        conn.close()
+
+    derived = json.loads(row["derived_from"])
+    # Latest garmin batch only (first batch evicted).
+    assert "garmin_batch_b:0" in derived
+    assert "garmin_batch_a:0" not in derived, (
+        "old Garmin batch ID survived a re-clean — per-dimension replacement "
+        "should evict prior contributors in the same dimension"
+    )
+    # Stress slot preserved across the second clean.
+    stress_ids = [d for d in derived if d.startswith("m_stress_")]
+    assert len(stress_ids) == 1, (
+        f"stress contributor lost on clean re-run: derived_from = {derived}"
+    )
+    # And the score persists.
+    assert row["manual_stress_score"] == 3
+
+
+def test_derived_from_evicts_superseded_stress_on_correction(tmp_path: Path):
+    """Stress correction (sub_b supersedes sub_a) must leave only
+    [garmin_contributor, sub_b] — sub_a is no longer a current
+    contributor (the merge function pulls only the latest non-superseded
+    raw to source from)."""
+
+    base, db = _init_intake_dirs(tmp_path)
+
+    conn = open_connection(db)
+    try:
+        project_accepted_recovery_state_daily(
+            conn, as_of_date=AS_OF, user_id=USER,
+            raw_row=_full_garmin_raw_row(),
+            source_row_ids=["garmin_only:0"],
+        )
+    finally:
+        conn.close()
+
+    assert cli_main(_stress_args(base, db, score=2)) == 0
+    assert cli_main(_stress_args(base, db, score=4)) == 0  # correction
+
+    conn = open_connection(db)
+    try:
+        raws = conn.execute(
+            "SELECT submission_id FROM stress_manual_raw "
+            "WHERE user_id = ? AND as_of_date = ? ORDER BY ingested_at",
+            (USER, AS_OF.isoformat()),
+        ).fetchall()
+        derived = json.loads(conn.execute(
+            "SELECT derived_from FROM accepted_recovery_state_daily "
+            "WHERE user_id = ? AND as_of_date = ?",
+            (USER, AS_OF.isoformat()),
+        ).fetchone()["derived_from"])
+    finally:
+        conn.close()
+
+    sub_a_id, sub_b_id = raws[0]["submission_id"], raws[1]["submission_id"]
+    assert sub_a_id not in derived, (
+        f"superseded stress submission survived in derived_from: {derived}"
+    )
+    assert sub_b_id in derived
+    assert "garmin_only:0" in derived  # garmin slot preserved
+
+
+# ---------------------------------------------------------------------------
+# Reproject hygiene: drop manual_stress_score for days no longer in JSONL
+# (7C.3 patch — co-owned column orphan cleanup)
+# ---------------------------------------------------------------------------
+
+def test_reproject_clears_manual_stress_for_days_dropped_from_jsonl(tmp_path: Path):
+    """Stress reproject must NULL out manual_stress_score for any
+    accepted_recovery row whose day is no longer in the replayed
+    stress_manual.jsonl. Without this, accepted has data with no raw
+    backing — the "accepted derives from raw" invariant breaks."""
+
+    from health_agent_infra.state import reproject_from_jsonl
+
+    base, db = _init_intake_dirs(tmp_path)
+
+    # Two days of stress.
+    assert cli_main(_stress_args(base, db, score=2, as_of="2026-04-17")) == 0
+    assert cli_main(_stress_args(base, db, score=4, as_of="2026-04-18")) == 0
+
+    # Replace the JSONL with one that ONLY mentions 2026-04-18.
+    full = (base / "stress_manual.jsonl").read_text().splitlines()
+    keep = [l for l in full if l.strip() and "2026-04-18" in l]
+    (base / "stress_manual.jsonl").write_text("\n".join(keep) + "\n")
+
+    conn = open_connection(db)
+    try:
+        counts = reproject_from_jsonl(conn, base)
+        rows = conn.execute(
+            "SELECT as_of_date, manual_stress_score, derived_from "
+            "FROM accepted_recovery_state_daily ORDER BY as_of_date"
+        ).fetchall()
+        n_raw = conn.execute("SELECT COUNT(*) FROM stress_manual_raw").fetchone()[0]
+    finally:
+        conn.close()
+
+    # Raw layer reflects the trimmed JSONL.
+    assert n_raw == 1
+    # Accepted layer: 2026-04-17 (dropped from JSONL) must have NULL
+    # manual_stress_score now; 2026-04-18 keeps its score from the merge.
+    by_date = {r["as_of_date"]: r for r in rows}
+    assert by_date["2026-04-17"]["manual_stress_score"] is None, (
+        "orphaned manual_stress_score survived stress reproject — accepted "
+        "no longer derives from raw for this day"
+    )
+    # Stress IDs stripped from derived_from for the dropped day.
+    derived_17 = json.loads(by_date["2026-04-17"]["derived_from"])
+    assert all(not d.startswith("m_stress_") for d in derived_17), (
+        f"stale stress submission IDs survived in derived_from: {derived_17}"
+    )
+    assert by_date["2026-04-18"]["manual_stress_score"] == 4
+    derived_18 = json.loads(by_date["2026-04-18"]["derived_from"])
+    assert any(d.startswith("m_stress_") for d in derived_18)
+    assert counts["accepted_recovery_manual_stress_merged"] == 1
+
+
+def test_reproject_preserves_garmin_contributors_on_stress_hygiene(tmp_path: Path):
+    """The reproject hygiene step must only strip stress IDs from
+    derived_from; Garmin contributor IDs must survive."""
+
+    from health_agent_infra.state import reproject_from_jsonl
+
+    base, db = _init_intake_dirs(tmp_path)
+
+    # Pre-seed a recovery row with both Garmin + stress contributors.
+    conn = open_connection(db)
+    try:
+        project_accepted_recovery_state_daily(
+            conn, as_of_date=AS_OF, user_id=USER,
+            raw_row=_full_garmin_raw_row(),
+            source_row_ids=["garmin_keepme:0"],
+        )
+    finally:
+        conn.close()
+    assert cli_main(_stress_args(base, db, score=3)) == 0
+
+    # Now empty the stress JSONL (simulate "reproject with no current
+    # stress evidence for any day").
+    (base / "stress_manual.jsonl").write_text("")
+    # Drop any other JSONLs to keep the reproject focused; we only have
+    # the stress group registered here.
+    # We need at least one log file present for reproject; inject a
+    # single-line stress JSONL for an unrelated day so the group is
+    # "present" without affecting AS_OF.
+    (base / "stress_manual.jsonl").write_text(json.dumps({
+        "submission_id": "m_stress_2099-01-01_zzz",
+        "user_id": "u_other",
+        "as_of_date": "2099-01-01",
+        "score": 1, "tags": None,
+        "source": "user_manual", "ingest_actor": "hai_cli_direct",
+        "submitted_at": "2099-01-01T00:00:00+00:00",
+        "supersedes_submission_id": None,
+    }) + "\n")
+
+    conn = open_connection(db)
+    try:
+        reproject_from_jsonl(conn, base)
+        row = conn.execute(
+            "SELECT manual_stress_score, derived_from "
+            "FROM accepted_recovery_state_daily "
+            "WHERE user_id = ? AND as_of_date = ?",
+            (USER, AS_OF.isoformat()),
+        ).fetchone()
+    finally:
+        conn.close()
+
+    assert row["manual_stress_score"] is None
+    derived = json.loads(row["derived_from"])
+    assert "garmin_keepme:0" in derived, (
+        f"Garmin contributor ID was stripped during stress hygiene: {derived}"
+    )
+    assert all(not d.startswith("m_stress_") for d in derived)
+
+
+# ---------------------------------------------------------------------------
 # REPROJECT: stress + notes
 # ---------------------------------------------------------------------------
 

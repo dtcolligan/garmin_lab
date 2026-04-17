@@ -53,6 +53,59 @@ def _opt_bool_to_int(value: Optional[bool]) -> Optional[int]:
     return 1 if value else 0
 
 
+def _is_stress_submission_id(rid: str) -> bool:
+    """True for stress raw submission IDs (CLI naming: ``m_stress_*``)."""
+
+    return rid.startswith("m_stress_")
+
+
+def _is_intake_submission_id(rid: str) -> bool:
+    """True for any user-intake submission id (``m_<kind>_<date>_*``)."""
+
+    return rid.startswith("m_")
+
+
+def _replace_dimension_in_derived_from(
+    existing_json: Optional[str],
+    *,
+    new_ids: list[str],
+    owns: callable,
+) -> str:
+    """Per-dimension slot replacement for ``derived_from``.
+
+    ``accepted_recovery_state_daily`` is co-owned by the Garmin-clean
+    flow and the manual-stress merge. Each projector owns one dimension
+    of contributor IDs (Garmin batch IDs vs ``m_stress_*`` submission
+    IDs). On UPDATE the projector replaces its own dimension's IDs with
+    the latest contributors; other dimensions' IDs are preserved.
+
+    The ``owns(id)`` predicate decides which existing IDs belong to the
+    caller's dimension. The result:
+
+      - clean → derived_from = [garmin_batch]
+      - stress → derived_from = [garmin_batch, m_stress_x]   ← garmin preserved
+      - clean again → derived_from = [garmin_batch_b, m_stress_x]  ← stress preserved
+      - stress correction → derived_from = [garmin_batch_b, m_stress_y]
+        (m_stress_x evicted: superseded raw rows no longer contribute to
+        the current accepted row, and the merge function picks only the
+        latest non-superseded raw to source from.)
+
+    Robust against absent / malformed prior values.
+    """
+
+    existing: list[str] = []
+    if existing_json:
+        try:
+            parsed = json.loads(existing_json)
+            if isinstance(parsed, list):
+                existing = [str(x) for x in parsed]
+        except (TypeError, json.JSONDecodeError):
+            existing = []
+    surviving = [rid for rid in existing if not owns(rid)]
+    merged = sorted(set(surviving) | set(new_ids or []))
+    return json.dumps(merged, sort_keys=True)
+
+
 # ---------------------------------------------------------------------------
 # TrainingRecommendation -> recommendation_log
 # ---------------------------------------------------------------------------
@@ -412,10 +465,10 @@ def project_accepted_recovery_state_daily(
     """
 
     now_iso = _now_iso()
-    derived_from_json = json.dumps(source_row_ids or [], sort_keys=True)
+    new_ids = list(source_row_ids or [])
 
     existing = conn.execute(
-        "SELECT 1 FROM accepted_recovery_state_daily "
+        "SELECT derived_from FROM accepted_recovery_state_daily "
         "WHERE as_of_date = ? AND user_id = ?",
         (as_of_date.isoformat(), user_id),
     ).fetchone()
@@ -430,6 +483,7 @@ def project_accepted_recovery_state_daily(
         # because no stress raw row exists yet for this day. A subsequent
         # `hai intake stress` will UPDATE it via the dedicated merge
         # projector below.
+        derived_from_json = json.dumps(sorted(set(new_ids)), sort_keys=True)
         conn.execute(
             """
             INSERT INTO accepted_recovery_state_daily (
@@ -467,6 +521,14 @@ def project_accepted_recovery_state_daily(
         # set by `hai intake stress`, even across Garmin re-pulls. This
         # closes the bug where re-running clean would silently wipe an
         # earlier stress merge.
+        # derived_from: per-dimension slot replacement. The Garmin clean
+        # owns the "non-intake" dimension — replace its prior contributor
+        # IDs with the new ones, preserve any stress / nutrition slots.
+        merged_derived = _replace_dimension_in_derived_from(
+            existing["derived_from"],
+            new_ids=new_ids,
+            owns=lambda rid: not _is_intake_submission_id(rid),
+        )
         conn.execute(
             """
             UPDATE accepted_recovery_state_daily SET
@@ -488,7 +550,7 @@ def project_accepted_recovery_state_daily(
                 acwr,
                 readiness_mean,
                 raw_row.get("body_battery"),
-                derived_from_json,
+                merged_derived,
                 source,
                 ingest_actor,
                 now_iso,
@@ -1070,14 +1132,14 @@ def merge_manual_stress_into_accepted_recovery(
         return False
 
     existing = conn.execute(
-        "SELECT 1 FROM accepted_recovery_state_daily "
+        "SELECT derived_from FROM accepted_recovery_state_daily "
         "WHERE as_of_date = ? AND user_id = ?",
         (as_of_date.isoformat(), user_id),
     ).fetchone()
     is_insert = existing is None
 
     now_iso = _now_iso()
-    derived_from_json = json.dumps([latest["submission_id"]], sort_keys=True)
+    new_ids = [latest["submission_id"]]
 
     if is_insert:
         # Stress-first scenario: minimal row, Garmin fields NULL.
@@ -1092,16 +1154,26 @@ def merge_manual_stress_into_accepted_recovery(
             """,
             (
                 int(latest["score"]),
-                derived_from_json,
+                json.dumps(sorted(set(new_ids)), sort_keys=True),
                 "user_manual", ingest_actor,
                 now_iso, None,
                 as_of_date.isoformat(), user_id,
             ),
         )
     else:
-        # Merge into existing row. derived_from reflects this update's
-        # contributing source (state_model_v1.md §4 "primary raw row" rule
-        # — most recent synthesizer's view). Garmin fields untouched.
+        # Merge into existing row: Garmin fields untouched, manual_stress_score
+        # set, source/ingest reflect this most-recent write, derived_from
+        # uses per-dimension slot replacement — strip prior stress IDs
+        # (the previous m_stress_* contributor was superseded; only the
+        # latest non-superseded raw stress row contributes to the current
+        # accepted manual_stress_score), keep Garmin contributors, add
+        # this submission. Per state_model_v1.md §4 derived_from lists
+        # the raw rows that justify the CURRENT accepted values.
+        merged_derived = _replace_dimension_in_derived_from(
+            existing["derived_from"],
+            new_ids=new_ids,
+            owns=_is_stress_submission_id,
+        )
         conn.execute(
             """
             UPDATE accepted_recovery_state_daily SET
@@ -1112,7 +1184,7 @@ def merge_manual_stress_into_accepted_recovery(
             """,
             (
                 int(latest["score"]),
-                derived_from_json,
+                merged_derived,
                 "user_manual", ingest_actor,
                 now_iso, now_iso,
                 as_of_date.isoformat(), user_id,
@@ -1286,10 +1358,46 @@ def reproject_from_jsonl(conn: sqlite3.Connection, base_dir, *, allow_empty: boo
             # accepted_recovery_state_daily.manual_stress_score is a
             # MERGED column — co-owned with the Garmin-clean flow. We
             # don't truncate accepted_recovery_state_daily here (would
-            # wipe Garmin fields). Instead: clear stress_manual_raw,
-            # replay it, then re-merge per touched (day, user) which
-            # UPDATEs only the manual_stress_score column.
+            # wipe Garmin fields). Instead:
+            #   1. Clear stress_manual_raw.
+            #   2. Surgical hygiene: NULL out manual_stress_score on every
+            #      accepted_recovery row + strip stress submission IDs from
+            #      derived_from. Without this step a day previously logged
+            #      via stress but absent from the new JSONL would keep its
+            #      old manual_stress_score, breaking the "accepted derives
+            #      from raw" invariant.
+            #   3. Replay raw stress rows.
+            #   4. Re-merge per touched (day, user) — UPDATE only the
+            #      manual_stress_score column for days present in the new
+            #      JSONL; days dropped from the JSONL stay NULL.
             conn.execute("DELETE FROM stress_manual_raw")
+            stress_orphans = conn.execute(
+                "SELECT as_of_date, user_id, derived_from "
+                "FROM accepted_recovery_state_daily "
+                "WHERE manual_stress_score IS NOT NULL "
+                "   OR derived_from LIKE '%\"m_stress_%'"
+            ).fetchall()
+            for row in stress_orphans:
+                surviving_ids: list[str] = []
+                if row["derived_from"]:
+                    try:
+                        parsed = json.loads(row["derived_from"])
+                        if isinstance(parsed, list):
+                            surviving_ids = [
+                                str(x) for x in parsed
+                                if not str(x).startswith("m_stress_")
+                            ]
+                    except (TypeError, json.JSONDecodeError):
+                        pass
+                conn.execute(
+                    "UPDATE accepted_recovery_state_daily SET "
+                    "manual_stress_score = NULL, derived_from = ? "
+                    "WHERE as_of_date = ? AND user_id = ?",
+                    (
+                        json.dumps(sorted(set(surviving_ids)), sort_keys=True),
+                        row["as_of_date"], row["user_id"],
+                    ),
+                )
         if has_notes_group:
             # Notes have no accepted layer (raw IS canonical).
             conn.execute("DELETE FROM context_note")
