@@ -836,6 +836,237 @@ def _project_nutrition_submission_into_state(db_path_arg, submission) -> None:
         conn.close()
 
 
+def cmd_intake_stress(args: argparse.Namespace) -> int:
+    """Log a subjective stress score (1–5) for a day.
+
+    Closes the manual-stress provenance loop deferred in the 7A.3 patch:
+    user stress lands in ``stress_manual_raw`` (raw evidence) THEN merges
+    into ``accepted_recovery_state_daily.manual_stress_score`` with a
+    proper derived_from chain back to the raw row.
+
+    Re-running for the same day is a correction (supersedes chain in JSONL
+    + corrected_at on the merged row). Chain resolution reads from
+    ``<base_dir>/stress_manual.jsonl`` (the durable boundary), so
+    DB-absent writes still preserve chains.
+    """
+
+    from health_agent_infra.intake.stress import (
+        StressSubmission,
+        append_submission_jsonl,
+        latest_submission_id_from_jsonl,
+    )
+
+    if args.score is None or args.score not in (1, 2, 3, 4, 5):
+        # argparse choices already enforces, but defensive:
+        print("intake stress: --score must be one of {1,2,3,4,5}",
+              file=sys.stderr)
+        return 2
+
+    tags: Optional[list[str]] = None
+    if args.tags:
+        tags = [t.strip() for t in args.tags.split(",") if t.strip()]
+        if not tags:
+            tags = None
+
+    as_of = _coerce_date(args.as_of)
+    base_dir = Path(args.base_dir).expanduser()
+    issued_at = datetime.now(timezone.utc)
+    suffix = issued_at.strftime("%H%M%S%f")
+    submission_id = f"m_stress_{as_of.isoformat()}_{suffix}"
+
+    supersedes_id = latest_submission_id_from_jsonl(
+        base_dir, as_of_date=as_of, user_id=args.user_id,
+    )
+
+    submission = StressSubmission(
+        submission_id=submission_id,
+        user_id=args.user_id,
+        as_of_date=as_of,
+        score=int(args.score),
+        tags=tags,
+        ingest_actor=args.ingest_actor,
+        submitted_at=issued_at,
+        supersedes_submission_id=supersedes_id,
+    )
+
+    jsonl_path = append_submission_jsonl(submission, base_dir=base_dir)
+
+    _project_stress_submission_into_state(args.db_path, submission)
+
+    _emit_json({
+        "submission_id": submission.submission_id,
+        "user_id": submission.user_id,
+        "as_of_date": submission.as_of_date.isoformat(),
+        "score": submission.score,
+        "supersedes_submission_id": submission.supersedes_submission_id,
+        "jsonl_path": str(jsonl_path),
+    })
+    return 0
+
+
+def _project_stress_submission_into_state(db_path_arg, submission) -> None:
+    """Project stress raw + merge into accepted recovery atomically.
+
+    Two writes inside one ``BEGIN IMMEDIATE`` / ``COMMIT``:
+      1. INSERT into ``stress_manual_raw`` (append-only).
+      2. UPDATE/INSERT into ``accepted_recovery_state_daily`` with
+         ``manual_stress_score`` set to the latest non-superseded raw
+         score for this (day, user). Garmin fields preserved on UPDATE
+         (the clean projector reciprocally preserves manual_stress_score).
+    """
+
+    from health_agent_infra.state import (
+        merge_manual_stress_into_accepted_recovery,
+        open_connection,
+        project_stress_manual_raw,
+        resolve_db_path,
+    )
+
+    db_path = resolve_db_path(db_path_arg)
+    if not db_path.exists():
+        print(
+            f"note: state DB projection skipped ({db_path} not found). "
+            f"JSONL audit record is durable. Run `hai state init` to enable "
+            f"DB dual-write.",
+            file=sys.stderr,
+        )
+        return
+
+    conn = open_connection(db_path)
+    try:
+        conn.execute("BEGIN IMMEDIATE")
+        try:
+            project_stress_manual_raw(
+                conn,
+                submission_id=submission.submission_id,
+                user_id=submission.user_id,
+                as_of_date=submission.as_of_date,
+                score=submission.score,
+                tags=submission.tags,
+                ingest_actor=submission.ingest_actor,
+                supersedes_submission_id=submission.supersedes_submission_id,
+                commit_after=False,
+            )
+            merge_manual_stress_into_accepted_recovery(
+                conn,
+                as_of_date=submission.as_of_date,
+                user_id=submission.user_id,
+                ingest_actor=submission.ingest_actor,
+                commit_after=False,
+            )
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            raise
+    except Exception as exc:  # noqa: BLE001
+        print(
+            f"warning: stress intake projection into state DB failed and "
+            f"was rolled back: {exc}. JSONL audit is durable; run "
+            f"`hai state reproject --base-dir <intake-root>` to recover.",
+            file=sys.stderr,
+        )
+    finally:
+        conn.close()
+
+
+def cmd_intake_note(args: argparse.Namespace) -> int:
+    """Log a free-text context note (append-only).
+
+    Notes are raw evidence; there is no accepted-layer projection — the
+    raw row IS the canonical state per state_model_v1.md §1. Snapshot
+    surfaces them via the `notes.recent` lookback window.
+
+    No correction chain in v1: each invocation makes a new note_id.
+    """
+
+    from health_agent_infra.intake.note import (
+        ContextNote,
+        append_note_jsonl,
+    )
+
+    if not args.text or not args.text.strip():
+        print("intake note: --text must be a non-empty string", file=sys.stderr)
+        return 2
+
+    tags: Optional[list[str]] = None
+    if args.tags:
+        tags = [t.strip() for t in args.tags.split(",") if t.strip()]
+        if not tags:
+            tags = None
+
+    as_of = _coerce_date(args.as_of)
+    recorded_at = _coerce_dt(args.recorded_at) if args.recorded_at else datetime.now(timezone.utc)
+    base_dir = Path(args.base_dir).expanduser()
+
+    suffix = datetime.now(timezone.utc).strftime("%H%M%S%f")
+    note_id = f"note_{as_of.isoformat()}_{suffix}"
+
+    note = ContextNote(
+        note_id=note_id,
+        user_id=args.user_id,
+        as_of_date=as_of,
+        recorded_at=recorded_at,
+        text=args.text,
+        tags=tags,
+        ingest_actor=args.ingest_actor,
+    )
+
+    jsonl_path = append_note_jsonl(note, base_dir=base_dir)
+    _project_context_note_into_state(args.db_path, note)
+
+    _emit_json({
+        "note_id": note.note_id,
+        "user_id": note.user_id,
+        "as_of_date": note.as_of_date.isoformat(),
+        "recorded_at": note.recorded_at.isoformat(),
+        "jsonl_path": str(jsonl_path),
+    })
+    return 0
+
+
+def _project_context_note_into_state(db_path_arg, note) -> None:
+    """Project a context note into the state DB. Single-row insert; no
+    accepted-layer derivation, so no transaction needed for atomicity
+    (nothing to roll back across)."""
+
+    from health_agent_infra.state import (
+        open_connection,
+        project_context_note,
+        resolve_db_path,
+    )
+
+    db_path = resolve_db_path(db_path_arg)
+    if not db_path.exists():
+        print(
+            f"note: state DB projection skipped ({db_path} not found). "
+            f"JSONL audit record is durable.",
+            file=sys.stderr,
+        )
+        return
+
+    conn = open_connection(db_path)
+    try:
+        project_context_note(
+            conn,
+            note_id=note.note_id,
+            user_id=note.user_id,
+            as_of_date=note.as_of_date,
+            recorded_at=note.recorded_at,
+            text=note.text,
+            tags=note.tags,
+            ingest_actor=note.ingest_actor,
+        )
+    except Exception as exc:  # noqa: BLE001
+        print(
+            f"warning: note projection into state DB failed: {exc}. "
+            f"JSONL audit is durable; run `hai state reproject --base-dir "
+            f"<intake-root>` to recover.",
+            file=sys.stderr,
+        )
+    finally:
+        conn.close()
+
+
 def cmd_intake_readiness(args: argparse.Namespace) -> int:
     """Emit a typed manual-readiness JSON blob to stdout.
 
@@ -1212,6 +1443,47 @@ def build_parser() -> argparse.ArgumentParser:
     p_in.add_argument("--db-path", default=None,
                       help="State DB path (same semantics as other intake cmds)")
     p_in.set_defaults(func=cmd_intake_nutrition)
+
+    p_is = intake_sub.add_parser(
+        "stress",
+        help="Log a subjective stress score (1-5) for a day. Re-running "
+             "for the same day is a correction.",
+    )
+    p_is.add_argument("--score", type=int, choices=(1, 2, 3, 4, 5),
+                      required=True,
+                      help="Subjective stress band: 1=very low, 5=very high")
+    p_is.add_argument("--tags", default=None,
+                      help="Comma-separated tags (e.g. 'work,deadline')")
+    p_is.add_argument("--as-of", default=None,
+                      help="Civil date this score belongs to (ISO-8601, "
+                           "default today UTC)")
+    p_is.add_argument("--user-id", default="u_local_1")
+    p_is.add_argument("--ingest-actor", default="hai_cli_direct",
+                      choices=("hai_cli_direct", "claude_agent_v1"))
+    p_is.add_argument("--base-dir", required=True,
+                      help="Intake root (stress_manual.jsonl lands here)")
+    p_is.add_argument("--db-path", default=None)
+    p_is.set_defaults(func=cmd_intake_stress)
+
+    p_inote = intake_sub.add_parser(
+        "note",
+        help="Log a free-text context note. Append-only; no corrections.",
+    )
+    p_inote.add_argument("--text", required=True,
+                         help="Free-text note body. Cannot be empty.")
+    p_inote.add_argument("--tags", default=None,
+                         help="Comma-separated tags")
+    p_inote.add_argument("--recorded-at", default=None,
+                         help="Optional ISO-8601 timestamp; defaults to now UTC")
+    p_inote.add_argument("--as-of", default=None,
+                         help="Civil date this note belongs to (default today UTC)")
+    p_inote.add_argument("--user-id", default="u_local_1")
+    p_inote.add_argument("--ingest-actor", default="hai_cli_direct",
+                         choices=("hai_cli_direct", "claude_agent_v1"))
+    p_inote.add_argument("--base-dir", required=True,
+                         help="Intake root (context_notes.jsonl lands here)")
+    p_inote.add_argument("--db-path", default=None)
+    p_inote.set_defaults(func=cmd_intake_note)
 
     p_ir = intake_sub.add_parser("readiness",
                                  help="Emit a typed manual-readiness JSON to stdout")

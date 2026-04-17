@@ -425,27 +425,11 @@ def project_accepted_recovery_state_daily(
     acwr = _acwr_ratio_from_raw(raw_row)
     readiness_mean = _training_readiness_component_mean_pct_from_raw(raw_row)
 
-    values = (
-        sleep_hours,
-        raw_row.get("resting_hr"),
-        raw_row.get("health_hrv_value"),
-        raw_row.get("all_day_stress"),
-        None,  # manual_stress_score — 7C will populate via stress_manual_raw
-        raw_row.get("acute_load"),
-        raw_row.get("chronic_load"),
-        acwr,
-        readiness_mean,  # local mean of 5 Garmin components; NOT vendor overall
-        raw_row.get("body_battery"),
-        derived_from_json,
-        source,
-        ingest_actor,
-        now_iso,  # projected_at
-        None if is_insert else now_iso,  # corrected_at
-        as_of_date.isoformat(),
-        user_id,
-    )
-
     if is_insert:
+        # Insert path: every column written, manual_stress_score=NULL
+        # because no stress raw row exists yet for this day. A subsequent
+        # `hai intake stress` will UPDATE it via the dedicated merge
+        # projector below.
         conn.execute(
             """
             INSERT INTO accepted_recovery_state_daily (
@@ -457,21 +441,61 @@ def project_accepted_recovery_state_daily(
                 as_of_date, user_id
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
-            values,
+            (
+                sleep_hours,
+                raw_row.get("resting_hr"),
+                raw_row.get("health_hrv_value"),
+                raw_row.get("all_day_stress"),
+                None,  # manual_stress_score — owned by stress_manual_raw flow
+                raw_row.get("acute_load"),
+                raw_row.get("chronic_load"),
+                acwr,
+                readiness_mean,
+                raw_row.get("body_battery"),
+                derived_from_json,
+                source,
+                ingest_actor,
+                now_iso,
+                None,  # corrected_at NULL on first insert
+                as_of_date.isoformat(),
+                user_id,
+            ),
         )
     else:
+        # Update path: only Garmin-sourced fields. manual_stress_score is
+        # explicitly NOT in this UPDATE — preserves whatever value was
+        # set by `hai intake stress`, even across Garmin re-pulls. This
+        # closes the bug where re-running clean would silently wipe an
+        # earlier stress merge.
         conn.execute(
             """
             UPDATE accepted_recovery_state_daily SET
                 sleep_hours = ?, resting_hr = ?, hrv_ms = ?, all_day_stress = ?,
-                manual_stress_score = ?, acute_load = ?, chronic_load = ?,
+                acute_load = ?, chronic_load = ?,
                 acwr_ratio = ?, training_readiness_component_mean_pct = ?,
                 body_battery_end_of_day = ?,
                 derived_from = ?, source = ?, ingest_actor = ?,
                 projected_at = ?, corrected_at = ?
             WHERE as_of_date = ? AND user_id = ?
             """,
-            values,
+            (
+                sleep_hours,
+                raw_row.get("resting_hr"),
+                raw_row.get("health_hrv_value"),
+                raw_row.get("all_day_stress"),
+                raw_row.get("acute_load"),
+                raw_row.get("chronic_load"),
+                acwr,
+                readiness_mean,
+                raw_row.get("body_battery"),
+                derived_from_json,
+                source,
+                ingest_actor,
+                now_iso,
+                now_iso,  # corrected_at on update
+                as_of_date.isoformat(),
+                user_id,
+            ),
         )
     if commit_after:
         conn.commit()
@@ -946,6 +970,212 @@ def project_accepted_nutrition_state_daily(
 
 
 # ---------------------------------------------------------------------------
+# Stress intake -> stress_manual_raw + accepted_recovery_state_daily merge
+# ---------------------------------------------------------------------------
+
+def project_stress_manual_raw(
+    conn: sqlite3.Connection,
+    *,
+    submission_id: str,
+    user_id: str,
+    as_of_date: date,
+    score: int,
+    tags: Optional[list[str]],
+    ingest_actor: str,
+    supersedes_submission_id: Optional[str] = None,
+    source: str = "user_manual",
+    commit_after: bool = True,
+) -> bool:
+    """Append-only insert into ``stress_manual_raw``. Idempotent on submission_id.
+
+    Score must be in 1–5 (CHECK enforced upstream at the CLI). Tags are
+    JSON-encoded for storage when present (the column is TEXT).
+    """
+
+    existing = conn.execute(
+        "SELECT 1 FROM stress_manual_raw WHERE submission_id = ?",
+        (submission_id,),
+    ).fetchone()
+    if existing is not None:
+        return False
+
+    tags_json = json.dumps(tags, sort_keys=True) if tags else None
+
+    conn.execute(
+        """
+        INSERT INTO stress_manual_raw (
+            submission_id, user_id, as_of_date,
+            score, tags,
+            source, ingest_actor, ingested_at,
+            supersedes_submission_id
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            submission_id, user_id, as_of_date.isoformat(),
+            int(score), tags_json,
+            source, ingest_actor, _now_iso(),
+            supersedes_submission_id,
+        ),
+    )
+    if commit_after:
+        conn.commit()
+    return True
+
+
+def merge_manual_stress_into_accepted_recovery(
+    conn: sqlite3.Connection,
+    *,
+    as_of_date: date,
+    user_id: str,
+    ingest_actor: str,
+    commit_after: bool = True,
+) -> bool:
+    """Pull the latest non-superseded stress score from
+    ``stress_manual_raw`` and merge it into
+    ``accepted_recovery_state_daily.manual_stress_score``.
+
+    Two cases:
+
+      - Existing recovery row (likely from ``hai clean``): UPDATE only
+        ``manual_stress_score`` + ``derived_from`` + provenance fields +
+        ``corrected_at``. Garmin-sourced fields are preserved (the clean
+        projector now also preserves manual_stress_score reciprocally,
+        so the two flows compose without clobbering).
+      - No recovery row yet (stress logged before clean): INSERT a
+        minimal row with ``manual_stress_score`` populated and Garmin
+        fields NULL. Snapshot will tag those Garmin fields as
+        ``unavailable_at_source`` until ``hai clean`` fills them in.
+
+    Returns ``True`` on insert, ``False`` on update.
+    """
+
+    latest = conn.execute(
+        """
+        SELECT submission_id, score
+        FROM stress_manual_raw smr
+        WHERE smr.as_of_date = ? AND smr.user_id = ?
+          AND smr.submission_id NOT IN (
+              SELECT supersedes_submission_id FROM stress_manual_raw
+              WHERE supersedes_submission_id IS NOT NULL
+          )
+        ORDER BY smr.ingested_at DESC
+        LIMIT 1
+        """,
+        (as_of_date.isoformat(), user_id),
+    ).fetchone()
+
+    if latest is None:
+        # No raw rows to merge from — defensive no-op (shouldn't happen
+        # in the normal flow since the CLI projects raw THEN merges).
+        return False
+
+    existing = conn.execute(
+        "SELECT 1 FROM accepted_recovery_state_daily "
+        "WHERE as_of_date = ? AND user_id = ?",
+        (as_of_date.isoformat(), user_id),
+    ).fetchone()
+    is_insert = existing is None
+
+    now_iso = _now_iso()
+    derived_from_json = json.dumps([latest["submission_id"]], sort_keys=True)
+
+    if is_insert:
+        # Stress-first scenario: minimal row, Garmin fields NULL.
+        conn.execute(
+            """
+            INSERT INTO accepted_recovery_state_daily (
+                manual_stress_score,
+                derived_from, source, ingest_actor,
+                projected_at, corrected_at,
+                as_of_date, user_id
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                int(latest["score"]),
+                derived_from_json,
+                "user_manual", ingest_actor,
+                now_iso, None,
+                as_of_date.isoformat(), user_id,
+            ),
+        )
+    else:
+        # Merge into existing row. derived_from reflects this update's
+        # contributing source (state_model_v1.md §4 "primary raw row" rule
+        # — most recent synthesizer's view). Garmin fields untouched.
+        conn.execute(
+            """
+            UPDATE accepted_recovery_state_daily SET
+                manual_stress_score = ?,
+                derived_from = ?, source = ?, ingest_actor = ?,
+                projected_at = ?, corrected_at = ?
+            WHERE as_of_date = ? AND user_id = ?
+            """,
+            (
+                int(latest["score"]),
+                derived_from_json,
+                "user_manual", ingest_actor,
+                now_iso, now_iso,
+                as_of_date.isoformat(), user_id,
+            ),
+        )
+    if commit_after:
+        conn.commit()
+    return is_insert
+
+
+# ---------------------------------------------------------------------------
+# Note intake -> context_note (append-only, no accepted layer)
+# ---------------------------------------------------------------------------
+
+def project_context_note(
+    conn: sqlite3.Connection,
+    *,
+    note_id: str,
+    user_id: str,
+    as_of_date: date,
+    recorded_at: datetime,
+    text: str,
+    tags: Optional[list[str]],
+    ingest_actor: str,
+    source: str = "user_manual",
+    supersedes_note_id: Optional[str] = None,
+    commit_after: bool = True,
+) -> bool:
+    """Append-only insert into ``context_note``. Idempotent on note_id.
+
+    Notes have no accepted-layer projection — the raw row IS the
+    canonical state per state_model_v1.md §1. Snapshot reads them via
+    ``notes.recent``.
+    """
+
+    existing = conn.execute(
+        "SELECT 1 FROM context_note WHERE note_id = ?",
+        (note_id,),
+    ).fetchone()
+    if existing is not None:
+        return False
+
+    tags_json = json.dumps(tags, sort_keys=True) if tags else None
+
+    conn.execute(
+        """
+        INSERT INTO context_note (
+            note_id, user_id, as_of_date, recorded_at, text, tags,
+            source, ingest_actor, ingested_at, supersedes_note_id
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            note_id, user_id, as_of_date.isoformat(),
+            recorded_at.isoformat(), text, tags_json,
+            source, ingest_actor, _now_iso(), supersedes_note_id,
+        ),
+    )
+    if commit_after:
+        conn.commit()
+    return True
+
+
+# ---------------------------------------------------------------------------
 # Reprojection from JSONL audit logs
 # ---------------------------------------------------------------------------
 
@@ -998,19 +1228,25 @@ def reproject_from_jsonl(conn: sqlite3.Connection, base_dir, *, allow_empty: boo
     outcomes_log = base / "review_outcomes.jsonl"
     gym_log = base / "gym_sessions.jsonl"
     nutrition_log = base / "nutrition_intake.jsonl"
+    stress_log = base / "stress_manual.jsonl"
+    notes_log = base / "context_notes.jsonl"
 
     has_rec_group = any(p.exists() for p in (rec_log, events_log, outcomes_log))
     has_gym_group = gym_log.exists()
     has_nutrition_group = nutrition_log.exists()
+    has_stress_group = stress_log.exists()
+    has_notes_group = notes_log.exists()
 
     if not allow_empty and not (
         has_rec_group or has_gym_group or has_nutrition_group
+        or has_stress_group or has_notes_group
     ):
         raise ReprojectBaseDirError(
             f"no audit JSONL files found under {base}. Expected at least "
             f"one of: recommendation_log.jsonl, review_events.jsonl, "
             f"review_outcomes.jsonl, gym_sessions.jsonl, "
-            f"nutrition_intake.jsonl. Refusing to touch the projection "
+            f"nutrition_intake.jsonl, stress_manual.jsonl, "
+            f"context_notes.jsonl. Refusing to touch the projection "
             f"tables. Pass allow_empty=True / --allow-empty-reproject to "
             f"override."
         )
@@ -1021,6 +1257,9 @@ def reproject_from_jsonl(conn: sqlite3.Connection, base_dir, *, allow_empty: boo
         "accepted_resistance_training_state_daily": 0,
         "nutrition_intake_raw": 0,
         "accepted_nutrition_state_daily": 0,
+        "stress_manual_raw": 0,
+        "accepted_recovery_manual_stress_merged": 0,
+        "context_notes": 0,
     }
 
     conn.execute("BEGIN EXCLUSIVE")
@@ -1042,6 +1281,18 @@ def reproject_from_jsonl(conn: sqlite3.Connection, base_dir, *, allow_empty: boo
             # truncated together so replay repopulates both.
             conn.execute("DELETE FROM accepted_nutrition_state_daily")
             conn.execute("DELETE FROM nutrition_intake_raw")
+        if has_stress_group:
+            # Stress group: only stress_manual_raw is owned outright.
+            # accepted_recovery_state_daily.manual_stress_score is a
+            # MERGED column — co-owned with the Garmin-clean flow. We
+            # don't truncate accepted_recovery_state_daily here (would
+            # wipe Garmin fields). Instead: clear stress_manual_raw,
+            # replay it, then re-merge per touched (day, user) which
+            # UPDATEs only the manual_stress_score column.
+            conn.execute("DELETE FROM stress_manual_raw")
+        if has_notes_group:
+            # Notes have no accepted layer (raw IS canonical).
+            conn.execute("DELETE FROM context_note")
 
         if rec_log.exists():
             for line_no, line in enumerate(rec_log.read_text(encoding="utf-8").splitlines(), start=1):
@@ -1260,6 +1511,83 @@ def reproject_from_jsonl(conn: sqlite3.Connection, base_dir, *, allow_empty: boo
                     commit_after=False,
                 )
                 counts["accepted_nutrition_state_daily"] += 1
+
+        if stress_log.exists():
+            stress_days_touched: set[tuple[str, str]] = set()
+            for line_no, line in enumerate(
+                stress_log.read_text(encoding="utf-8").splitlines(), start=1,
+            ):
+                if not line.strip():
+                    continue
+                data = json.loads(line)
+                as_of_iso = data["as_of_date"]
+                user_id = data["user_id"]
+                tags_payload = data.get("tags")
+                if isinstance(tags_payload, list):
+                    tags_str = json.dumps(tags_payload, sort_keys=True)
+                else:
+                    tags_str = tags_payload  # already-stringified or None
+                conn.execute(
+                    """
+                    INSERT OR IGNORE INTO stress_manual_raw (
+                        submission_id, user_id, as_of_date,
+                        score, tags,
+                        source, ingest_actor, ingested_at,
+                        supersedes_submission_id
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        data["submission_id"], user_id, as_of_iso,
+                        int(data["score"]), tags_str,
+                        data.get("source", "user_manual"),
+                        data.get("ingest_actor", "claude_agent_v1"),
+                        data.get("submitted_at", _now_iso()),
+                        data.get("supersedes_submission_id"),
+                    ),
+                )
+                counts["stress_manual_raw"] += 1
+                stress_days_touched.add((as_of_iso, user_id))
+
+            from datetime import date as _date
+            for as_of_iso, user_id in sorted(stress_days_touched):
+                merge_manual_stress_into_accepted_recovery(
+                    conn,
+                    as_of_date=_date.fromisoformat(as_of_iso),
+                    user_id=user_id,
+                    ingest_actor="hai_state_reproject",
+                    commit_after=False,
+                )
+                counts["accepted_recovery_manual_stress_merged"] += 1
+
+        if notes_log.exists():
+            for line_no, line in enumerate(
+                notes_log.read_text(encoding="utf-8").splitlines(), start=1,
+            ):
+                if not line.strip():
+                    continue
+                data = json.loads(line)
+                tags_payload = data.get("tags")
+                if isinstance(tags_payload, list):
+                    tags_str = json.dumps(tags_payload, sort_keys=True)
+                else:
+                    tags_str = tags_payload
+                conn.execute(
+                    """
+                    INSERT OR IGNORE INTO context_note (
+                        note_id, user_id, as_of_date, recorded_at, text, tags,
+                        source, ingest_actor, ingested_at, supersedes_note_id
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        data["note_id"], data["user_id"], data["as_of_date"],
+                        data["recorded_at"], data["text"], tags_str,
+                        data.get("source", "user_manual"),
+                        data.get("ingest_actor", "claude_agent_v1"),
+                        data.get("recorded_at", _now_iso()),
+                        data.get("supersedes_note_id"),
+                    ),
+                )
+                counts["context_notes"] += 1
 
         conn.commit()
     except Exception:
