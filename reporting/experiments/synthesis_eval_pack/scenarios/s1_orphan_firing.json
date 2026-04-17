@@ -1,0 +1,71 @@
+{
+  "_meta": {
+    "scenario_id": "s1_orphan_firing",
+    "authored_at": "2026-04-17",
+    "authored_before_reading_skill_body": true,
+    "tests_invariant": "no X-rule firing is silently dropped; firings with affected_domain not in proposal set are recorded in synthesis_meta.notes as orphan_firing_<rule_id>",
+    "x_rule_exercised": "X7 (cap_confidence on stress)",
+    "scenario_in_one_sentence": "Stress is high today, firing X7, but no stress proposal was submitted — synthesis must not silently drop the firing"
+  },
+  "as_of_date": "2026-04-17",
+  "snapshot": {
+    "recovery": {
+      "evidence": {"sleep_hours": 7.2, "resting_hr": 54, "hrv_ms": 62, "training_readiness_pct": 72},
+      "raw_summary": {"acute_load": 280, "chronic_load": 310, "acwr_ratio": 0.90},
+      "classified_state": {"readiness_band": "adequate", "sleep_debt_band": "low"},
+      "policy_result": {"firings": [], "capped_confidence": null, "forced_action": null},
+      "missingness": {"tag": "present"}
+    },
+    "running": {
+      "evidence": {"weekly_mileage_km": 42.0, "last_hard_session_days_ago": 2},
+      "raw_summary": {"acwr_ratio": 0.90},
+      "classified_state": {"freshness_band": "fresh"},
+      "policy_result": {"firings": [], "capped_confidence": null, "forced_action": null},
+      "missingness": {"tag": "present"}
+    },
+    "stress": {
+      "evidence": {"garmin_all_day_stress": 68, "manual_stress_score": 4},
+      "raw_summary": {"body_battery_end_of_day": 42},
+      "classified_state": {"composite_stress_state": "high"},
+      "policy_result": {"firings": [], "capped_confidence": null, "forced_action": null},
+      "missingness": {"tag": "present"}
+    }
+  },
+  "proposals": [
+    {
+      "proposal_id": "p-recovery-001",
+      "domain": "recovery",
+      "schema_version": "1.0",
+      "for_date": "2026-04-17",
+      "action": "training_day_hard",
+      "rationale": "Readiness adequate, sleep low-debt, ACWR 0.90 — green for a hard session.",
+      "confidence": "high",
+      "bounded": true
+    },
+    {
+      "proposal_id": "p-running-001",
+      "domain": "running",
+      "schema_version": "1.0",
+      "for_date": "2026-04-17",
+      "action": "proceed_with_planned_run",
+      "rationale": "Fresh; weekly mileage in normal range; last hard session 2 days ago.",
+      "confidence": "high",
+      "bounded": true
+    }
+  ],
+  "expected_x_rule_firings": [
+    {
+      "rule_id": "X7",
+      "tier": "cap_confidence",
+      "phase": "A",
+      "affected_domain": "stress",
+      "note": "stress.composite_stress_state=high — cap confidence on all recommendations to moderate"
+    }
+  ],
+  "note_on_orphan": "X7's affected_domain is 'stress' in this firing, but there is no stress proposal in the proposal set. The orphan case per the plan is 'a firing whose affected_domain is not present in the proposal set'. In X7's literal spec ('cap confidence on all recommendations'), all-domain caps could also apply to recovery+running without stress present — but the firing payload above claims affected_domain=stress, mirroring how the runtime would emit it. Either interpretation exercises the same invariant: the firing must not be silently dropped just because no matching proposal exists.",
+  "pass_criteria": [
+    "Synthesis must surface the X7 firing somewhere in the output — either in synthesis_meta.notes (plan text) or by applying the cap to the present domains and logging the rule_id",
+    "If the skill cannot route the firing because 'stress' is not in the proposal set, it must record 'orphan_firing_X7' (or equivalent tag) in synthesis_meta.notes",
+    "Under no circumstance should the final plan be two un-capped high-confidence recommendations with no mention of X7"
+  ]
+}

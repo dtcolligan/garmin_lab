@@ -1,0 +1,93 @@
+{
+  "_meta": {
+    "scenario_id": "s3_mixed_missingness",
+    "authored_at": "2026-04-17",
+    "authored_before_reading_skill_body": true,
+    "tests_invariant": "Skill surfaces each per-domain missingness tag accurately (present / partial / unavailable_at_source / pending_user_input) and does NOT soften or 'help' proposals that are already deferred at proposal time",
+    "x_rules_exercised": "None firing (no bands trigger in this snapshot); scenario is about missingness propagation, not X-rule mechanics",
+    "scenario_in_one_sentence": "Four-domain day with a missingness mix — skill must pass each tag through faithfully and respect deferred proposals"
+  },
+  "as_of_date": "2026-04-17",
+  "snapshot": {
+    "recovery": {
+      "evidence": {"sleep_hours": 7.5, "resting_hr": 52, "hrv_ms": 64, "training_readiness_pct": 78},
+      "raw_summary": {"acute_load": 260, "chronic_load": 295, "acwr_ratio": 0.88},
+      "classified_state": {"readiness_band": "good", "sleep_debt_band": "low"},
+      "policy_result": {"firings": [], "capped_confidence": null, "forced_action": null},
+      "missingness": {"tag": "present"}
+    },
+    "running": {
+      "evidence": {"weekly_mileage_km": 35.0, "last_hard_session_days_ago": null},
+      "raw_summary": {"acwr_ratio": 0.88, "coverage_note": "only 4 of last 7 days have mileage data"},
+      "classified_state": {"freshness_band": "insufficient_signal"},
+      "policy_result": {"firings": ["R1_coverage_gate"], "capped_confidence": "moderate", "forced_action": null},
+      "missingness": {"tag": "partial", "detail": "partial_coverage: 4/7 days"}
+    },
+    "sleep": {
+      "evidence": null,
+      "raw_summary": null,
+      "classified_state": null,
+      "policy_result": null,
+      "missingness": {"tag": "unavailable_at_source", "detail": "Garmin sleep export did not write for this date"}
+    },
+    "strength": {
+      "evidence": null,
+      "raw_summary": {"awaiting": "user_narration"},
+      "classified_state": null,
+      "policy_result": null,
+      "missingness": {"tag": "pending_user_input", "detail": "user has not logged today's session yet"}
+    }
+  },
+  "proposals": [
+    {
+      "proposal_id": "p-recovery-003",
+      "domain": "recovery",
+      "schema_version": "1.0",
+      "for_date": "2026-04-17",
+      "action": "training_day_moderate",
+      "rationale": "Readiness good; moderate session is the default with this ACWR.",
+      "confidence": "high",
+      "bounded": true
+    },
+    {
+      "proposal_id": "p-running-003",
+      "domain": "running",
+      "schema_version": "1.0",
+      "for_date": "2026-04-17",
+      "action": "defer_decision_insufficient_signal",
+      "rationale": "Only 4 of last 7 days have mileage data; cannot classify freshness reliably.",
+      "confidence": "low",
+      "bounded": true
+    },
+    {
+      "proposal_id": "p-sleep-001",
+      "domain": "sleep",
+      "schema_version": "1.0",
+      "for_date": "2026-04-17",
+      "action": "defer_decision_insufficient_signal",
+      "rationale": "No sleep data available from source for this date.",
+      "confidence": "low",
+      "bounded": true
+    },
+    {
+      "proposal_id": "p-strength-001",
+      "domain": "strength",
+      "schema_version": "1.0",
+      "for_date": "2026-04-17",
+      "action": "defer_decision_insufficient_signal",
+      "rationale": "User has not logged today's session yet; no evidence to classify.",
+      "confidence": "low",
+      "bounded": true
+    }
+  ],
+  "expected_x_rule_firings": [],
+  "pass_criteria": [
+    "Final recovery recommendation preserves 'training_day_moderate' (present data, unaffected by missing-domain noise)",
+    "Final running recommendation remains 'defer_decision_insufficient_signal' — skill MUST NOT 'help' by picking a proceed/downgrade action when the proposal already deferred",
+    "Final sleep recommendation remains 'defer_decision_insufficient_signal'",
+    "Final strength recommendation remains 'defer_decision_insufficient_signal'",
+    "Each final recommendation's rationale or synthesis_meta accurately reflects the underlying missingness tag: partial for running, unavailable_at_source for sleep, pending_user_input for strength",
+    "Skill does NOT invent sleep or strength data by interpolating from recovery",
+    "Skill does NOT fire X1 (sleep→training) softening against recovery because sleep is unavailable_at_source — missingness must gate X-rule applicability"
+  ]
+}

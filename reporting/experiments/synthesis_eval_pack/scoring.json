@@ -1,0 +1,61 @@
+{
+  "_meta": {
+    "scored_at": "2026-04-17",
+    "scored_by": "Claude Opus 4.7 (same session as scenario author; scenarios were authored before skill body was read — see independence stance in findings.md)",
+    "rubric": "see rubric.md",
+    "what_is_scored": "runtime-layer invariants (core/synthesis.py + core/synthesis_policy.py + core/writeback/proposal.py). Skill-layer narration is NOT scored here — would require invoking Claude Code as a subprocess per scenario, which is out of scope for an automated eval pack.",
+    "rationale_quality_skipped": "All four scenarios show 'skipped' for rationale_quality because the synthesis skill is not invoked in the runner. This is a known eval-pack limitation, recorded in findings.md."
+  },
+  "scenarios": [
+    {
+      "id": "s1_orphan_firing",
+      "action_correctness": 3,
+      "action_correctness_notes": "All pass_criteria met. The runtime's firing-generation is structurally orphan-free — X7 iterates proposals to emit firings, so no firing can have an affected_domain not present in the proposal set. The 'orphan case' the scenario specifies is preserved by construction, not by skill handling. Both recommendations correctly capped from 'high' to 'moderate' confidence.",
+      "rationale_quality": "skipped",
+      "rationale_quality_notes": "Not testable without invoking the synthesis skill as an agent subprocess.",
+      "uncertainty_calibration": 3,
+      "uncertainty_calibration_notes": "Confidence cap correctly applied: both proposals started 'high', both final recommendations 'moderate'. Cap is independent from soften/block per tier precedence — verified via persisted confidence values.",
+      "pass_or_fail": "pass",
+      "finding": "Good news: the current runtime prevents orphan firings by construction. Bad news: the scenario as written can't exercise what it was designed to exercise (skill-level orphan handling) because the runtime never emits an orphan firing. Invariant holds, but via a different mechanism than the plan's scenario assumed."
+    },
+    {
+      "id": "s2_cap_adjust_stacking",
+      "action_correctness": 2,
+      "action_correctness_notes": "Phase A cap works correctly on both recovery and running proposals (confidence: high → moderate). Phase B adjust (X9) CANNOT be exercised against v1 because nutrition is not in SUPPORTED_DOMAINS — no nutrition proposal can be submitted, so X9 returns empty by construction. The two-phase cap+adjust stacking invariant is therefore UNTESTABLE end-to-end against current code. Code review of guard_phase_b_mutation (core/synthesis_policy.py:651) confirms the write-surface guard structurally enforces the plan's invariants — adjust may only mutate action_detail; action mutation rejected with XRuleWriteSurfaceViolation. Partial credit reflects: cap works; adjust guard is correctly implemented per code review but not exercisable in current scope.",
+      "rationale_quality": "skipped",
+      "uncertainty_calibration": 3,
+      "uncertainty_calibration_notes": "Cap correctly applied. Phase B cap stacking with adjust cannot be uncertainty-checked without Phase B firing.",
+      "pass_or_fail": "pass_with_scope_gap",
+      "finding": "Phase B machinery is intact and correctly guarded at the code level, but cannot be exercised against v1's proposal surface. Re-run this scenario as a Phase 5 gate once nutrition lands."
+    },
+    {
+      "id": "s3_mixed_missingness",
+      "action_correctness": 2,
+      "action_correctness_notes": "Runtime preserves deferred proposals verbatim (running's 'defer_decision_insufficient_signal' + low confidence flowed through unchanged). No spurious X-rule firings against the already-deferred proposals — confirmed by zero phase_a_firings. Recovery's 'proceed_with_planned_session' with high confidence preserved correctly. Full 4-domain mixed-missingness cannot be exercised because sleep + strength proposals are not submittable against v1; partial test of the invariant. Missingness-tag surfacing at the rationale/narration layer (pass_criterion 5) is not testable without skill invocation.",
+      "rationale_quality": "skipped",
+      "uncertainty_calibration": 3,
+      "uncertainty_calibration_notes": "Running's low confidence preserved; recovery's high confidence preserved (no firings → no cap). Correct for the testable subset.",
+      "pass_or_fail": "pass_with_scope_gap",
+      "finding": "Runtime correctly respects already-deferred proposals and does not invent data. Full missingness-tag propagation at the skill layer is unverified (requires running the agent + the 4-domain surface). Re-run as a Phase 3 gate once sleep + stress are first-class."
+    },
+    {
+      "id": "s4_stale_proposal",
+      "action_correctness": 3,
+      "action_correctness_notes": "Stale schema_version (0.1 instead of recovery_proposal.v1): rejected with ProposalValidationError, invariant='schema_version', clean named message listing the expected value. Out-of-enum action ('moonshot_tempo_plus_long_run'): rejected with ProposalValidationError, invariant='action_enum', message lists the full expected enum set. proposal_log row count is 0 — neither proposal landed. Synthesis attempted on the empty proposal_log raised SynthesisError, not a silent success. All 4 pass_criteria satisfied.",
+      "rationale_quality": "skipped",
+      "uncertainty_calibration": 3,
+      "uncertainty_calibration_notes": "Errors are loud, invariant ids are structured, and the synthesis-layer refusal is explicit. No silent consumption of malformed input.",
+      "pass_or_fail": "pass",
+      "finding": "Input validation path is the strongest result in the eval. Named invariants + clean stderr + no silent synthesis consumption. This is the pattern other layers should aim for."
+    }
+  ],
+  "totals": {
+    "n": 4,
+    "passed": 4,
+    "passed_with_scope_gap": 2,
+    "passed_clean": 2,
+    "failed": 0,
+    "at_or_above_2_of_3_action_correctness": 4,
+    "gate_decision_per_rubric": "4 of 4 ≥ 2/3 → Phase 3 authorised unconditionally — BUT two of four passes are scope-gap (untestable parts of the invariant). See findings.md for the caveat."
+  }
+}

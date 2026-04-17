@@ -1,0 +1,107 @@
+{
+  "_meta": {
+    "scenario_id": "s2_cap_adjust_stacking",
+    "authored_at": "2026-04-17",
+    "authored_before_reading_skill_body": true,
+    "tests_invariant": "Phase A cap_confidence (X7) and Phase B post_adjust (X9) interact correctly: cap lowers confidence ceiling; adjust mutates detail/targets only; adjust does NOT escalate tier or change top-level action",
+    "x_rules_exercised": ["X7 (cap_confidence, Phase A)", "X9 (post_adjust, Phase B)"],
+    "scenario_in_one_sentence": "High stress (X7 caps all recs to moderate confidence) AND a hard training day (X9 post-adjusts nutrition targets upward) — both must fire, cap must stick, adjust must only touch detail/targets"
+  },
+  "as_of_date": "2026-04-17",
+  "snapshot": {
+    "recovery": {
+      "evidence": {"sleep_hours": 7.0, "resting_hr": 55, "hrv_ms": 58, "training_readiness_pct": 68},
+      "raw_summary": {"acute_load": 290, "chronic_load": 300, "acwr_ratio": 0.97},
+      "classified_state": {"readiness_band": "adequate", "sleep_debt_band": "low"},
+      "policy_result": {"firings": [], "capped_confidence": null, "forced_action": null},
+      "missingness": {"tag": "present"}
+    },
+    "running": {
+      "evidence": {"weekly_mileage_km": 48.0, "last_hard_session_days_ago": 3},
+      "raw_summary": {"acwr_ratio": 0.97},
+      "classified_state": {"freshness_band": "fresh"},
+      "policy_result": {"firings": [], "capped_confidence": null, "forced_action": null},
+      "missingness": {"tag": "present"}
+    },
+    "stress": {
+      "evidence": {"garmin_all_day_stress": 72, "manual_stress_score": 5},
+      "raw_summary": {"body_battery_end_of_day": 38},
+      "classified_state": {"composite_stress_state": "very_high"},
+      "policy_result": {"firings": [], "capped_confidence": null, "forced_action": null},
+      "missingness": {"tag": "present"}
+    },
+    "nutrition": {
+      "evidence": {"calories": 2200, "protein_g": 120, "carbs_g": 260, "fat_g": 75, "hydration_l": 2.2},
+      "raw_summary": {"derivation_path": "daily_macros"},
+      "classified_state": {"macro_balance": "adequate"},
+      "policy_result": {"firings": [], "capped_confidence": null, "forced_action": null},
+      "missingness": {"tag": "present"}
+    }
+  },
+  "proposals": [
+    {
+      "proposal_id": "p-recovery-002",
+      "domain": "recovery",
+      "schema_version": "1.0",
+      "for_date": "2026-04-17",
+      "action": "training_day_hard",
+      "rationale": "Readiness adequate, fresh, ACWR near baseline — green for hard training.",
+      "confidence": "high",
+      "bounded": true
+    },
+    {
+      "proposal_id": "p-running-002",
+      "domain": "running",
+      "schema_version": "1.0",
+      "for_date": "2026-04-17",
+      "action": "proceed_with_planned_run",
+      "rationale": "Intended hard interval session.",
+      "confidence": "high",
+      "bounded": true
+    },
+    {
+      "proposal_id": "p-stress-001",
+      "domain": "stress",
+      "schema_version": "1.0",
+      "for_date": "2026-04-17",
+      "action": "schedule_decompression_time",
+      "rationale": "High stress today — carve out downregulation window.",
+      "confidence": "high",
+      "bounded": true
+    },
+    {
+      "proposal_id": "p-nutrition-001",
+      "domain": "nutrition",
+      "schema_version": "1.0",
+      "for_date": "2026-04-17",
+      "action": "maintain_targets",
+      "rationale": "Macros within range.",
+      "confidence": "moderate",
+      "bounded": true
+    }
+  ],
+  "expected_x_rule_firings": [
+    {
+      "rule_id": "X7",
+      "tier": "cap_confidence",
+      "phase": "A",
+      "affected_domain": "__all__",
+      "note": "very_high stress caps all final recommendations to moderate confidence"
+    },
+    {
+      "rule_id": "X9",
+      "tier": "post_adjust",
+      "phase": "B",
+      "affected_domain": "nutrition",
+      "note": "finalised training recommendation is hard — adjust nutrition detail/targets upward (carbs, protein)"
+    }
+  ],
+  "pass_criteria": [
+    "Final recovery recommendation has confidence <= moderate (X7 cap applied)",
+    "Final running recommendation has confidence <= moderate (X7 cap applied)",
+    "Final stress recommendation has confidence <= moderate (X7 cap applied)",
+    "Final nutrition recommendation has confidence <= moderate (X7 cap applied) BEFORE X9 runs, AND X9 then mutates only action_detail / target numbers (carbs_g, protein_g targets upward); X9 must not change nutrition.action from 'maintain_targets' nor escalate tier",
+    "Both X7 and X9 firings must appear in the output's x_rule_firings list",
+    "X9's mutation must be visible on the nutrition recommendation (action_detail or targets should mention elevated carbs/protein for the hard session)"
+  ]
+}

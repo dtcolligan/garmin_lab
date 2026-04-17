@@ -1,0 +1,58 @@
+{
+  "_meta": {
+    "scenario_id": "s4_stale_proposal",
+    "authored_at": "2026-04-17",
+    "authored_before_reading_skill_body": true,
+    "tests_invariant": "A stale (outdated schema_version) or invalid (out-of-enum action) proposal must be rejected BEFORE synthesis consumes it — writeback/propose layer exits non-zero with clean stderr; synthesis must NOT silently ingest a malformed proposal",
+    "x_rules_exercised": "None; this is about input validation, not cross-domain reasoning",
+    "scenario_in_one_sentence": "Two proposals submitted; one has schema_version '0.1' (stale) and the other has an action not in the v1 enum — both must be rejected at the intake boundary"
+  },
+  "as_of_date": "2026-04-17",
+  "snapshot": {
+    "recovery": {
+      "evidence": {"sleep_hours": 7.3, "resting_hr": 53, "hrv_ms": 60, "training_readiness_pct": 74},
+      "raw_summary": {"acute_load": 275, "chronic_load": 300, "acwr_ratio": 0.92},
+      "classified_state": {"readiness_band": "adequate", "sleep_debt_band": "low"},
+      "policy_result": {"firings": [], "capped_confidence": null, "forced_action": null},
+      "missingness": {"tag": "present"}
+    },
+    "running": {
+      "evidence": {"weekly_mileage_km": 40.0, "last_hard_session_days_ago": 3},
+      "raw_summary": {"acwr_ratio": 0.92},
+      "classified_state": {"freshness_band": "fresh"},
+      "policy_result": {"firings": [], "capped_confidence": null, "forced_action": null},
+      "missingness": {"tag": "present"}
+    }
+  },
+  "proposals": [
+    {
+      "proposal_id": "p-recovery-004",
+      "domain": "recovery",
+      "schema_version": "0.1",
+      "for_date": "2026-04-17",
+      "action": "training_day_moderate",
+      "rationale": "Stale schema version — should be rejected.",
+      "confidence": "high",
+      "bounded": true,
+      "_defect": "schema_version '0.1' is not the current version '1.0'"
+    },
+    {
+      "proposal_id": "p-running-004",
+      "domain": "running",
+      "schema_version": "1.0",
+      "for_date": "2026-04-17",
+      "action": "moonshot_tempo_plus_long_run",
+      "rationale": "Out-of-enum action — should be rejected.",
+      "confidence": "high",
+      "bounded": true,
+      "_defect": "'moonshot_tempo_plus_long_run' is not in the running v1 ActionKind enum"
+    }
+  ],
+  "expected_x_rule_firings": [],
+  "pass_criteria": [
+    "hai propose for the recovery proposal exits with non-zero code (expected: 2) with a clean stderr message naming schema_version as the reason — NOT a Python traceback",
+    "hai propose for the running proposal exits with non-zero code (expected: 2) with a clean stderr message naming action as the reason — NOT a Python traceback",
+    "proposal_log contains NO rows from this scenario's attempted inserts",
+    "If hai synthesize is invoked after the failed proposes, it either (a) refuses because no valid proposals exist for the date, or (b) runs with zero proposals and emits no recommendations — it MUST NOT silently synthesize using the malformed proposals"
+  ]
+}

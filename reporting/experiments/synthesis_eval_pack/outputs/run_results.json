@@ -1,0 +1,220 @@
+{
+  "s1": {
+    "scenario_id": "s1_orphan_firing",
+    "result": {
+      "daily_plan_id": "plan_2026-04-17_u_eval_pack",
+      "recommendation_ids": [
+        "rec_2026-04-17_u_eval_pack_recovery_01",
+        "rec_2026-04-17_u_eval_pack_running_01"
+      ],
+      "proposal_ids": [
+        "p-recovery-001",
+        "p-running-001"
+      ],
+      "phase_a_firings": [
+        {
+          "rule_id": "X7",
+          "tier": "cap_confidence",
+          "affected_domain": "recovery",
+          "trigger_note": "stress_band=high \u2208 ['high', 'very_high']",
+          "recommended_mutation": null,
+          "source_signals": {
+            "stress_band": "high",
+            "all_day_stress": 68
+          },
+          "phase": "A"
+        },
+        {
+          "rule_id": "X7",
+          "tier": "cap_confidence",
+          "affected_domain": "running",
+          "trigger_note": "stress_band=high \u2208 ['high', 'very_high']",
+          "recommended_mutation": null,
+          "source_signals": {
+            "stress_band": "high",
+            "all_day_stress": 68
+          },
+          "phase": "A"
+        }
+      ],
+      "phase_b_firings": [],
+      "superseded_prior": null
+    },
+    "persisted_firings": [
+      {
+        "x_rule_id": "X7",
+        "tier": "cap_confidence",
+        "affected_domain": "recovery",
+        "mutation_json": null
+      },
+      {
+        "x_rule_id": "X7",
+        "tier": "cap_confidence",
+        "affected_domain": "running",
+        "mutation_json": null
+      }
+    ],
+    "persisted_recommendations": [
+      {
+        "recommendation_id": "rec_2026-04-17_u_eval_pack_recovery_01",
+        "domain": "recovery",
+        "action": "training_day_hard",
+        "confidence": "moderate"
+      },
+      {
+        "recommendation_id": "rec_2026-04-17_u_eval_pack_running_01",
+        "domain": "running",
+        "action": "proceed_with_planned_run",
+        "confidence": "moderate"
+      }
+    ]
+  },
+  "s2": {
+    "scenario_id": "s2_cap_adjust_stacking",
+    "result": {
+      "daily_plan_id": "plan_2026-04-17_u_eval_pack",
+      "recommendation_ids": [
+        "rec_2026-04-17_u_eval_pack_recovery_01",
+        "rec_2026-04-17_u_eval_pack_running_01"
+      ],
+      "proposal_ids": [
+        "p-recovery-002",
+        "p-running-002"
+      ],
+      "phase_a_firings": [
+        {
+          "rule_id": "X7",
+          "tier": "cap_confidence",
+          "affected_domain": "recovery",
+          "trigger_note": "stress_band=high \u2208 ['high', 'very_high']",
+          "recommended_mutation": null,
+          "source_signals": {
+            "stress_band": "high",
+            "all_day_stress": 72
+          },
+          "phase": "A"
+        },
+        {
+          "rule_id": "X7",
+          "tier": "cap_confidence",
+          "affected_domain": "running",
+          "trigger_note": "stress_band=high \u2208 ['high', 'very_high']",
+          "recommended_mutation": null,
+          "source_signals": {
+            "stress_band": "high",
+            "all_day_stress": 72
+          },
+          "phase": "A"
+        }
+      ],
+      "phase_b_firings": [],
+      "superseded_prior": null
+    },
+    "runtime_scope_gap": {
+      "reason": "v1 SUPPORTED_DOMAINS = {recovery, running}; stress + nutrition proposals cannot be submitted. X9 (Phase B post_adjust on nutrition) cannot fire \u2014 scenario's adjust-stacking tail is untestable against v1.",
+      "skipped_proposals": [
+        {
+          "proposal_id": "p-stress-001",
+          "domain": "stress"
+        },
+        {
+          "proposal_id": "p-nutrition-001",
+          "domain": "nutrition"
+        }
+      ]
+    },
+    "persisted_firings": [
+      {
+        "x_rule_id": "X7",
+        "tier": "cap_confidence",
+        "affected_domain": "recovery"
+      },
+      {
+        "x_rule_id": "X7",
+        "tier": "cap_confidence",
+        "affected_domain": "running"
+      }
+    ],
+    "persisted_recommendations": [
+      {
+        "recommendation_id": "rec_2026-04-17_u_eval_pack_recovery_01",
+        "domain": "recovery",
+        "action": "proceed_with_planned_session",
+        "confidence": "moderate"
+      },
+      {
+        "recommendation_id": "rec_2026-04-17_u_eval_pack_running_01",
+        "domain": "running",
+        "action": "proceed_with_planned_run",
+        "confidence": "moderate"
+      }
+    ]
+  },
+  "s3": {
+    "scenario_id": "s3_mixed_missingness",
+    "result": {
+      "daily_plan_id": "plan_2026-04-17_u_eval_pack",
+      "recommendation_ids": [
+        "rec_2026-04-17_u_eval_pack_recovery_01",
+        "rec_2026-04-17_u_eval_pack_running_01"
+      ],
+      "proposal_ids": [
+        "p-recovery-003",
+        "p-running-003"
+      ],
+      "phase_a_firings": [],
+      "phase_b_firings": [],
+      "superseded_prior": null
+    },
+    "runtime_scope_gap": {
+      "reason": "v1 supports only recovery + running. The scenario's sleep (unavailable_at_source) and strength (pending_user_input) proposals cannot be submitted. Missingness propagation at the skill-narration layer cannot be fully exercised without those domains.",
+      "skipped_proposals": [
+        {
+          "proposal_id": "p-sleep-001",
+          "domain": "sleep"
+        },
+        {
+          "proposal_id": "p-strength-001",
+          "domain": "strength"
+        }
+      ]
+    },
+    "persisted_firings": [],
+    "persisted_recommendations": [
+      {
+        "recommendation_id": "rec_2026-04-17_u_eval_pack_recovery_01",
+        "domain": "recovery",
+        "action": "proceed_with_planned_session",
+        "confidence": "high"
+      },
+      {
+        "recommendation_id": "rec_2026-04-17_u_eval_pack_running_01",
+        "domain": "running",
+        "action": "defer_decision_insufficient_signal",
+        "confidence": "low"
+      }
+    ]
+  },
+  "s4": {
+    "scenario_id": "s4_stale_proposal",
+    "validation_results": [
+      {
+        "proposal_id": "p-recovery-004",
+        "intended_defect": "schema_version '0.1' is not the current version '1.0'",
+        "accepted": false,
+        "error_invariant": "schema_version",
+        "error_message": "expected schema_version='recovery_proposal.v1' for domain 'recovery', got '0.1'"
+      },
+      {
+        "proposal_id": "p-running-004",
+        "intended_defect": "'moonshot_tempo_plus_long_run' is not in the running v1 ActionKind enum",
+        "accepted": false,
+        "error_invariant": "action_enum",
+        "error_message": "action 'moonshot_tempo_plus_long_run' not in 'running' enum ['cross_train_instead', 'defer_decision_insufficient_signal', 'downgrade_intervals_to_tempo', 'downgrade_to_easy_aerobic', 'escalate_for_user_review', 'proceed_with_planned_run', 'rest_day_recommended']"
+      }
+    ],
+    "proposal_log_row_count": 0,
+    "synthesis_refused": true,
+    "synthesis_error_message": "no proposals in proposal_log for (for_date=2026-04-17, user_id='u_eval_pack'). Call `hai propose` first."
+  }
+}
