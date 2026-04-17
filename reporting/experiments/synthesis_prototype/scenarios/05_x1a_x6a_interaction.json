@@ -1,0 +1,50 @@
+{
+  "scenario_id": "05_x1a_x6a_interaction",
+  "description": "Two overlapping soften firings on the running domain: X1a (sleep->zone_2) and X6a (body_battery->moderate cap across all). Skill must apply the more conservative mutation (zone_2 < moderate).",
+  "snapshot": {
+    "as_of_date": "2026-04-17",
+    "user_id": "u_local_1",
+    "recovery": {
+      "today": {"sleep_hours": 6.3, "resting_hr": 54, "hrv_ms": 72, "acwr_ratio": 1.1, "body_battery_end_of_day": 22},
+      "classified": {"sleep_debt_band": "moderate", "recovery_status": "mildly_impaired", "coverage_band": "full"},
+      "missingness": "present"
+    },
+    "running": {
+      "today": null,
+      "classified": {"recent_hard_session_count": 2, "acwr_freshness_band": "fresh"},
+      "missingness": "present"
+    }
+  },
+  "proposals": [
+    {
+      "domain": "recovery",
+      "proposed_action": "proceed_with_planned_session",
+      "planned_intensity": "moderate",
+      "rationale": ["sleep_debt=moderate", "body_battery=low"],
+      "confidence": "moderate",
+      "uncertainty": []
+    },
+    {
+      "domain": "running",
+      "proposed_action": "proceed_with_planned_run",
+      "planned_intensity": "intervals",
+      "rationale": ["planned hard intervals", "acwr fresh"],
+      "confidence": "high",
+      "uncertainty": []
+    }
+  ],
+  "expected_firings": [
+    {"rule_id": "X1a", "tier": "soften", "affected_domains": ["running"]},
+    {"rule_id": "X6a", "tier": "soften", "affected_domains": ["recovery", "running"]}
+  ],
+  "expected_behavior": {
+    "recovery": {"action": "proceed_with_planned_session", "notes": "X6a caps intensity at moderate (already moderate); passes through"},
+    "running": {"action": "downgrade_hard_session_to_zone_2", "notes": "Both X1a and X6a target running; zone_2 is the more conservative mutation vs moderate. Both firings recorded in x_rule_firings_applied."},
+    "joint_rationale": "joint depleted_reserve line in both domains"
+  },
+  "rubric_targets": {
+    "action_correctness": "running = zone_2 (the conservative choice); x_rule_firings_applied = [X1a, X6a]",
+    "rationale_quality": "skill names the conflict resolution ('conservative mutation wins') in synthesis_meta.notes",
+    "uncertainty_calibration": "no new uncertainty; no confidence escalation"
+  }
+}

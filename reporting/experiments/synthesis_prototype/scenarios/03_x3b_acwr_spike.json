@@ -1,0 +1,48 @@
+{
+  "scenario_id": "03_x3b_acwr_spike",
+  "description": "ACWR elevated above the 1.5 block threshold with a long_run planned. X3b should escalate running for user review. Block tier.",
+  "snapshot": {
+    "as_of_date": "2026-04-17",
+    "user_id": "u_local_1",
+    "recovery": {
+      "today": {"sleep_hours": 8.0, "resting_hr": 52, "hrv_ms": 79, "acwr_ratio": 1.56, "body_battery_end_of_day": 60},
+      "classified": {"sleep_debt_band": "none", "recovery_status": "recovered", "coverage_band": "full"},
+      "missingness": "present"
+    },
+    "running": {
+      "today": null,
+      "classified": {"recent_hard_session_count": 3, "acwr_freshness_band": "spike"},
+      "missingness": "present"
+    }
+  },
+  "proposals": [
+    {
+      "domain": "recovery",
+      "proposed_action": "proceed_with_planned_session",
+      "planned_intensity": "moderate",
+      "rationale": ["sleep_debt=none", "hrv=above", "resting_hr=at"],
+      "confidence": "high",
+      "uncertainty": []
+    },
+    {
+      "domain": "running",
+      "proposed_action": "proceed_with_planned_run",
+      "planned_intensity": "long_run",
+      "rationale": ["planned long endurance block", "subjective energy high"],
+      "confidence": "high",
+      "uncertainty": ["acwr_elevated"]
+    }
+  ],
+  "expected_firings": [
+    {"rule_id": "X3b", "tier": "block", "affected_domains": ["running"]}
+  ],
+  "expected_behavior": {
+    "recovery": {"action": "proceed_with_planned_session", "notes": "pass-through; recovery unaffected"},
+    "running": {"action": "escalate_for_user_review", "notes": "block-tier firing overrides proposal; confidence drops to low; reason_token=acwr_elevated_hard_session"}
+  },
+  "rubric_targets": {
+    "action_correctness": "running action = escalate_for_user_review exactly",
+    "rationale_quality": "skill cites acwr_ratio and block-tier firing; original 'planned long endurance block' line either removed or bridged",
+    "uncertainty_calibration": "running confidence dropped to low (block invariant)"
+  }
+}

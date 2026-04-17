@@ -1,0 +1,46 @@
+{
+  "scenario_id": "07_sparse_coverage_degrade",
+  "description": "Sparse recovery coverage: HRV + training load missing. Recovery domain already deferred via R1 at proposal time. Synthesis should NOT invent firings on absent signals.",
+  "snapshot": {
+    "as_of_date": "2026-04-17",
+    "user_id": "u_local_1",
+    "recovery": {
+      "today": {"sleep_hours": 7.2, "resting_hr": 52, "hrv_ms": null, "acwr_ratio": null, "body_battery_end_of_day": 55},
+      "classified": {"sleep_debt_band": "mild", "recovery_status": "unknown", "coverage_band": "sparse"},
+      "missingness": "partial:hrv_ms,acute_load,chronic_load,acwr_ratio"
+    },
+    "running": {
+      "today": null,
+      "classified": {"recent_hard_session_count": 1, "acwr_freshness_band": "unknown"},
+      "missingness": "partial:acwr_freshness_band"
+    }
+  },
+  "proposals": [
+    {
+      "domain": "recovery",
+      "proposed_action": "defer_decision_insufficient_signal",
+      "planned_intensity": null,
+      "rationale": ["coverage=sparse; HRV and training load missing"],
+      "confidence": "low",
+      "uncertainty": ["hrv_unavailable", "training_load_window_incomplete"]
+    },
+    {
+      "domain": "running",
+      "proposed_action": "proceed_with_planned_run",
+      "planned_intensity": "moderate",
+      "rationale": ["sleep adequate", "no hard session in recent days", "acwr unknown but not actionable"],
+      "confidence": "moderate",
+      "uncertainty": ["acwr_unknown"]
+    }
+  ],
+  "expected_firings": [],
+  "expected_behavior": {
+    "recovery": {"action": "defer_decision_insufficient_signal", "notes": "pass-through"},
+    "running": {"action": "proceed_with_planned_run", "notes": "pass-through; skill must NOT apply X3b or X6a since acwr and body_battery are available/non-trigger and sparse signals elsewhere are already reflected in proposal-level uncertainty"}
+  },
+  "rubric_targets": {
+    "action_correctness": "both actions unchanged from proposals",
+    "rationale_quality": "no invented constraints on sparse signals; synthesis does not add firings",
+    "uncertainty_calibration": "uncertainty tokens from both proposals preserved and unioned"
+  }
+}

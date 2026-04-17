@@ -1,0 +1,43 @@
+{
+  "daily_plan_id": "plan_2026-04-17_u_local_1",
+  "synthesized_at": "2026-04-17T16:30:00+00:00",
+  "recommendations": [
+    {
+      "domain": "recovery",
+      "recommendation_id": "rec_2026-04-17_u_local_1_recovery",
+      "action": "proceed_with_planned_session",
+      "action_detail": null,
+      "rationale": ["sleep_debt=none", "resting_hr=at", "hrv=above"],
+      "confidence": "high",
+      "uncertainty": [],
+      "x_rule_firings_applied": []
+    },
+    {
+      "domain": "running",
+      "recommendation_id": "rec_2026-04-17_u_local_1_running",
+      "action": "proceed_with_planned_run",
+      "action_detail": null,
+      "rationale": ["acwr in fresh band", "sleep adequate"],
+      "confidence": "high",
+      "uncertainty": [],
+      "x_rule_firings_applied": []
+    }
+  ],
+  "synthesis_meta": {
+    "firings_total": 0,
+    "firings_by_tier": {},
+    "domains_blocked": [],
+    "domains_softened": [],
+    "notes": [
+      "unmapped_context_observed: snapshot.recovery.recent_strength_sessions includes heavy lower-body session on 2026-04-16 (5x5 back squat @ 120kg). No prototype X-rule covers strength->running interaction; discipline holds — synthesis does not mutate action based on unmapped context. Surface as informational only."
+    ]
+  },
+  "_self_score": {
+    "action_correctness": 3,
+    "rationale_quality": 3,
+    "uncertainty_calibration": 3,
+    "total": 9,
+    "action_pass_2_of_3": true,
+    "notes": "Critical test of rule-vs-judgment discipline. Skill refused to invent a fourth rule even though yesterday-heavy-legs context arguably suggests softening tempo. This is the correct behavior per the skill's own Step 2 constraints."
+  }
+}

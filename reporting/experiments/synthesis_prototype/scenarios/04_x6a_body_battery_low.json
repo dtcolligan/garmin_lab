@@ -1,0 +1,49 @@
+{
+  "scenario_id": "04_x6a_body_battery_low",
+  "description": "Body battery EoD=24, below the 30 threshold. X6a softens ALL proposals to moderate. Tests multi-domain single firing.",
+  "snapshot": {
+    "as_of_date": "2026-04-17",
+    "user_id": "u_local_1",
+    "recovery": {
+      "today": {"sleep_hours": 7.8, "resting_hr": 52, "hrv_ms": 78, "acwr_ratio": 1.05, "body_battery_end_of_day": 24},
+      "classified": {"sleep_debt_band": "none", "recovery_status": "recovered", "coverage_band": "full"},
+      "missingness": "present"
+    },
+    "running": {
+      "today": null,
+      "classified": {"recent_hard_session_count": 1, "acwr_freshness_band": "fresh"},
+      "missingness": "present"
+    }
+  },
+  "proposals": [
+    {
+      "domain": "recovery",
+      "proposed_action": "proceed_with_planned_session",
+      "planned_intensity": "moderate",
+      "rationale": ["sleep_debt=none", "resting_hr=at", "body_battery low_end_but_signals_ok"],
+      "confidence": "moderate",
+      "uncertainty": []
+    },
+    {
+      "domain": "running",
+      "proposed_action": "proceed_with_planned_run",
+      "planned_intensity": "tempo",
+      "rationale": ["acwr=1.05", "subjective energy moderate"],
+      "confidence": "high",
+      "uncertainty": []
+    }
+  ],
+  "expected_firings": [
+    {"rule_id": "X6a", "tier": "soften", "affected_domains": ["recovery", "running"]}
+  ],
+  "expected_behavior": {
+    "recovery": {"action": "proceed_with_planned_session", "notes": "target_intensity capped at moderate via firing mutation"},
+    "running": {"action": "proceed_with_planned_run", "notes": "target_intensity moderate (not tempo); tempo downgraded"},
+    "joint_rationale": "both domains should include a shared 'joint: depleted_reserve softens training today' line"
+  },
+  "rubric_targets": {
+    "action_correctness": "both domains retain proceed but intensity capped at moderate",
+    "rationale_quality": "joint depleted_reserve line present in both domains' rationale",
+    "uncertainty_calibration": "no new uncertainty (firing itself is the source of the cap)"
+  }
+}

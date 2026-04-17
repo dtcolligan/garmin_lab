@@ -1,0 +1,50 @@
+{
+  "daily_plan_id": "plan_2026-04-17_u_local_1",
+  "synthesized_at": "2026-04-17T16:30:00+00:00",
+  "recommendations": [
+    {
+      "domain": "recovery",
+      "recommendation_id": "rec_2026-04-17_u_local_1_recovery",
+      "action": "proceed_with_planned_session",
+      "action_detail": {"target_intensity": "moderate"},
+      "rationale": [
+        "X6a: body_battery_end_of_day=24 < 30 (depleted reserve)",
+        "sleep_debt=none", "resting_hr=at", "body_battery low_end_but_signals_ok",
+        "joint: depleted_reserve softens training today"
+      ],
+      "confidence": "moderate",
+      "uncertainty": [],
+      "x_rule_firings_applied": ["X6a"]
+    },
+    {
+      "domain": "running",
+      "recommendation_id": "rec_2026-04-17_u_local_1_running",
+      "action": "proceed_with_planned_run",
+      "action_detail": {"target_intensity": "moderate"},
+      "rationale": [
+        "X6a: body_battery_end_of_day=24 < 30 (depleted reserve)",
+        "acwr=1.05", "subjective energy moderate",
+        "synthesis: tempo softened to moderate under depleted_reserve",
+        "joint: depleted_reserve softens training today"
+      ],
+      "confidence": "high",
+      "uncertainty": [],
+      "x_rule_firings_applied": ["X6a"]
+    }
+  ],
+  "synthesis_meta": {
+    "firings_total": 1,
+    "firings_by_tier": {"soften": 1},
+    "domains_blocked": [],
+    "domains_softened": ["recovery", "running"],
+    "notes": []
+  },
+  "_self_score": {
+    "action_correctness": 3,
+    "rationale_quality": 3,
+    "uncertainty_calibration": 3,
+    "total": 9,
+    "action_pass_2_of_3": true,
+    "notes": "Joint rationale present in both domains; tempo->moderate bridge in running."
+  }
+}

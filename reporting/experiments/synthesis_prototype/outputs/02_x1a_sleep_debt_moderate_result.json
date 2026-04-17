@@ -1,0 +1,46 @@
+{
+  "daily_plan_id": "plan_2026-04-17_u_local_1",
+  "synthesized_at": "2026-04-17T16:30:00+00:00",
+  "recommendations": [
+    {
+      "domain": "recovery",
+      "recommendation_id": "rec_2026-04-17_u_local_1_recovery",
+      "action": "proceed_with_planned_session",
+      "action_detail": null,
+      "rationale": ["sleep_debt=moderate", "soreness=low", "confidence tempered for sleep"],
+      "confidence": "moderate",
+      "uncertainty": [],
+      "x_rule_firings_applied": []
+    },
+    {
+      "domain": "running",
+      "recommendation_id": "rec_2026-04-17_u_local_1_running",
+      "action": "downgrade_hard_session_to_zone_2",
+      "action_detail": {"target_intensity": "zone_2", "target_duration_minutes": 45},
+      "rationale": [
+        "X1a: sleep_debt_band=moderate with planned_intensity=intervals",
+        "acwr=1.0 in fresh band",
+        "recent load OK",
+        "synthesis: sleep_debt_moderate reconciled with initial proposal"
+      ],
+      "confidence": "high",
+      "uncertainty": [],
+      "x_rule_firings_applied": ["X1a"]
+    }
+  ],
+  "synthesis_meta": {
+    "firings_total": 1,
+    "firings_by_tier": {"soften": 1},
+    "domains_blocked": [],
+    "domains_softened": ["running"],
+    "notes": []
+  },
+  "_self_score": {
+    "action_correctness": 3,
+    "rationale_quality": 3,
+    "uncertainty_calibration": 3,
+    "total": 9,
+    "action_pass_2_of_3": true,
+    "notes": "Stripped stale 'planned hard session' implicit-from-intervals proposal line; cited X1a trigger; added bridge."
+  }
+}

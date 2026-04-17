@@ -1,0 +1,50 @@
+{
+  "scenario_id": "06_x3b_x6a_interaction",
+  "description": "Block (X3b) vs soften (X6a) interaction on running. Block wins. Tests tier precedence: block > soften.",
+  "snapshot": {
+    "as_of_date": "2026-04-17",
+    "user_id": "u_local_1",
+    "recovery": {
+      "today": {"sleep_hours": 7.6, "resting_hr": 53, "hrv_ms": 75, "acwr_ratio": 1.62, "body_battery_end_of_day": 22},
+      "classified": {"sleep_debt_band": "none", "recovery_status": "recovered", "coverage_band": "full"},
+      "missingness": "present"
+    },
+    "running": {
+      "today": null,
+      "classified": {"recent_hard_session_count": 4, "acwr_freshness_band": "spike"},
+      "missingness": "present"
+    }
+  },
+  "proposals": [
+    {
+      "domain": "recovery",
+      "proposed_action": "proceed_with_planned_session",
+      "planned_intensity": "moderate",
+      "rationale": ["sleep_debt=none", "body_battery low but other signals ok"],
+      "confidence": "moderate",
+      "uncertainty": []
+    },
+    {
+      "domain": "running",
+      "proposed_action": "proceed_with_planned_run",
+      "planned_intensity": "tempo",
+      "rationale": ["planned tempo for marathon block"],
+      "confidence": "high",
+      "uncertainty": ["acwr_elevated"]
+    }
+  ],
+  "expected_firings": [
+    {"rule_id": "X3b", "tier": "block", "affected_domains": ["running"]},
+    {"rule_id": "X6a", "tier": "soften", "affected_domains": ["recovery", "running"]}
+  ],
+  "expected_behavior": {
+    "recovery": {"action": "proceed_with_planned_session", "notes": "X6a softens to moderate (already moderate)"},
+    "running": {"action": "escalate_for_user_review", "notes": "X3b blocks; X6a's soften does NOT apply on top of a block on the same domain. Both firings still recorded in x_rule_firings_applied."},
+    "joint_rationale": "no joint line (running was blocked, recovery was softened separately)"
+  },
+  "rubric_targets": {
+    "action_correctness": "running = escalate_for_user_review (block wins); x_rule_firings_applied includes both X3b and X6a",
+    "rationale_quality": "skill acknowledges block supersedes soften; original 'planned tempo for marathon' line removed",
+    "uncertainty_calibration": "running confidence = low (block invariant); acwr_elevated token preserved"
+  }
+}

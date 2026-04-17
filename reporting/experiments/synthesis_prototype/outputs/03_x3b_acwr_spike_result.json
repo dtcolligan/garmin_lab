@@ -1,0 +1,48 @@
+{
+  "daily_plan_id": "plan_2026-04-17_u_local_1",
+  "synthesized_at": "2026-04-17T16:30:00+00:00",
+  "recommendations": [
+    {
+      "domain": "recovery",
+      "recommendation_id": "rec_2026-04-17_u_local_1_recovery",
+      "action": "proceed_with_planned_session",
+      "action_detail": null,
+      "rationale": ["sleep_debt=none", "hrv=above", "resting_hr=at"],
+      "confidence": "high",
+      "uncertainty": [],
+      "x_rule_firings_applied": []
+    },
+    {
+      "domain": "running",
+      "recommendation_id": "rec_2026-04-17_u_local_1_running",
+      "action": "escalate_for_user_review",
+      "action_detail": {
+        "reason_token": "acwr_elevated_hard_session",
+        "consecutive_check_required": true
+      },
+      "rationale": [
+        "X3b: acwr_ratio=1.56 >= 1.5 with hard running session proposed",
+        "subjective energy high",
+        "synthesis: elevated acwr blocks planned long_run; user review required"
+      ],
+      "confidence": "low",
+      "uncertainty": ["acwr_elevated"],
+      "x_rule_firings_applied": ["X3b"]
+    }
+  ],
+  "synthesis_meta": {
+    "firings_total": 1,
+    "firings_by_tier": {"block": 1},
+    "domains_blocked": ["running"],
+    "domains_softened": [],
+    "notes": []
+  },
+  "_self_score": {
+    "action_correctness": 3,
+    "rationale_quality": 3,
+    "uncertainty_calibration": 3,
+    "total": 9,
+    "action_pass_2_of_3": true,
+    "notes": "Block forced action; confidence dropped to low per invariant; stale 'planned long endurance block' line removed."
+  }
+}

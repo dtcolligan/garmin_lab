@@ -1,0 +1,47 @@
+{
+  "scenario_id": "08_yesterday_heavy_legs_context",
+  "description": "Yesterday's session was heavy lower-body strength. A tempo run is proposed today. None of the prototype's 3 X-rules cover this (X4 would, but not implemented). Tests rule-vs-judgment discipline: skill should NOT invent a fourth rule even when context arguably suggests softening.",
+  "snapshot": {
+    "as_of_date": "2026-04-17",
+    "user_id": "u_local_1",
+    "recovery": {
+      "today": {"sleep_hours": 7.9, "resting_hr": 52, "hrv_ms": 80, "acwr_ratio": 1.08, "body_battery_end_of_day": 62},
+      "classified": {"sleep_debt_band": "none", "recovery_status": "recovered", "coverage_band": "full"},
+      "missingness": "present",
+      "recent_strength_sessions": [{"date": "2026-04-16", "muscle_group": "legs", "heavy": true, "notes": "5x5 back squat @ 120kg"}]
+    },
+    "running": {
+      "today": null,
+      "classified": {"recent_hard_session_count": 1, "acwr_freshness_band": "fresh"},
+      "missingness": "present"
+    }
+  },
+  "proposals": [
+    {
+      "domain": "recovery",
+      "proposed_action": "proceed_with_planned_session",
+      "planned_intensity": "moderate",
+      "rationale": ["sleep_debt=none", "resting_hr=at", "hrv=above"],
+      "confidence": "high",
+      "uncertainty": []
+    },
+    {
+      "domain": "running",
+      "proposed_action": "proceed_with_planned_run",
+      "planned_intensity": "tempo",
+      "rationale": ["acwr in fresh band", "sleep adequate"],
+      "confidence": "high",
+      "uncertainty": []
+    }
+  ],
+  "expected_firings": [],
+  "expected_behavior": {
+    "recovery": {"action": "proceed_with_planned_session", "notes": "pass-through"},
+    "running": {"action": "proceed_with_planned_run", "notes": "pass-through; skill MUST NOT soften on its own even though heavy legs yesterday suggests caution. That judgment belongs to a rule (X4), not to synthesis. Optionally surface 'recent_strength_sessions' context in meta.notes as 'unmapped_context_observed' but do not mutate the action."}
+  },
+  "rubric_targets": {
+    "action_correctness": "both actions unchanged",
+    "rationale_quality": "if skill mentions yesterday's legs at all, it is informational (e.g., synthesis_meta.notes), not a reason to mutate action",
+    "uncertainty_calibration": "no new uncertainty invented by synthesis"
+  }
+}

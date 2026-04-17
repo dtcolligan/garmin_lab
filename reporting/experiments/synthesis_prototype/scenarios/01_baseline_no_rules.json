@@ -1,0 +1,46 @@
+{
+  "scenario_id": "01_baseline_no_rules",
+  "description": "Clean state. No firings. Synthesis should pass both proposals through with minor joint polish but not invent constraints.",
+  "snapshot": {
+    "as_of_date": "2026-04-17",
+    "user_id": "u_local_1",
+    "recovery": {
+      "today": {"sleep_hours": 8.2, "resting_hr": 51, "hrv_ms": 82, "acwr_ratio": 0.92, "body_battery_end_of_day": 65},
+      "classified": {"sleep_debt_band": "none", "recovery_status": "recovered", "coverage_band": "full"},
+      "missingness": "present"
+    },
+    "running": {
+      "today": {"total_distance_m": 8000, "vigorous_intensity_min": 20},
+      "classified": {"recent_hard_session_count": 1, "acwr_freshness_band": "fresh"},
+      "missingness": "present"
+    }
+  },
+  "proposals": [
+    {
+      "domain": "recovery",
+      "proposed_action": "proceed_with_planned_session",
+      "planned_intensity": "moderate",
+      "rationale": ["sleep_debt=none", "resting_hr=at", "hrv=above"],
+      "confidence": "high",
+      "uncertainty": []
+    },
+    {
+      "domain": "running",
+      "proposed_action": "proceed_with_planned_run",
+      "planned_intensity": "moderate",
+      "rationale": ["acwr_ratio=0.92 in fresh band"],
+      "confidence": "high",
+      "uncertainty": []
+    }
+  ],
+  "expected_firings": [],
+  "expected_behavior": {
+    "recovery": {"action": "proceed_with_planned_session", "notes": "pass-through"},
+    "running": {"action": "proceed_with_planned_run", "notes": "pass-through"}
+  },
+  "rubric_targets": {
+    "action_correctness": "exact pass-through both domains",
+    "rationale_quality": "no invented joint lines, no stale rationale",
+    "uncertainty_calibration": "empty uncertainty preserved"
+  }
+}
