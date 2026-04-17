@@ -67,7 +67,9 @@ hai --help
 `hai` exposes these subcommands:
 
 ```
-hai pull      --date 2026-04-17 [--use-default-manual-readiness] --user-id u_local_1
+hai intake readiness --soreness low|moderate|high --energy low|moderate|high \
+                     --planned-session-type <text> [--active-goal <text>] [--as-of <date>]
+hai pull      --date 2026-04-17 [--manual-readiness-json mr.json | --use-default-manual-readiness]
 hai clean     --evidence-json evidence.json
 hai writeback --recommendation-json rec.json --base-dir <writeback_root>
 hai review    schedule --recommendation-json rec.json --base-dir <root>
@@ -127,6 +129,7 @@ health_agent_infra/
 
 ## What is proven now
 
+- `hai intake readiness` emits a validated manual-readiness JSON (enum-checked `soreness` and `energy`) that composes with `hai pull --manual-readiness-json`.
 - `hai pull` reads the committed Garmin CSV export and emits evidence JSON.
 - `hai clean` computes CleanedEvidence + RawSummary deterministically — no bands, no classifications, no scores.
 - `hai writeback` schema-validates an agent-produced TrainingRecommendation and persists it idempotently, with writeback-locality enforced at the I/O boundary.

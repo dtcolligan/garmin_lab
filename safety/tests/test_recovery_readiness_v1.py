@@ -378,6 +378,107 @@ def test_validator_rejects_review_at_before_issued_at():
     assert exc.value.invariant == "review_at_within_24h"
 
 
+# ---------------------------------------------------------------------------
+# INTAKE — hai intake readiness composes with hai pull --manual-readiness-json
+# ---------------------------------------------------------------------------
+
+def _run_cli(argv: list[str], capsys) -> tuple[int, dict]:
+    from health_agent_infra.cli import main
+    rc = main(argv)
+    out = capsys.readouterr().out
+    return rc, json.loads(out) if out.strip() else {}
+
+
+def test_intake_readiness_emits_valid_manual_readiness_dict(capsys):
+    rc, payload = _run_cli(
+        [
+            "intake", "readiness",
+            "--soreness", "moderate",
+            "--energy", "high",
+            "--planned-session-type", "hard",
+            "--active-goal", "strength_block",
+            "--as-of", "2026-04-17",
+        ],
+        capsys,
+    )
+    assert rc == 0
+    assert payload["soreness"] == "moderate"
+    assert payload["energy"] == "high"
+    assert payload["planned_session_type"] == "hard"
+    assert payload["active_goal"] == "strength_block"
+    assert payload["submission_id"].startswith("m_ready_2026-04-17_")
+
+
+def test_intake_readiness_active_goal_is_optional(capsys):
+    rc, payload = _run_cli(
+        [
+            "intake", "readiness",
+            "--soreness", "low",
+            "--energy", "low",
+            "--planned-session-type", "rest",
+        ],
+        capsys,
+    )
+    assert rc == 0
+    assert "active_goal" not in payload  # absent when not supplied
+
+
+def test_intake_readiness_rejects_bad_soreness_enum(capsys):
+    from health_agent_infra.cli import main
+    with pytest.raises(SystemExit) as exc:
+        main([
+            "intake", "readiness",
+            "--soreness", "extreme",
+            "--energy", "high",
+            "--planned-session-type", "hard",
+        ])
+    assert exc.value.code != 0  # argparse rejects before we ever produce JSON
+
+
+def test_intake_readiness_output_feeds_hai_pull(tmp_path: Path, capsys):
+    """The intake JSON must survive a round-trip through `hai pull
+    --manual-readiness-json`: every field the intake emits lands in the
+    pull payload's manual_readiness without loss."""
+
+    from health_agent_infra.cli import main
+
+    # 1. hai intake readiness -> stdout JSON
+    rc = main([
+        "intake", "readiness",
+        "--soreness", "moderate",
+        "--energy", "high",
+        "--planned-session-type", "intervals",
+        "--active-goal", "endurance_taper",
+        "--as-of", "2026-04-08",
+    ])
+    assert rc == 0
+    intake_json = capsys.readouterr().out
+    readiness_file = tmp_path / "mr.json"
+    readiness_file.write_text(intake_json, encoding="utf-8")
+
+    # 2. hai pull --manual-readiness-json <that file>
+    rc = main([
+        "pull",
+        "--date", "2026-04-08",
+        "--user-id", "u_intake_test",
+        "--manual-readiness-json", str(readiness_file),
+    ])
+    assert rc == 0
+    pull_payload = json.loads(capsys.readouterr().out)
+
+    manual = pull_payload["manual_readiness"]
+    assert manual["soreness"] == "moderate"
+    assert manual["energy"] == "high"
+    assert manual["planned_session_type"] == "intervals"
+    assert manual["active_goal"] == "endurance_taper"
+    assert manual["submission_id"].startswith("m_ready_2026-04-08_")
+
+
+# ---------------------------------------------------------------------------
+# Validator — policy_decisions_present
+# ---------------------------------------------------------------------------
+
+
 def test_validator_rejects_empty_policy_decisions():
     from health_agent_infra.validate import (
         RecommendationValidationError,

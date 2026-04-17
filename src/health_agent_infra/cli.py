@@ -259,6 +259,38 @@ def cmd_review_summary(args: argparse.Namespace) -> int:
 
 
 # ---------------------------------------------------------------------------
+# hai intake readiness — typed manual readiness intake, emits JSON to stdout
+# ---------------------------------------------------------------------------
+
+SORENESS_CHOICES = ("low", "moderate", "high")
+ENERGY_CHOICES = ("low", "moderate", "high")
+
+
+def cmd_intake_readiness(args: argparse.Namespace) -> int:
+    """Emit a typed manual-readiness JSON blob to stdout.
+
+    Composes with ``hai pull --manual-readiness-json <path>`` so an agent can
+    capture structured readiness without hand-authoring JSON.
+    """
+
+    as_of = _coerce_date(args.as_of)
+    # Microsecond timestamp in the submission_id keeps it unique across
+    # rapid same-day re-invocations without pulling in uuid.
+    issued_at = datetime.now(timezone.utc)
+    suffix = issued_at.strftime("%H%M%S%f")
+    payload: dict[str, Any] = {
+        "submission_id": f"m_ready_{as_of.isoformat()}_{suffix}",
+        "soreness": args.soreness,
+        "energy": args.energy,
+        "planned_session_type": args.planned_session_type,
+    }
+    if args.active_goal:
+        payload["active_goal"] = args.active_goal
+    _emit_json(payload)
+    return 0
+
+
+# ---------------------------------------------------------------------------
 # hai setup-skills
 # ---------------------------------------------------------------------------
 
@@ -330,6 +362,22 @@ def build_parser() -> argparse.ArgumentParser:
     p_rsum.add_argument("--base-dir", required=True)
     p_rsum.add_argument("--user-id", default=None)
     p_rsum.set_defaults(func=cmd_review_summary)
+
+    p_intake = sub.add_parser("intake", help="Typed human-input intake surfaces")
+    intake_sub = p_intake.add_subparsers(dest="intake_command", required=True)
+    p_ir = intake_sub.add_parser("readiness",
+                                 help="Emit a typed manual-readiness JSON to stdout")
+    p_ir.add_argument("--soreness", required=True, choices=SORENESS_CHOICES,
+                      help="Subjective soreness band: low | moderate | high")
+    p_ir.add_argument("--energy", required=True, choices=ENERGY_CHOICES,
+                      help="Subjective energy band: low | moderate | high")
+    p_ir.add_argument("--planned-session-type", required=True,
+                      help="Planned session type (free text; e.g. easy, moderate, hard, intervals, race, rest)")
+    p_ir.add_argument("--active-goal", default=None,
+                      help="Optional active training goal (free text)")
+    p_ir.add_argument("--as-of", default=None,
+                      help="As-of date for submission_id (ISO-8601, default today UTC)")
+    p_ir.set_defaults(func=cmd_intake_readiness)
 
     p_setup = sub.add_parser("setup-skills", help="Copy packaged skills/ into ~/.claude/skills/")
     p_setup.add_argument("--dest", default=str(DEFAULT_CLAUDE_SKILLS_DIR))

@@ -6,7 +6,7 @@ A 10-minute guided read of Health Agent Infra, for someone (including future-you
 
 Health Agent Infra is **agent infrastructure**, not a health app. It ships two things to an agent like Claude Code:
 
-- **A CLI called `hai`** with deterministic subcommands: `hai pull`, `hai clean`, `hai writeback`, `hai review`, `hai setup-skills`.
+- **A CLI called `hai`** with deterministic subcommands: `hai intake`, `hai pull`, `hai clean`, `hai writeback`, `hai review`, `hai setup-skills`.
 - **A `skills/` directory** with five markdown skills the agent reads to decide what to do with the evidence the CLI emits.
 
 The agent owns all judgment — state classification, policy, recommendation shaping, reporting. The runtime owns none. The contract between them is a JSON schema (`TrainingRecommendation`), validated at the `hai writeback` boundary.
@@ -85,7 +85,8 @@ hai setup-skills
 From the agent's perspective (inside Claude Code):
 
 ```bash
-hai pull --date 2026-04-17 --use-default-manual-readiness --user-id u_1 > /tmp/evidence.json
+hai intake readiness --soreness moderate --energy high --planned-session-type hard --active-goal strength_block > /tmp/mr.json
+hai pull --date 2026-04-17 --user-id u_1 --manual-readiness-json /tmp/mr.json > /tmp/evidence.json
 hai clean --evidence-json /tmp/evidence.json > /tmp/prep.json
 # agent reads /tmp/prep.json + the recovery-readiness skill,
 # produces /tmp/rec.json matching TrainingRecommendation

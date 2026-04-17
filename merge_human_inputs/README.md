@@ -17,10 +17,10 @@ The flagship Python only sees the *output* of the intake step — a validated ma
 
 ## How intake works now
 
-The agent reads the merge-human-inputs skill and partitions raw user input into dataset slots. For the flagship hot path (manual readiness), the agent constructs a JSON object with the four required fields and passes it either:
+The agent reads the merge-human-inputs skill and partitions raw user input into dataset slots. For the flagship hot path (manual readiness), the agent has two equivalent paths:
 
-- directly via `hai pull --manual-readiness-json <path>`, or
-- as a stdin blob captured by a future `hai intake readiness` subcommand (planned; see `STATUS.md`).
+- **`hai intake readiness` -> stdout** (recommended). CLI flags (`--soreness`, `--energy`, `--planned-session-type`, `--active-goal`) emit a validated JSON blob. Compose with `hai pull --manual-readiness-json`.
+- **Hand-written JSON file.** For fixtures or replays, skip the intake command and write a JSON object matching the four fields directly to a file, then pass it to `hai pull --manual-readiness-json <path>`.
 
 The runtime does not attempt to parse free text. If the skill returns ambiguous input, the agent asks a clarifying question before calling `hai`.
 

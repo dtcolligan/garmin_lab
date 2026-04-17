@@ -38,12 +38,16 @@ Typical agent loop in Claude Code:
 
 1. User: "Give me today's training recommendation."
 2. Agent reads `recovery-readiness` skill (loaded on user prompt or via skill discovery).
-3. Agent: `hai pull --date $(date +%Y-%m-%d) --use-default-manual-readiness --user-id u_1 > /tmp/evidence.json`
-4. Agent: `hai clean --evidence-json /tmp/evidence.json > /tmp/prep.json`
-5. Agent reads `prep.json`, classifies state and applies policy per the skill, writes `TrainingRecommendation` JSON to `/tmp/rec.json`.
-6. Agent: `hai writeback --recommendation-json /tmp/rec.json --base-dir ~/.local/share/hai/recovery_readiness_v1`
-7. Agent: `hai review schedule --recommendation-json /tmp/rec.json --base-dir ~/.local/share/hai/recovery_readiness_v1`
-8. Agent uses the `reporting` skill to narrate the recommendation back to the user.
+3. Agent asks the user for today's manual readiness via the merge-human-inputs skill, then captures it:
+   `hai intake readiness --soreness moderate --energy high --planned-session-type hard --active-goal strength_block > /tmp/mr.json`
+4. Agent: `hai pull --date $(date +%Y-%m-%d) --user-id u_1 --manual-readiness-json /tmp/mr.json > /tmp/evidence.json`
+5. Agent: `hai clean --evidence-json /tmp/evidence.json > /tmp/prep.json`
+6. Agent reads `prep.json`, classifies state and applies policy per the skill, writes `TrainingRecommendation` JSON to `/tmp/rec.json`.
+7. Agent: `hai writeback --recommendation-json /tmp/rec.json --base-dir ~/.local/share/hai/recovery_readiness_v1`
+8. Agent: `hai review schedule --recommendation-json /tmp/rec.json --base-dir ~/.local/share/hai/recovery_readiness_v1`
+9. Agent uses the `reporting` skill to narrate the recommendation back to the user.
+
+For offline replays or fixtures, step 3 can be replaced with `--use-default-manual-readiness` in step 4; that produces a neutral default without asking the user. The default is explicitly fabricated, not inferred — use it only for testing.
 
 ## Claude Agent SDK
 
