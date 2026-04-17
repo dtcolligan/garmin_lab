@@ -41,6 +41,10 @@ from health_agent_infra.schemas import (
     ReviewOutcome,
     TrainingRecommendation,
 )
+from health_agent_infra.validate import (
+    RecommendationValidationError,
+    validate_recommendation_dict,
+)
 from health_agent_infra.writeback.recommendation import perform_writeback
 
 
@@ -141,18 +145,15 @@ def cmd_clean(args: argparse.Namespace) -> int:
 # ---------------------------------------------------------------------------
 
 def _recommendation_from_dict(data: dict) -> TrainingRecommendation:
-    """Validate + construct a TrainingRecommendation from agent-produced JSON.
+    """Construct a TrainingRecommendation from agent-produced JSON.
 
-    Raises ValueError with a clear message if the shape is wrong. This is
-    the determinism contract check on the agent's output.
+    Calls ``validate_recommendation_dict`` first — that pure function owns
+    every code-enforced invariant. This function is straight deserialization
+    after the validator has accepted the input; it carries no policy checks
+    of its own.
     """
 
-    required = {"schema_version", "recommendation_id", "user_id", "issued_at", "for_date",
-                "action", "rationale", "confidence", "uncertainty", "follow_up",
-                "policy_decisions"}
-    missing = required - set(data.keys())
-    if missing:
-        raise ValueError(f"recommendation missing required fields: {sorted(missing)}")
+    validate_recommendation_dict(data)
 
     follow_up_data = data["follow_up"]
     follow_up = FollowUp(
@@ -177,7 +178,7 @@ def _recommendation_from_dict(data: dict) -> TrainingRecommendation:
         uncertainty=list(data["uncertainty"]),
         follow_up=follow_up,
         policy_decisions=policy_decisions,
-        bounded=data.get("bounded", True),
+        bounded=data["bounded"],
     )
 
 
@@ -185,6 +186,12 @@ def cmd_writeback(args: argparse.Namespace) -> int:
     data = json.loads(Path(args.recommendation_json).read_text(encoding="utf-8"))
     try:
         recommendation = _recommendation_from_dict(data)
+    except RecommendationValidationError as exc:
+        print(
+            f"writeback rejected: invariant={exc.invariant}: {exc}",
+            file=sys.stderr,
+        )
+        return 2
     except (ValueError, KeyError) as exc:
         print(f"writeback rejected: {exc}", file=sys.stderr)
         return 2

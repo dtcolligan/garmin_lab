@@ -222,17 +222,6 @@ def test_writeback_locality_enforced_outside_allowed_root(tmp_path: Path):
         perform_writeback(rec, base_dir=bad_base, now=NOW)
 
 
-def test_writeback_cli_shape_validation_rejects_missing_fields(tmp_path: Path):
-    """The `hai writeback` contract: agent-produced JSON must include all
-    required fields. Missing fields fail closed."""
-
-    from health_agent_infra.cli import _recommendation_from_dict
-
-    with pytest.raises(ValueError) as exc:
-        _recommendation_from_dict({"schema_version": "x"})
-    assert "missing required fields" in str(exc.value)
-
-
 def test_writeback_cli_shape_validation_accepts_valid_json():
     from health_agent_infra.cli import _recommendation_from_dict
 
@@ -240,6 +229,167 @@ def test_writeback_cli_shape_validation_accepts_valid_json():
     rebuilt = _recommendation_from_dict(rec.to_dict())
     assert rebuilt.recommendation_id == rec.recommendation_id
     assert rebuilt.action == rec.action
+
+
+# ---------------------------------------------------------------------------
+# VALIDATOR — code-enforced boundary on agent-produced recommendation JSON.
+# One test per stable invariant id. Each constructs a minimally malformed
+# JSON violating only the target invariant and asserts the validator raises
+# RecommendationValidationError with the matching id.
+# ---------------------------------------------------------------------------
+
+def _valid_recommendation_dict() -> dict:
+    return _sample_recommendation().to_dict()
+
+
+def test_validator_accepts_valid_recommendation():
+    from health_agent_infra.validate import validate_recommendation_dict
+
+    validate_recommendation_dict(_valid_recommendation_dict())  # must not raise
+
+
+def test_validator_rejects_missing_required_fields():
+    from health_agent_infra.validate import (
+        RecommendationValidationError,
+        validate_recommendation_dict,
+    )
+
+    with pytest.raises(RecommendationValidationError) as exc:
+        validate_recommendation_dict({"schema_version": "training_recommendation.v1"})
+    assert exc.value.invariant == "required_fields_present"
+
+
+def test_validator_rejects_wrong_schema_version():
+    from health_agent_infra.validate import (
+        RecommendationValidationError,
+        validate_recommendation_dict,
+    )
+
+    data = _valid_recommendation_dict()
+    data["schema_version"] = "training_recommendation.v2"
+
+    with pytest.raises(RecommendationValidationError) as exc:
+        validate_recommendation_dict(data)
+    assert exc.value.invariant == "schema_version"
+
+
+def test_validator_rejects_unknown_action():
+    from health_agent_infra.validate import (
+        RecommendationValidationError,
+        validate_recommendation_dict,
+    )
+
+    data = _valid_recommendation_dict()
+    data["action"] = "eat_a_sandwich"
+
+    with pytest.raises(RecommendationValidationError) as exc:
+        validate_recommendation_dict(data)
+    assert exc.value.invariant == "action_enum"
+
+
+def test_validator_rejects_unknown_confidence():
+    from health_agent_infra.validate import (
+        RecommendationValidationError,
+        validate_recommendation_dict,
+    )
+
+    data = _valid_recommendation_dict()
+    data["confidence"] = "ultra_certain"
+
+    with pytest.raises(RecommendationValidationError) as exc:
+        validate_recommendation_dict(data)
+    assert exc.value.invariant == "confidence_enum"
+
+
+def test_validator_rejects_bounded_false():
+    from health_agent_infra.validate import (
+        RecommendationValidationError,
+        validate_recommendation_dict,
+    )
+
+    data = _valid_recommendation_dict()
+    data["bounded"] = False
+
+    with pytest.raises(RecommendationValidationError) as exc:
+        validate_recommendation_dict(data)
+    assert exc.value.invariant == "bounded_true"
+
+
+@pytest.mark.parametrize(
+    "token",
+    ["diagnosis", "diagnose", "diagnosed", "syndrome", "disease",
+     "disorder", "condition", "infection", "illness", "sick"],
+)
+def test_validator_rejects_banned_tokens_in_rationale(token: str):
+    from health_agent_infra.validate import (
+        RecommendationValidationError,
+        validate_recommendation_dict,
+    )
+
+    data = _valid_recommendation_dict()
+    data["rationale"] = [f"possible overtraining {token}"]
+
+    with pytest.raises(RecommendationValidationError) as exc:
+        validate_recommendation_dict(data)
+    assert exc.value.invariant == "no_banned_tokens"
+
+
+def test_validator_rejects_banned_tokens_in_action_detail():
+    from health_agent_infra.validate import (
+        RecommendationValidationError,
+        validate_recommendation_dict,
+    )
+
+    data = _valid_recommendation_dict()
+    data["action_detail"] = {"caveat": "possible disorder flag"}
+
+    with pytest.raises(RecommendationValidationError) as exc:
+        validate_recommendation_dict(data)
+    assert exc.value.invariant == "no_banned_tokens"
+
+
+def test_validator_rejects_review_at_outside_24h_window():
+    from health_agent_infra.validate import (
+        RecommendationValidationError,
+        validate_recommendation_dict,
+    )
+
+    data = _valid_recommendation_dict()
+    # issued_at is NOW (2026-04-16 07:15 UTC); push review_at to 2026-04-18 = ~42h
+    data["follow_up"]["review_at"] = "2026-04-18T07:15:00+00:00"
+
+    with pytest.raises(RecommendationValidationError) as exc:
+        validate_recommendation_dict(data)
+    assert exc.value.invariant == "review_at_within_24h"
+
+
+def test_validator_rejects_review_at_before_issued_at():
+    from health_agent_infra.validate import (
+        RecommendationValidationError,
+        validate_recommendation_dict,
+    )
+
+    data = _valid_recommendation_dict()
+    # review_at before issued_at (negative delta) also violates R4.
+    data["follow_up"]["review_at"] = "2026-04-15T07:15:00+00:00"
+
+    with pytest.raises(RecommendationValidationError) as exc:
+        validate_recommendation_dict(data)
+    assert exc.value.invariant == "review_at_within_24h"
+
+
+def test_validator_rejects_empty_policy_decisions():
+    from health_agent_infra.validate import (
+        RecommendationValidationError,
+        validate_recommendation_dict,
+    )
+
+    data = _valid_recommendation_dict()
+    data["policy_decisions"] = []
+
+    with pytest.raises(RecommendationValidationError) as exc:
+        validate_recommendation_dict(data)
+    assert exc.value.invariant == "policy_decisions_present"
 
 
 # ---------------------------------------------------------------------------
