@@ -9,7 +9,7 @@ from __future__ import annotations
 from datetime import date, datetime, timedelta
 from typing import Iterable, Optional
 
-from health_model.recovery_readiness_v1.schemas import CleanedEvidence
+from health_agent_infra.schemas import CleanedEvidence
 
 
 def _coerce_date(value) -> date:

@@ -13,7 +13,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
-from health_model.recovery_readiness_v1.schemas import (
+from health_agent_infra.schemas import (
     ReviewEvent,
     ReviewOutcome,
     TrainingRecommendation,

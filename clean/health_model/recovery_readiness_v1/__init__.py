@@ -1,16 +1,18 @@
-"""Flagship recovery_readiness_v1 loop.
+"""Compatibility shim for recovery_readiness_v1.
 
-Implements the PULL -> CLEAN -> STATE -> POLICY -> RECOMMEND -> ACTION -> REVIEW
-runtime for the flagship loop defined in:
+The tooling for the flagship loop has moved to the installable
+``health_agent_infra`` package under ``src/health_agent_infra/``.
+This shim re-exports the public symbols from the new location so
+existing callers (tests, older CLI chain, docs) keep importing from
+``health_model.recovery_readiness_v1`` during the repo reshape.
 
-- reporting/docs/canonical_doctrine.md
-- reporting/docs/flagship_loop_spec.md
-- reporting/docs/state_object_schema.md
-- reporting/docs/recommendation_object_schema.md
-- reporting/docs/minimal_policy_rules.md
+The shim itself is legacy; later commits in the reshape will remove
+the ``state.py`` / ``policy.py`` / ``recommend.py`` / ``cli.py`` that
+still live alongside this file, and this package directory will be
+deleted entirely once the older CLI chain is swept.
 """
 
-from health_model.recovery_readiness_v1.schemas import (
+from health_agent_infra.schemas import (
     CleanedEvidence,
     PolicyDecision,
     RecoveryState,
@@ -19,12 +21,15 @@ from health_model.recovery_readiness_v1.schemas import (
     SignalQuality,
     TrainingRecommendation,
 )
-from health_model.recovery_readiness_v1.clean import clean_inputs
+from health_agent_infra.clean.recovery_prep import clean_inputs
+from health_agent_infra.writeback.recommendation import perform_writeback
+from health_agent_infra.review.outcomes import (
+    record_review_outcome,
+    schedule_review,
+)
 from health_model.recovery_readiness_v1.state import build_recovery_state
 from health_model.recovery_readiness_v1.policy import evaluate_policy, POLICY_RULES
 from health_model.recovery_readiness_v1.recommend import build_training_recommendation
-from health_model.recovery_readiness_v1.action import perform_writeback
-from health_model.recovery_readiness_v1.review import schedule_review, record_review_outcome
 
 __all__ = [
     "CleanedEvidence",

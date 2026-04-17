@@ -19,14 +19,14 @@ from dataclasses import asdict
 from datetime import date, datetime, timezone
 from pathlib import Path
 
-from health_model.recovery_readiness_v1.action import perform_writeback
-from health_model.recovery_readiness_v1.clean import clean_inputs
+from health_agent_infra.writeback.recommendation import perform_writeback
+from health_agent_infra.clean.recovery_prep import clean_inputs
 from health_model.recovery_readiness_v1.fixtures import (
     garmin_pull_fixture,
     manual_readiness_fixture,
 )
 from health_model.recovery_readiness_v1.recommend import build_training_recommendation
-from health_model.recovery_readiness_v1.review import (
+from health_agent_infra.review.outcomes import (
     record_review_outcome,
     schedule_review,
 )
@@ -95,7 +95,7 @@ def run(args: argparse.Namespace) -> dict:
 
     source = getattr(args, "source", "synthetic")
     if source == "real":
-        from garmin.recovery_readiness_adapter import (
+        from health_agent_infra.pull.garmin import (
             default_manual_readiness,
             load_recovery_readiness_inputs,
         )

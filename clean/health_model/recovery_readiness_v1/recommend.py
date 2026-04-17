@@ -11,7 +11,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from health_model.recovery_readiness_v1.policy import Proposal, evaluate_policy
-from health_model.recovery_readiness_v1.schemas import (
+from health_agent_infra.schemas import (
     RECOMMENDATION_SCHEMA_VERSION,
     ActionKind,
     Confidence,

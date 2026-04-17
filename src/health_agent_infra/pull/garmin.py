@@ -22,7 +22,7 @@ from typing import Optional
 import pandas as pd
 
 
-DEFAULT_EXPORT_DIR = Path(__file__).resolve().parents[2] / "pull" / "data" / "garmin" / "export"
+DEFAULT_EXPORT_DIR = Path(__file__).resolve().parents[3] / "pull" / "data" / "garmin" / "export"
 
 
 def load_recovery_readiness_inputs(
@@ -129,3 +129,32 @@ def default_manual_readiness(
         "energy": energy,
         "planned_session_type": planned_session_type,
     }
+
+
+class GarminRecoveryReadinessAdapter:
+    """Flagship-slice pull adapter over the committed Garmin CSV export.
+
+    Conforms structurally to ``FlagshipPullAdapter`` (see
+    ``pull/flagship_pull_protocol.py``). Delegates to the module-level
+    ``load_recovery_readiness_inputs`` helper so existing CLI paths remain
+    unchanged; the class exists to make the flagship adapter contract
+    explicit at the type-check layer without forcing a call-site refactor.
+    """
+
+    source_name: str = "garmin"
+
+    def __init__(
+        self,
+        *,
+        export_dir: Optional[Path] = None,
+        history_days: int = 14,
+    ) -> None:
+        self._export_dir = export_dir
+        self._history_days = history_days
+
+    def load(self, as_of: date) -> dict:
+        return load_recovery_readiness_inputs(
+            as_of,
+            export_dir=self._export_dir,
+            history_days=self._history_days,
+        )

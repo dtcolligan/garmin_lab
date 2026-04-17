@@ -10,7 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Callable, Optional
 
-from health_model.recovery_readiness_v1.schemas import (
+from health_agent_infra.schemas import (
     ActionKind,
     Confidence,
     PolicyDecision,

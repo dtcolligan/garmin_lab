@@ -9,7 +9,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Optional
 
-from health_model.recovery_readiness_v1.schemas import (
+from health_agent_infra.schemas import (
     STATE_SCHEMA_VERSION,
     BaselineBand,
     CleanedEvidence,

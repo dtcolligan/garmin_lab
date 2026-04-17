@@ -430,7 +430,7 @@ def test_state_readiness_score_bounded_on_scorable_scenarios():
 # ---------------------------------------------------------------------------
 
 def test_summarize_review_history_on_empty_returns_zeroed_counts():
-    from health_model.recovery_readiness_v1.review import summarize_review_history
+    from health_agent_infra.review.outcomes import summarize_review_history
 
     summary = summarize_review_history([])
     assert summary == {
@@ -446,7 +446,7 @@ def test_summarize_review_history_counts_each_category():
     """Every outcome lands in exactly one bucket; buckets sum to total."""
 
     from health_model.recovery_readiness_v1 import ReviewOutcome
-    from health_model.recovery_readiness_v1.review import summarize_review_history
+    from health_agent_infra.review.outcomes import summarize_review_history
 
     def _outcome(i: int, followed: bool, improvement) -> ReviewOutcome:
         return ReviewOutcome(
@@ -486,7 +486,7 @@ def test_summarize_review_history_ignores_improvement_when_not_followed():
     """
 
     from health_model.recovery_readiness_v1 import ReviewOutcome
-    from health_model.recovery_readiness_v1.review import summarize_review_history
+    from health_agent_infra.review.outcomes import summarize_review_history
 
     outcome = ReviewOutcome(
         review_event_id="rev_1",
@@ -508,11 +508,7 @@ def test_summarize_review_history_ignores_improvement_when_not_followed():
 def test_garmin_adapter_reads_committed_export_and_emits_fixture_shape():
     """The adapter must produce a dict with the same keys synthetic fixtures emit."""
 
-    import sys
-    pull_root = Path(__file__).resolve().parents[2] / "pull"
-    if str(pull_root) not in sys.path:
-        sys.path.insert(0, str(pull_root))
-    from garmin.recovery_readiness_adapter import load_recovery_readiness_inputs
+    from health_agent_infra.pull.garmin import load_recovery_readiness_inputs
 
     as_of = date(2026, 4, 8)
     pull = load_recovery_readiness_inputs(as_of)
@@ -525,14 +521,30 @@ def test_garmin_adapter_reads_committed_export_and_emits_fixture_shape():
     assert all({"date", "bpm", "record_id"} <= set(row.keys()) for row in pull["resting_hr"])
 
 
+def test_garmin_adapter_class_conforms_to_flagship_pull_protocol():
+    """GarminRecoveryReadinessAdapter must structurally conform to FlagshipPullAdapter.
+
+    The Protocol exists to make the thin flagship adapter contract explicit
+    at the type-check layer; this test is the runtime witness that the
+    concrete Garmin adapter satisfies it and that its `load()` returns a
+    dict with the four keys `clean_inputs()` consumes.
+    """
+
+    from health_agent_infra.pull.protocol import FlagshipPullAdapter
+    from health_agent_infra.pull.garmin import GarminRecoveryReadinessAdapter
+
+    adapter = GarminRecoveryReadinessAdapter()
+    assert isinstance(adapter, FlagshipPullAdapter)
+    assert adapter.source_name == "garmin"
+
+    pull = adapter.load(date(2026, 4, 8))
+    assert set(pull.keys()) == {"sleep", "resting_hr", "hrv", "training_load"}
+
+
 def test_real_slice_cli_runs_end_to_end(tmp_path: Path):
     """Full PULL->REVIEW loop must run against the committed CSV export."""
 
     import argparse
-    import sys
-    pull_root = Path(__file__).resolve().parents[2] / "pull"
-    if str(pull_root) not in sys.path:
-        sys.path.insert(0, str(pull_root))
 
     ns = argparse.Namespace(
         command="run",

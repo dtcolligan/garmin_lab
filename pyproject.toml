@@ -27,5 +27,7 @@ classifiers = [
 ]
 
 [tool.setuptools.packages.find]
-include = ["clean*", "health_model*", "merge_human_inputs*", "interpretation*", "safety*", "writeback*"]
-exclude = ["archive*", "data*", "reporting.artifacts*"]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["safety/tests"]
