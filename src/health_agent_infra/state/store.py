@@ -83,8 +83,8 @@ def current_schema_version(conn: sqlite3.Connection) -> int:
     return int(row["v"])
 
 
-def _discover_migrations() -> list[tuple[int, str, str]]:
-    """Return sorted list of (version, filename, sql_body) from packaged migrations.
+def discover_migrations() -> list[tuple[int, str, str]]:
+    """Return sorted list of ``(version, filename, sql_body)`` from packaged migrations.
 
     Resolves via ``importlib.resources`` so the migrations ship inside the
     wheel. Only files matching ``NNN_name.sql`` are considered.
@@ -104,33 +104,106 @@ def _discover_migrations() -> list[tuple[int, str, str]]:
     return discovered
 
 
-def apply_pending_migrations(conn: sqlite3.Connection) -> list[tuple[int, str]]:
-    """Apply every migration whose version > current_schema_version.
+def _split_sql_statements(sql: str) -> list[str]:
+    """Split a SQL script into individual statements on statement-terminating ``;``.
 
-    Returns the list of ``(version, filename)`` tuples that were applied in
-    this call. Empty list means the DB was already at head.
-
-    Migrations run inside a transaction each; a failure mid-file rolls back
-    that migration and raises. Already-applied migrations from prior files
-    remain committed.
+    Handles ``--`` line comments and single-quoted string literals (including
+    the SQL ``''`` escape). Does not handle ``/* */`` block comments —
+    migrations in this project don't use them, and relying on that keeps the
+    splitter small.
     """
 
+    statements: list[str] = []
+    buf: list[str] = []
+    i = 0
+    n = len(sql)
+    in_string = False
+
+    while i < n:
+        ch = sql[i]
+
+        if in_string:
+            buf.append(ch)
+            if ch == "'":
+                # ``''`` inside a string literal is an escaped single quote,
+                # not a terminator.
+                if i + 1 < n and sql[i + 1] == "'":
+                    buf.append(sql[i + 1])
+                    i += 2
+                    continue
+                in_string = False
+            i += 1
+            continue
+
+        if ch == "'":
+            in_string = True
+            buf.append(ch)
+            i += 1
+            continue
+
+        if ch == "-" and i + 1 < n and sql[i + 1] == "-":
+            # Line comment: skip to end of line.
+            while i < n and sql[i] != "\n":
+                i += 1
+            continue
+
+        if ch == ";":
+            stmt = "".join(buf).strip()
+            if stmt:
+                statements.append(stmt)
+            buf = []
+            i += 1
+            continue
+
+        buf.append(ch)
+        i += 1
+
+    tail = "".join(buf).strip()
+    if tail:
+        statements.append(tail)
+    return statements
+
+
+def apply_pending_migrations(
+    conn: sqlite3.Connection,
+    migrations: Optional[list[tuple[int, str, str]]] = None,
+) -> list[tuple[int, str]]:
+    """Apply every migration whose version > ``current_schema_version``.
+
+    Each migration file runs inside a single ``BEGIN EXCLUSIVE`` / ``COMMIT``
+    transaction that also stamps ``schema_migrations``. A failure anywhere in
+    the file — bad DDL, constraint violation, bookkeeping insert — rolls the
+    whole file back, leaving the DB exactly as it was before this migration
+    started.
+
+    Successive migrations are independent transactions: if migration 002
+    fails, migration 001 (already committed in its own transaction) stays
+    applied.
+
+    Returns the list of ``(version, filename)`` tuples that were committed in
+    this call. Empty list means the DB was already at head.
+
+    Args:
+        conn: an open connection (default deferred isolation). Autocommit
+            mode is not supported — explicit BEGIN/COMMIT would fail there.
+        migrations: optional iterable of ``(version, filename, sql_body)``
+            tuples, overriding packaged discovery. Primarily a test seam so
+            a deliberately broken migration can prove rollback behaviour.
+    """
+
+    pending = migrations if migrations is not None else discover_migrations()
     applied_now: list[tuple[int, str]] = []
     current = current_schema_version(conn)
-    for version, filename, sql_body in _discover_migrations():
+
+    for version, filename, sql_body in pending:
         if version <= current:
             continue
-        # `executescript` in Python's sqlite3 commits any pending transaction
-        # and then runs the script with its own implicit commit. SQLite itself
-        # handles each DDL statement transactionally. If a script fails
-        # partway, the partially-created tables remain; re-running init on
-        # a fresh DB file is the recovery path. Once the DDL lands, we record
-        # the version in an explicit transaction so bookkeeping stays atomic.
+        statements = _split_sql_statements(sql_body)
+
+        conn.execute("BEGIN EXCLUSIVE")
         try:
-            conn.executescript(sql_body)
-        except Exception:
-            raise
-        try:
+            for stmt in statements:
+                conn.execute(stmt)
             conn.execute(
                 "INSERT INTO schema_migrations (version, filename, applied_at) "
                 "VALUES (?, ?, datetime('now'))",
@@ -140,8 +213,10 @@ def apply_pending_migrations(conn: sqlite3.Connection) -> list[tuple[int, str]]:
         except Exception:
             conn.rollback()
             raise
+
         applied_now.append((version, filename))
         current = version
+
     return applied_now
 
 

@@ -280,6 +280,139 @@ def test_cli_state_migrate_fails_cleanly_when_db_missing(tmp_path: Path, capsys)
 # Regression — foreign-key constraint actually bites when expected
 # ---------------------------------------------------------------------------
 
+# ---------------------------------------------------------------------------
+# Atomicity — a failing migration must roll back cleanly
+# ---------------------------------------------------------------------------
+
+def test_broken_migration_rolls_back_ddl_and_bookkeeping(tmp_path: Path):
+    """A migration that fails partway must leave the DB in exactly the state
+    it was in before the migration started: no leftover tables from earlier
+    statements in the same file, no schema_migrations row, pre-existing
+    schema intact, version unchanged.
+
+    This is the contract `hai state migrate` commits to. Without it, a
+    partially-applied migration bricks the DB for future migrate calls.
+    """
+
+    from health_agent_infra.state.store import apply_pending_migrations
+
+    # 1. Init a fresh DB so migration 001 is at head.
+    db_path = tmp_path / "state.db"
+    initialize_database(db_path)
+
+    # 2. Construct a migration whose first statement would succeed in
+    #    isolation, but whose second statement is malformed. If rollback
+    #    works, the first statement's table must NOT persist.
+    broken_sql = """
+        CREATE TABLE experiment_table (x INTEGER);
+        CREATE TABLE bad_syntax TABLE column);
+    """
+    broken_migration = [(99, "099_broken.sql", broken_sql)]
+
+    conn = open_connection(db_path)
+    try:
+        with pytest.raises(sqlite3.OperationalError):
+            apply_pending_migrations(conn, migrations=broken_migration)
+
+        # schema_migrations did not record version 99
+        rows = conn.execute(
+            "SELECT version FROM schema_migrations WHERE version = 99"
+        ).fetchall()
+        assert rows == []
+
+        # The successful first statement was rolled back — no leftover table.
+        rows = conn.execute(
+            "SELECT name FROM sqlite_master "
+            "WHERE type = 'table' AND name = 'experiment_table'"
+        ).fetchall()
+        assert rows == [], "first statement in broken migration was not rolled back"
+
+        # Pre-existing migration 001 tables still present.
+        rows = conn.execute(
+            "SELECT name FROM sqlite_master "
+            "WHERE type = 'table' AND name = 'source_daily_garmin'"
+        ).fetchall()
+        assert len(rows) == 1
+
+        # Version is still at 1, not 99.
+        assert current_schema_version(conn) == 1
+    finally:
+        conn.close()
+
+
+def test_good_migration_after_a_rolled_back_broken_one_still_applies(tmp_path: Path):
+    """After a rollback, the DB is reusable — a subsequent well-formed
+    migration applies cleanly. Proves the DB isn't left in a 'stuck' state."""
+
+    from health_agent_infra.state.store import apply_pending_migrations
+
+    db_path = tmp_path / "state.db"
+    initialize_database(db_path)
+
+    broken = [(99, "099_broken.sql", "CREATE TABLE a (x INTEGER); CREATE TABLE bad TABLE;")]
+    good = [(99, "099_good.sql", "CREATE TABLE recovery_marker (x INTEGER);")]
+
+    conn = open_connection(db_path)
+    try:
+        with pytest.raises(sqlite3.OperationalError):
+            apply_pending_migrations(conn, migrations=broken)
+
+        applied = apply_pending_migrations(conn, migrations=good)
+        assert applied == [(99, "099_good.sql")]
+
+        rows = conn.execute(
+            "SELECT name FROM sqlite_master "
+            "WHERE type = 'table' AND name = 'recovery_marker'"
+        ).fetchall()
+        assert len(rows) == 1
+        assert current_schema_version(conn) == 99
+    finally:
+        conn.close()
+
+
+# ---------------------------------------------------------------------------
+# SQL splitter — correctness against string literals + line comments
+# ---------------------------------------------------------------------------
+
+def test_sql_splitter_respects_line_comments_and_string_literals():
+    from health_agent_infra.state.store import _split_sql_statements
+
+    sql = """
+    -- a comment ; with a semicolon
+    CREATE TABLE foo (
+        name TEXT DEFAULT 'a;b;c',
+        flag TEXT CHECK (flag IN ('on', 'off'))
+    );
+    CREATE INDEX idx_foo ON foo (name);
+    """
+    stmts = _split_sql_statements(sql)
+
+    assert len(stmts) == 2
+    assert stmts[0].startswith("CREATE TABLE foo")
+    assert "'a;b;c'" in stmts[0]
+    assert stmts[1].startswith("CREATE INDEX idx_foo")
+
+
+def test_sql_splitter_handles_escaped_single_quote_in_string():
+    from health_agent_infra.state.store import _split_sql_statements
+
+    sql = "INSERT INTO t VALUES ('it''s'); CREATE TABLE u (x INTEGER);"
+    stmts = _split_sql_statements(sql)
+
+    assert len(stmts) == 2
+    assert "'it''s'" in stmts[0]
+    assert stmts[1].startswith("CREATE TABLE u")
+
+
+def test_sql_splitter_ignores_empty_statements():
+    from health_agent_infra.state.store import _split_sql_statements
+
+    sql = ";;;CREATE TABLE foo (x INTEGER);;;"
+    stmts = _split_sql_statements(sql)
+
+    assert stmts == ["CREATE TABLE foo (x INTEGER)"]
+
+
 def test_foreign_key_enforced_between_review_outcome_and_event(tmp_path: Path):
     db_path = tmp_path / "state.db"
     initialize_database(db_path)
