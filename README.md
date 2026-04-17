@@ -100,27 +100,28 @@ The writeback root must end in `recovery_readiness_v1/` — enforced at the I/O 
 
 ```
 health_agent_infra/
-├── src/health_agent_infra/            # installable package — deterministic tools
+├── src/health_agent_infra/            # installable package
 │   ├── cli.py                         # `hai` dispatcher
+│   ├── validate.py                    # code-enforced invariants (9 ids)
+│   ├── schemas.py                     # typed dataclasses (the agent's contract)
 │   ├── pull/                          # Garmin adapter + flagship Protocol
 │   ├── clean/                         # evidence validation + raw-number aggregation
 │   ├── writeback/                     # schema-validated local persistence
 │   ├── review/                        # event + outcome persistence, summary counts
-│   └── schemas.py                     # typed dataclasses (the agent's contract)
-├── skills/                            # markdown skills — agent judgment layer
-│   ├── recovery-readiness/SKILL.md    # state classification + policy + shaping
-│   ├── reporting/SKILL.md             # narration voice
-│   ├── merge-human-inputs/SKILL.md    # partitioning raw human input
-│   ├── writeback-protocol/SKILL.md    # when/how to invoke hai writeback
-│   └── safety/SKILL.md                # fail-closed boundaries
+│   ├── skills/                        # markdown skills packaged with the wheel
+│   │   ├── recovery-readiness/SKILL.md    # state classification + policy + shaping
+│   │   ├── reporting/SKILL.md             # narration voice
+│   │   ├── merge-human-inputs/SKILL.md    # partitioning raw human input
+│   │   ├── writeback-protocol/SKILL.md    # when/how to invoke hai writeback
+│   │   └── safety/SKILL.md                # fail-closed boundaries
+│   └── data/garmin/export/            # committed offline CSV export used by `hai pull`
 ├── reporting/
 │   ├── docs/                          # doctrine, tour, timeline, flagship spec
 │   └── artifacts/
 │       └── flagship_loop_proof/
 │           ├── 2026-04-16-recovery-readiness-v1/   # synthetic 8-scenario bundle
 │           └── 2026-04-16-garmin-real-slice/        # real Garmin CSV bundle
-├── pull/data/garmin/export/           # committed offline CSV export used by `hai pull`
-├── safety/tests/                      # deterministic + contract tests (14 passing)
+├── safety/tests/                      # deterministic + contract tests
 ├── merge_human_inputs/                # README + examples for the intake skill
 ├── pyproject.toml                     # declares `hai` console_script
 ├── README.md, STATUS.md, CONTRIBUTING.md

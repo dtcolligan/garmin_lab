@@ -5,20 +5,14 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "health_agent_infra"
 version = "0.1.0"
-description = "Bounded Health Lab contract-and-proof package for agent-mediated health workflows."
+description = "Tools + skills package for agent-mediated recovery-readiness workflows."
 readme = "README.md"
 requires-python = ">=3.11"
 license = { file = "LICENSE" }
 dependencies = [
-  "anthropic>=0.45.0",
-  "flask>=3.0",
-  "flask-login>=0.6",
-  "garminconnect>=0.2.38",
-  "numpy>=2.0",
   "pandas>=2.0",
-  "python-dotenv>=1.0.0",
 ]
-keywords = ["health", "agents", "cli", "proof"]
+keywords = ["health", "agents", "cli", "claude", "skills"]
 classifiers = [
   "License :: OSI Approved :: MIT License",
   "Programming Language :: Python :: 3",
@@ -33,7 +27,10 @@ hai = "health_agent_infra.cli:main"
 where = ["src"]
 
 [tool.setuptools.package-data]
-"health_agent_infra" = ["../../skills/**/*.md"]
+"health_agent_infra" = [
+  "skills/**/*.md",
+  "data/**/*.csv",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["safety/tests"]

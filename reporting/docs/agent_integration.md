@@ -19,7 +19,7 @@ pip install -e .
 hai setup-skills
 ```
 
-`pip install -e .` exposes the `hai` command on the user's PATH. `hai setup-skills` copies every directory under `skills/` into `~/.claude/skills/` (or a custom path via `--dest`). If a skill of the same name already exists, `hai setup-skills` skips it unless `--force` is passed.
+`pip install -e .` (or `pip install health_agent_infra` once published) exposes the `hai` command on the user's PATH. `hai setup-skills` copies every directory under the packaged `src/health_agent_infra/skills/` into `~/.claude/skills/` (or a custom path via `--dest`). The skills are shipped inside the wheel via `importlib.resources`, so the command works identically in editable and installed modes. If a skill of the same name already exists at the destination, `hai setup-skills` skips it unless `--force` is passed.
 
 Verify:
 
@@ -78,7 +78,7 @@ No MCP server ships yet. A future wrapper could expose the CLI subcommands as MC
 
 ## Where tools expect paths
 
-- `hai pull` reads from `pull/data/garmin/export/daily_summary_export.csv` (packaged with the repo; override via `--export-dir` in the adapter call if needed).
+- `hai pull` reads from `src/health_agent_infra/data/garmin/export/daily_summary_export.csv` — shipped inside the wheel, resolved via `importlib.resources`. Override via the adapter's `export_dir` kwarg if you want to point at a different export.
 - `hai writeback` requires `--base-dir` whose path ends in `recovery_readiness_v1/`. Enforced at the I/O boundary. Suggested default: `~/.local/share/health_agent_infra/recovery_readiness_v1/`.
 - `hai setup-skills` defaults to `~/.claude/skills/`. Override via `--dest`.
 

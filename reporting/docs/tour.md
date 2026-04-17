@@ -16,15 +16,19 @@ This framing was not always true. Through 2026-04-16 the repo had Python modules
 ## 2. How to orient the repo
 
 ```
-src/health_agent_infra/     # Python — all tools
-skills/                      # Markdown — all judgment
+src/health_agent_infra/      # installable package
+    cli.py                   # `hai` dispatcher
+    validate.py              # code-enforced invariants
+    schemas.py               # typed dataclasses
+    pull/ clean/ writeback/ review/   # deterministic tool layers
+    skills/                  # markdown skills packaged with the wheel
+    data/garmin/export/      # committed CSV the flagship reads
 reporting/
     docs/                    # controlling doctrine + this tour
     artifacts/flagship_loop_proof/
         2026-04-16-recovery-readiness-v1/   # synthetic proof bundle
         2026-04-16-garmin-real-slice/        # real Garmin CSV proof bundle
-safety/tests/                # 14 deterministic + contract tests
-pull/data/garmin/export/     # committed CSV the flagship reads
+safety/tests/                # deterministic + contract tests
 merge_human_inputs/          # README + examples for the intake skill
 pyproject.toml               # declares `hai` console_script
 ```
