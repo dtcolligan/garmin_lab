@@ -449,6 +449,167 @@ def test_state_reproject_rebuilds_gym_tables_from_jsonl(tmp_path: Path):
     ]
 
 
+def test_state_reproject_gym_only_preserves_recommendation_rows(tmp_path: Path):
+    """Scope-bug regression guard. With a recommendation already projected
+    into the DB and only `gym_sessions.jsonl` present in the base-dir,
+    reproject must rebuild gym tables but must NOT touch recommendation_log
+    / review_event / review_outcome. The prior implementation truncated
+    all projection tables unconditionally, silently wiping unrelated
+    projected data."""
+
+    from datetime import datetime as _dt
+    from datetime import timezone as _tz
+    from health_agent_infra.schemas import (
+        FollowUp, TrainingRecommendation, ReviewEvent, ReviewOutcome,
+    )
+    from health_agent_infra.state import (
+        project_recommendation, project_review_event, project_review_outcome,
+        reproject_from_jsonl,
+    )
+
+    db = _init_db(tmp_path)
+    base = tmp_path / "intake"
+    base.mkdir()
+
+    # Seed the DB with a recommendation + review event + outcome — as if
+    # `hai writeback` + `hai review schedule` + `hai review record` had
+    # already projected, but the JSONL audit files happen not to be under
+    # the same base_dir the gym flow uses.
+    rec = TrainingRecommendation(
+        schema_version="training_recommendation.v1",
+        recommendation_id="rec_probe_01",
+        user_id=USER,
+        issued_at=_dt(2026, 4, 17, 8, 0, tzinfo=_tz.utc),
+        for_date=AS_OF,
+        action="proceed_with_planned_session",
+        action_detail=None,
+        rationale=["probe"],
+        confidence="moderate",
+        uncertainty=[],
+        follow_up=FollowUp(
+            review_at=_dt(2026, 4, 18, 7, 0, tzinfo=_tz.utc),
+            review_question="q", review_event_id="rev_probe_01",
+        ),
+        policy_decisions=[],
+        bounded=True,
+    )
+    ev = ReviewEvent(
+        review_event_id="rev_probe_01", recommendation_id="rec_probe_01",
+        user_id=USER,
+        review_at=_dt(2026, 4, 18, 7, 0, tzinfo=_tz.utc),
+        review_question="q",
+    )
+    outcome = ReviewOutcome(
+        review_event_id="rev_probe_01", recommendation_id="rec_probe_01",
+        user_id=USER,
+        recorded_at=_dt(2026, 4, 18, 8, 0, tzinfo=_tz.utc),
+        followed_recommendation=True,
+        self_reported_improvement=True,
+        free_text=None,
+    )
+    conn = open_connection(db)
+    try:
+        project_recommendation(conn, rec)
+        project_review_event(conn, ev)
+        project_review_outcome(conn, outcome)
+    finally:
+        conn.close()
+
+    # Write a gym JSONL into base_dir (no recommendation_log.jsonl etc).
+    (base / "gym_sessions.jsonl").write_text(json.dumps({
+        "submission_id": "m_gym_x", "session_id": "s_gym",
+        "user_id": USER, "as_of_date": AS_OF.isoformat(),
+        "session_name": "Gym", "notes": None,
+        "set_number": 1, "exercise_name": "Bench",
+        "weight_kg": 80, "reps": 5, "rpe": None,
+        "source": "user_manual", "ingest_actor": "hai_cli_direct",
+        "submitted_at": "2026-04-17T10:00:00+00:00",
+    }) + "\n")
+
+    conn = open_connection(db)
+    try:
+        counts = reproject_from_jsonl(conn, base)
+        rec_n = conn.execute("SELECT COUNT(*) FROM recommendation_log").fetchone()[0]
+        ev_n = conn.execute("SELECT COUNT(*) FROM review_event").fetchone()[0]
+        out_n = conn.execute("SELECT COUNT(*) FROM review_outcome").fetchone()[0]
+        gym_n = conn.execute("SELECT COUNT(*) FROM gym_session").fetchone()[0]
+        set_n = conn.execute("SELECT COUNT(*) FROM gym_set").fetchone()[0]
+    finally:
+        conn.close()
+
+    # Gym group was rebuilt from JSONL:
+    assert counts["gym_sessions"] == 1
+    assert counts["gym_sets"] == 1
+    assert gym_n == 1 and set_n == 1
+    # Recommendation group was UNTOUCHED — this is the scope-fix contract:
+    assert counts["recommendations"] == 0
+    assert counts["review_events"] == 0
+    assert counts["review_outcomes"] == 0
+    assert rec_n == 1, "recommendation_log was silently wiped by gym-only reproject"
+    assert ev_n == 1, "review_event was silently wiped by gym-only reproject"
+    assert out_n == 1, "review_outcome was silently wiped by gym-only reproject"
+
+
+def test_state_reproject_rec_only_preserves_gym_rows(tmp_path: Path):
+    """Inverse scope guard. With gym rows projected, a reproject over a
+    base_dir containing only recommendation JSONL must not truncate gym
+    tables."""
+
+    from health_agent_infra.state import reproject_from_jsonl
+
+    base, db = _init_intake_dirs(tmp_path)
+    # Seed gym rows via a full intake.
+    assert cli_main([
+        "intake", "gym",
+        "--session-id", "pre_gym", "--exercise", "Squat", "--set-number", "1",
+        "--weight-kg", "100", "--reps", "5",
+        "--as-of", AS_OF.isoformat(), "--user-id", USER,
+        "--base-dir", str(base), "--db-path", str(db),
+    ]) == 0
+
+    # Move gym_sessions.jsonl out of the way, drop a recommendation-only log.
+    (base / "gym_sessions.jsonl").rename(tmp_path / "moved_gym.jsonl")
+    (base / "recommendation_log.jsonl").write_text(json.dumps({
+        "recommendation_id": "rec_rescope_01",
+        "user_id": USER, "for_date": AS_OF.isoformat(),
+        "issued_at": "2026-04-17T08:00:00+00:00",
+        "action": "proceed_with_planned_session",
+        "confidence": "moderate", "bounded": True,
+        "rationale": ["rescope"],
+        "uncertainty": [],
+        "follow_up": {
+            "review_at": "2026-04-18T07:00:00+00:00",
+            "review_question": "q",
+            "review_event_id": "rev_rescope_01",
+        },
+        "policy_decisions": [],
+        "schema_version": "training_recommendation.v1",
+        "action_detail": None,
+    }) + "\n")
+
+    conn = open_connection(db)
+    try:
+        counts = reproject_from_jsonl(conn, base)
+        rec_n = conn.execute("SELECT COUNT(*) FROM recommendation_log").fetchone()[0]
+        gym_n = conn.execute("SELECT COUNT(*) FROM gym_session").fetchone()[0]
+        set_n = conn.execute("SELECT COUNT(*) FROM gym_set").fetchone()[0]
+        accepted_n = conn.execute(
+            "SELECT COUNT(*) FROM accepted_resistance_training_state_daily"
+        ).fetchone()[0]
+    finally:
+        conn.close()
+
+    # Recommendation group rebuilt:
+    assert counts["recommendations"] == 1
+    assert rec_n == 1
+    # Gym group UNTOUCHED — gym_sessions.jsonl wasn't present this run:
+    assert counts["gym_sessions"] == 0
+    assert counts["gym_sets"] == 0
+    assert gym_n == 1, "gym_session was silently wiped by recommendation-only reproject"
+    assert set_n == 1
+    assert accepted_n == 1
+
+
 def test_state_reproject_accepts_gym_only_base_dir(tmp_path: Path):
     """Reproject must not refuse a base-dir that contains only gym
     JSONL — the fail-closed check covers any of the four expected logs."""

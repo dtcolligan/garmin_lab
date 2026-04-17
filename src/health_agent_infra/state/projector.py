@@ -779,22 +779,34 @@ class ReprojectBaseDirError(Exception):
 
 
 def reproject_from_jsonl(conn: sqlite3.Connection, base_dir, *, allow_empty: bool = False) -> dict:
-    """Rebuild recommendation_log / review_event / review_outcome from the
-    JSONL audit logs under ``base_dir``.
+    """Rebuild projected tables from the JSONL audit logs under ``base_dir``.
 
-    Truncates the three projected tables inside a single transaction, then
-    walks the three JSONL files in PK-dependency order (recommendations →
-    events → outcomes) and reprojects each line. Idempotent: running twice
-    produces the same DB state.
+    **Scoped truncation.** Tables are truncated and rebuilt per **log group**
+    based on which JSONL files are present in ``base_dir``:
 
-    ``base_dir`` is the writeback root (same directory `hai writeback`
-    appends to).
+      - Recommendation group — any of ``recommendation_log.jsonl``,
+        ``review_events.jsonl``, ``review_outcomes.jsonl`` present ⇒
+        truncate + rebuild ``recommendation_log``, ``review_event``,
+        ``review_outcome``.
+      - Gym group — ``gym_sessions.jsonl`` present ⇒ truncate + rebuild
+        ``gym_session``, ``gym_set``, ``accepted_resistance_training_state_daily``.
 
-    **Safety.** If none of the three expected JSONL files exist in
-    ``base_dir``, the function raises ``ReprojectBaseDirError`` before
-    touching the DB, so a typo in the path can't silently wipe the
-    projection tables. Pass ``allow_empty=True`` to override — reserved for
-    the rare case where an operator explicitly wants to reset the DB tables.
+    Groups whose JSONLs are absent are **not touched**. This guards against
+    the failure mode where a gym-only base_dir silently wipes unrelated
+    recommendation data (the logs ship from independent flows).
+
+    All truncation + replay happens inside one ``BEGIN EXCLUSIVE`` /
+    ``COMMIT`` transaction; a mid-flight failure rolls back every group.
+    Idempotent: re-running reproduces the same DB state.
+
+    **Safety.** If none of the expected JSONL files exist, raises
+    ``ReprojectBaseDirError`` before touching the DB, so a typo in the
+    path can't silently wipe the projection tables. Pass
+    ``allow_empty=True`` / ``--allow-empty-reproject`` to override —
+    reserved for operators who explicitly want a full reset; note that
+    even with ``allow_empty=True``, only groups whose JSONL is present
+    get truncated. To fully wipe everything, the operator should drop
+    tables manually.
     """
 
     from pathlib import Path
@@ -805,16 +817,17 @@ def reproject_from_jsonl(conn: sqlite3.Connection, base_dir, *, allow_empty: boo
     outcomes_log = base / "review_outcomes.jsonl"
     gym_log = base / "gym_sessions.jsonl"
 
-    if not allow_empty:
-        expected = (rec_log, events_log, outcomes_log, gym_log)
-        if not any(p.exists() for p in expected):
-            raise ReprojectBaseDirError(
-                f"no audit JSONL files found under {base}. Expected at least "
-                f"one of: recommendation_log.jsonl, review_events.jsonl, "
-                f"review_outcomes.jsonl, gym_sessions.jsonl. Refusing to "
-                f"truncate the projection tables. Pass allow_empty=True / "
-                f"--allow-empty-reproject to override."
-            )
+    has_rec_group = any(p.exists() for p in (rec_log, events_log, outcomes_log))
+    has_gym_group = gym_log.exists()
+
+    if not allow_empty and not (has_rec_group or has_gym_group):
+        raise ReprojectBaseDirError(
+            f"no audit JSONL files found under {base}. Expected at least "
+            f"one of: recommendation_log.jsonl, review_events.jsonl, "
+            f"review_outcomes.jsonl, gym_sessions.jsonl. Refusing to "
+            f"truncate the projection tables. Pass allow_empty=True / "
+            f"--allow-empty-reproject to override."
+        )
 
     counts = {
         "recommendations": 0, "review_events": 0, "review_outcomes": 0,
@@ -824,16 +837,18 @@ def reproject_from_jsonl(conn: sqlite3.Connection, base_dir, *, allow_empty: boo
 
     conn.execute("BEGIN EXCLUSIVE")
     try:
-        # Order matters: outcomes FK -> events FK -> recommendations. Delete
-        # in reverse dependency order.
-        conn.execute("DELETE FROM review_outcome")
-        conn.execute("DELETE FROM review_event")
-        conn.execute("DELETE FROM recommendation_log")
-        # Gym: gym_set FK -> gym_session. Accepted resistance daily has no
-        # FK but is derived from gym data and must be rebuilt alongside.
-        conn.execute("DELETE FROM accepted_resistance_training_state_daily")
-        conn.execute("DELETE FROM gym_set")
-        conn.execute("DELETE FROM gym_session")
+        if has_rec_group:
+            # Recommendation group: outcomes FK -> events FK -> recs. Delete
+            # in reverse dependency order, then replay in forward order.
+            conn.execute("DELETE FROM review_outcome")
+            conn.execute("DELETE FROM review_event")
+            conn.execute("DELETE FROM recommendation_log")
+        if has_gym_group:
+            # Gym group: gym_set FK -> gym_session. Accepted resistance
+            # daily is derived and must be rebuilt alongside.
+            conn.execute("DELETE FROM accepted_resistance_training_state_daily")
+            conn.execute("DELETE FROM gym_set")
+            conn.execute("DELETE FROM gym_session")
 
         if rec_log.exists():
             for line_no, line in enumerate(rec_log.read_text(encoding="utf-8").splitlines(), start=1):

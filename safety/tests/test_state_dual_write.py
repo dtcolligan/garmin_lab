@@ -565,9 +565,17 @@ def test_reproject_cli_fails_closed_on_empty_base_dir(tmp_path: Path, capsys):
 
 
 def test_reproject_cli_allow_empty_flag_bypasses_the_guard(tmp_path: Path, capsys):
-    """--allow-empty-reproject is the explicit escape hatch for the rare
-    case where an operator wants to reset projection tables. The flag lets
-    the reproject run on an empty dir and wipe cleanly."""
+    """``--allow-empty-reproject`` skips the ReprojectBaseDirError check so
+    the command runs against an empty dir without raising, but under the
+    scoped-truncation contract (7C.1 patch) **nothing is truncated** unless
+    its log group is present. An empty dir ⇒ no groups touched ⇒ existing
+    projected data survives untouched.
+
+    This is the safer replacement for the prior "empty dir wipes everything"
+    behavior: callers who truly want to reset tables now do so explicitly
+    (drop tables, or write a sentinel log to scope the wipe). That change
+    eliminated the class of bug where a typo'd or empty base_dir silently
+    nuked unrelated projection data."""
 
     db = _init_db(tmp_path)
     rec = _sample_rec()
@@ -589,7 +597,8 @@ def test_reproject_cli_allow_empty_flag_bypasses_the_guard(tmp_path: Path, capsy
     capsys.readouterr()
     assert rc == 0
 
-    # Wipe succeeded; recommendation_log is empty post-reproject.
+    # The flag bypassed the guard — no error. And scope-safety held: the
+    # recommendation stays because no recommendation log was present.
     conn = open_connection(db)
     try:
         count = conn.execute(
@@ -597,7 +606,10 @@ def test_reproject_cli_allow_empty_flag_bypasses_the_guard(tmp_path: Path, capsy
         ).fetchone()["n"]
     finally:
         conn.close()
-    assert count == 0
+    assert count == 1, (
+        "allow-empty + empty base-dir should no longer wipe tables; "
+        "scoped truncation protects existing projected data"
+    )
 
 
 def test_reproject_runs_when_only_recommendation_log_present(tmp_path: Path, capsys):
