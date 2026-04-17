@@ -38,7 +38,7 @@ from pathlib import Path
 import pytest
 
 from health_agent_infra.cli import main as cli_main
-from health_agent_infra.state import (
+from health_agent_infra.core.state import (
     build_snapshot,
     initialize_database,
     open_connection,
@@ -370,7 +370,7 @@ def test_stress_score_out_of_range_rejected(tmp_path: Path):
 
 def test_stress_intake_atomic_on_middle_failure(tmp_path, monkeypatch):
     base, db = _init_intake_dirs(tmp_path)
-    import health_agent_infra.state as state_pkg
+    import health_agent_infra.core.state as state_pkg
 
     def boom(*a, **kw):
         raise RuntimeError("injected merge failure")
@@ -654,7 +654,7 @@ def test_reproject_clears_manual_stress_for_days_dropped_from_jsonl(tmp_path: Pa
     stress_manual.jsonl. Without this, accepted has data with no raw
     backing — the "accepted derives from raw" invariant breaks."""
 
-    from health_agent_infra.state import reproject_from_jsonl
+    from health_agent_infra.core.state import reproject_from_jsonl
 
     base, db = _init_intake_dirs(tmp_path)
 
@@ -706,7 +706,7 @@ def test_reproject_hygiene_restores_garmin_provenance_when_stress_dropped(tmp_pa
     primary raw row(s); when stress is removed and only garmin remains,
     that's the primary."""
 
-    from health_agent_infra.state import reproject_from_jsonl
+    from health_agent_infra.core.state import reproject_from_jsonl
 
     base, db = _init_intake_dirs(tmp_path)
 
@@ -778,7 +778,7 @@ def test_reproject_preserves_garmin_contributors_on_stress_hygiene(tmp_path: Pat
     """The reproject hygiene step must only strip stress IDs from
     derived_from; Garmin contributor IDs must survive."""
 
-    from health_agent_infra.state import reproject_from_jsonl
+    from health_agent_infra.core.state import reproject_from_jsonl
 
     base, db = _init_intake_dirs(tmp_path)
 
@@ -887,7 +887,7 @@ def test_reproject_stress_only_preserves_other_groups(tmp_path: Path):
     """Scope-guard regression: stress-only base_dir doesn't wipe nutrition,
     gym, recommendation tables."""
 
-    from health_agent_infra.state import reproject_from_jsonl
+    from health_agent_infra.core.state import reproject_from_jsonl
 
     base, db = _init_intake_dirs(tmp_path)
     # Seed a nutrition row via its full CLI path (writes nutrition_intake.jsonl).

@@ -1,6 +1,6 @@
 """WRITEBACK layer — schema-validated bounded local persistence."""
 
-from health_agent_infra.writeback.recommendation import (
+from health_agent_infra.core.writeback.recommendation import (
     ActionRecord,
     ALLOWED_RELATIVE_ROOT,
     perform_writeback,

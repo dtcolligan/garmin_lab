@@ -19,7 +19,7 @@ from pathlib import Path
 import pytest
 
 from health_agent_infra.cli import main as cli_main
-from health_agent_infra.state import (
+from health_agent_infra.core.state import (
     apply_pending_migrations,
     current_schema_version,
     initialize_database,
@@ -307,7 +307,7 @@ def test_broken_migration_rolls_back_ddl_and_bookkeeping(tmp_path: Path):
     partially-applied migration bricks the DB for future migrate calls.
     """
 
-    from health_agent_infra.state.store import apply_pending_migrations
+    from health_agent_infra.core.state.store import apply_pending_migrations
 
     # 1. Init a fresh DB so migration 001 is at head.
     db_path = tmp_path / "state.db"
@@ -357,7 +357,7 @@ def test_good_migration_after_a_rolled_back_broken_one_still_applies(tmp_path: P
     """After a rollback, the DB is reusable — a subsequent well-formed
     migration applies cleanly. Proves the DB isn't left in a 'stuck' state."""
 
-    from health_agent_infra.state.store import apply_pending_migrations
+    from health_agent_infra.core.state.store import apply_pending_migrations
 
     db_path = tmp_path / "state.db"
     initialize_database(db_path)
@@ -388,7 +388,7 @@ def test_good_migration_after_a_rolled_back_broken_one_still_applies(tmp_path: P
 # ---------------------------------------------------------------------------
 
 def test_sql_splitter_respects_line_comments_and_string_literals():
-    from health_agent_infra.state.store import _split_sql_statements
+    from health_agent_infra.core.state.store import _split_sql_statements
 
     sql = """
     -- a comment ; with a semicolon
@@ -407,7 +407,7 @@ def test_sql_splitter_respects_line_comments_and_string_literals():
 
 
 def test_sql_splitter_handles_escaped_single_quote_in_string():
-    from health_agent_infra.state.store import _split_sql_statements
+    from health_agent_infra.core.state.store import _split_sql_statements
 
     sql = "INSERT INTO t VALUES ('it''s'); CREATE TABLE u (x INTEGER);"
     stmts = _split_sql_statements(sql)
@@ -418,7 +418,7 @@ def test_sql_splitter_handles_escaped_single_quote_in_string():
 
 
 def test_sql_splitter_ignores_empty_statements():
-    from health_agent_infra.state.store import _split_sql_statements
+    from health_agent_infra.core.state.store import _split_sql_statements
 
     sql = ";;;CREATE TABLE foo (x INTEGER);;;"
     stmts = _split_sql_statements(sql)

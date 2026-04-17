@@ -31,12 +31,12 @@ from dataclasses import asdict
 from datetime import date, datetime, timezone
 from typing import Optional
 
-from health_agent_infra.schemas import (
+from health_agent_infra.core.schemas import (
     PolicyDecision,
     ReviewEvent,
     ReviewOutcome,
-    TrainingRecommendation,
 )
+from health_agent_infra.domains.recovery.schemas import TrainingRecommendation
 
 
 def _now_iso() -> str:

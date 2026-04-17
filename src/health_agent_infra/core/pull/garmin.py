@@ -184,7 +184,7 @@ class GarminRecoveryReadinessAdapter:
     """Flagship-slice pull adapter over the committed Garmin CSV export.
 
     Conforms structurally to ``FlagshipPullAdapter`` (see
-    ``health_agent_infra.pull.protocol``). Delegates to the module-level
+    ``health_agent_infra.core.pull.protocol``). Delegates to the module-level
     ``load_recovery_readiness_inputs`` helper so existing CLI paths remain
     unchanged; the class exists to make the flagship adapter contract
     explicit at the type-check layer without forcing a call-site refactor.

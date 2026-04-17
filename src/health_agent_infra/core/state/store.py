@@ -90,7 +90,7 @@ def discover_migrations() -> list[tuple[int, str, str]]:
     wheel. Only files matching ``NNN_name.sql`` are considered.
     """
 
-    migrations_dir = files("health_agent_infra").joinpath("state", "migrations")
+    migrations_dir = files("health_agent_infra").joinpath("core", "state", "migrations")
     discovered: list[tuple[int, str, str]] = []
     for entry in migrations_dir.iterdir():
         name = entry.name

@@ -19,15 +19,15 @@ from pathlib import Path
 import pytest
 
 from health_agent_infra.cli import main as cli_main
-from health_agent_infra.schemas import (
+from health_agent_infra.core.schemas import (
     FollowUp,
     PolicyDecision,
     RECOMMENDATION_SCHEMA_VERSION,
     ReviewEvent,
     ReviewOutcome,
-    TrainingRecommendation,
 )
-from health_agent_infra.state import (
+from health_agent_infra.domains.recovery.schemas import TrainingRecommendation
+from health_agent_infra.core.state import (
     initialize_database,
     open_connection,
     project_recommendation,
@@ -35,11 +35,11 @@ from health_agent_infra.state import (
     project_review_outcome,
     reproject_from_jsonl,
 )
-from health_agent_infra.writeback.recommendation import (
+from health_agent_infra.core.writeback.recommendation import (
     ALLOWED_RELATIVE_ROOT,
     perform_writeback,
 )
-from health_agent_infra.review.outcomes import record_review_outcome, schedule_review
+from health_agent_infra.core.review.outcomes import record_review_outcome, schedule_review
 
 
 AS_OF = datetime(2026, 4, 17, 7, 0, tzinfo=timezone.utc).date()
@@ -495,7 +495,7 @@ def test_reproject_refuses_when_base_dir_lacks_audit_logs(tmp_path: Path, capsys
     existing but empty/wrong directory. Previously this silently truncated
     the projection tables. Now it must refuse and leave the DB untouched."""
 
-    from health_agent_infra.state import ReprojectBaseDirError
+    from health_agent_infra.core.state import ReprojectBaseDirError
 
     # 1. Seed a DB with a recommendation so we can verify it isn't wiped.
     db = _init_db(tmp_path)

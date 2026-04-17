@@ -1,41 +1,34 @@
-"""Frozen write-surface schemas for the synthesis era.
+"""Core schemas: frozen write-surface contracts + runtime evidence/review types.
 
-These dataclasses are the **canonical payload contracts** that Phase 2
-synthesis will persist. Freezing the shapes now — before synthesis is
-built — lets every downstream layer (atomicity, supersession, domain
-specialisation) be built on stable types rather than evolving ones.
+Two layers coexist here:
 
-Three shapes, all frozen:
+1. **Frozen write-surface contracts (new, Phase 1 step 5).** ``BoundedRecommendation``,
+   ``DomainProposal``, and ``DailyPlan`` are the canonical payload contracts that
+   Phase 2 synthesis will persist. Every per-domain recommendation class
+   (starting with ``TrainingRecommendation`` in the recovery domain) must match
+   the ``BoundedRecommendation`` field set; subclasses may narrow ``action`` to
+   an enum but may not add or remove fields. ``DomainProposal`` is deliberately
+   free of ``follow_up``, ``daily_plan_id``, and mutation fields — reviews are
+   scheduled from recommendations (not proposals); synthesis assigns
+   ``daily_plan_id``; X-rule mutations are applied mechanically by the runtime.
+   Idempotency key for ``DailyPlan`` is ``(for_date, user_id)`` only;
+   ``agent_version`` is recorded per row but NOT part of the uniqueness contract.
+   ``superseded_by`` is the explicit opt-in to versioning, set only by
+   ``hai synthesize --supersede``.
 
-- ``BoundedRecommendation`` — the final artefact a domain emits after
-  synthesis fixes its action. Every per-domain recommendation class
-  (starting with ``TrainingRecommendation`` in the recovery domain)
-  must match this field set; subclasses may narrow ``action`` to an
-  enum but may not add or remove fields. ``daily_plan_id`` is NULL
-  pre-synthesis and NOT NULL after synthesis commits.
+2. **Runtime evidence + review types (legacy, pre-Phase-1).** ``CleanedEvidence``,
+   ``RawSummary``, ``PolicyDecision``, ``FollowUp``, ``ReviewEvent``,
+   ``ReviewOutcome`` are cross-domain runtime contracts carried forward from the
+   flagship recovery loop. Domain-specific recommendation shapes (e.g.
+   ``TrainingRecommendation``) live under ``domains/<name>/schemas.py``.
 
-- ``DomainProposal`` — what a domain skill emits before synthesis
-  reconciles. Deliberately omits ``follow_up`` (proposals don't
-  schedule reviews — recommendations do) and any "mutation" field:
-  skills do not own mutation logic, the runtime applies X-rule
-  mutations mechanically. A proposal's ``daily_plan_id`` is always
-  NULL at write time; synthesis assigns it.
-
-- ``DailyPlan`` — the synthesis-run record that links N
-  recommendations to their M input proposals and K X-rule firings.
-  Idempotency key is ``(for_date, user_id)`` only — ``agent_version``
-  is recorded per row but is NOT part of the uniqueness contract.
-  ``superseded_by`` is the explicit opt-in to versioning, set only by
-  ``hai synthesize --supersede``.
-
-The helper ``canonical_daily_plan_id(for_date, user_id)`` derives the
-stable key; synthesis uses it when replacing the canonical committed
-plan atomically.
+The helper ``canonical_daily_plan_id(for_date, user_id)`` derives the stable
+key; synthesis uses it when replacing the canonical committed plan atomically.
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from datetime import date, datetime
 from typing import Any, Literal, Optional
 
@@ -44,8 +37,16 @@ Confidence = Literal["low", "moderate", "high"]
 PolicyOutcome = Literal["allow", "soften", "block", "escalate"]
 
 
-# ``BoundedRecommendation`` and ``DomainProposal`` both carry policy
-# decisions; the shared shape lives here to avoid drift.
+RECOMMENDATION_SCHEMA_VERSION = "training_recommendation.v1"
+EVIDENCE_SCHEMA_VERSION = "cleaned_evidence.v1"
+RAW_SUMMARY_SCHEMA_VERSION = "raw_summary.v1"
+
+
+# ---------------------------------------------------------------------------
+# Frozen write-surface contracts (Phase 1 step 5).
+# ---------------------------------------------------------------------------
+
+
 @dataclass(frozen=True)
 class PolicyDecisionRecord:
     rule_id: str
@@ -181,3 +182,169 @@ def canonical_daily_plan_id(for_date: date, user_id: str) -> str:
     """
 
     return f"plan_{for_date.isoformat()}_{user_id}"
+
+
+# ---------------------------------------------------------------------------
+# Legacy runtime evidence + review types.
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class CleanedEvidence:
+    """Output of CLEAN layer — typed record of a day's inputs."""
+
+    as_of_date: date
+    user_id: str
+    sleep_hours: Optional[float]
+    sleep_record_id: Optional[str]
+    resting_hr: Optional[float]
+    resting_hr_record_id: Optional[str]
+    hrv_ms: Optional[float]
+    hrv_record_id: Optional[str]
+    trailing_7d_training_load: Optional[float]
+    soreness_self_report: Optional[str]
+    energy_self_report: Optional[str]
+    planned_session_type: Optional[str]
+    manual_readiness_submission_id: Optional[str]
+    active_goal: Optional[str]
+    optional_context_note_ids: list[str] = field(default_factory=list)
+
+    def to_dict(self) -> dict:
+        data = asdict(self)
+        data["as_of_date"] = self.as_of_date.isoformat()
+        return data
+
+
+@dataclass
+class RawSummary:
+    """Output of CLEAN layer — raw deltas / ratios / counts / coverage fractions.
+
+    Deterministic. No bands, no classifications, no scores. The agent reads
+    these numbers and applies judgment via the recovery-readiness skill.
+
+    Garmin-richness fields (7B) are today-only (no baseline/ratio yet);
+    they surface the vendor's own scores and aggregates so the skill can
+    cross-check its own bands against pre-computed vendor judgment.
+    """
+
+    schema_version: str
+    as_of_date: date
+    user_id: str
+
+    sleep_hours: Optional[float]
+    sleep_baseline_hours: Optional[float]
+    sleep_debt_hours: Optional[float]
+
+    resting_hr: Optional[float]
+    resting_hr_baseline: Optional[float]
+    resting_hr_ratio_vs_baseline: Optional[float]
+    resting_hr_spike_days: int
+
+    hrv_ms: Optional[float]
+    hrv_baseline: Optional[float]
+    hrv_ratio_vs_baseline: Optional[float]
+
+    trailing_7d_training_load: Optional[float]
+    training_load_baseline: Optional[float]
+    training_load_ratio_vs_baseline: Optional[float]
+
+    coverage_sleep_fraction: float
+    coverage_rhr_fraction: float
+    coverage_hrv_fraction: float
+    coverage_training_load_fraction: float
+
+    # Phase 7B — Garmin-native signals (today only; no baseline in v1).
+    all_day_stress: Optional[int] = None
+    body_battery_end_of_day: Optional[int] = None
+
+    # Running-aggregate proxies (daily-grain; see accepted_running_state).
+    total_distance_m: Optional[float] = None
+    moderate_intensity_min: Optional[int] = None
+    vigorous_intensity_min: Optional[int] = None
+
+    # Garmin's native acute-chronic ratio + its banded status label.
+    garmin_acwr_ratio: Optional[float] = None
+    acwr_status: Optional[str] = None
+
+    # Garmin Training Readiness — five exported component pcts plus a
+    # locally-computed mean. Garmin does NOT export its own overall
+    # Training Readiness pct in the daily CSV; only the five component
+    # pcts and the categorical level. training_readiness_component_mean_pct
+    # is a plain arithmetic mean of the five components (no Garmin-style
+    # weighting). When any component is missing, the mean is None.
+    # training_readiness_level preserves Garmin's categorical band (e.g.
+    # "High", "LOW") — that IS vendor-authored and can disagree with the
+    # local mean.
+    training_readiness_level: Optional[str] = None
+    training_readiness_component_mean_pct: Optional[float] = None
+    training_readiness_sleep_pct: Optional[float] = None
+    training_readiness_hrv_pct: Optional[float] = None
+    training_readiness_stress_pct: Optional[float] = None
+    training_readiness_sleep_history_pct: Optional[float] = None
+    training_readiness_load_pct: Optional[float] = None
+
+    def to_dict(self) -> dict:
+        data = asdict(self)
+        data["as_of_date"] = self.as_of_date.isoformat()
+        return data
+
+
+@dataclass
+class PolicyDecision:
+    rule_id: str
+    decision: PolicyOutcome
+    note: str
+
+
+@dataclass
+class FollowUp:
+    review_at: datetime
+    review_question: str
+    review_event_id: str
+
+    def to_dict(self) -> dict:
+        return {
+            "review_at": self.review_at.isoformat(),
+            "review_question": self.review_question,
+            "review_event_id": self.review_event_id,
+        }
+
+
+@dataclass
+class ReviewEvent:
+    review_event_id: str
+    recommendation_id: str
+    user_id: str
+    review_at: datetime
+    review_question: str
+
+    def to_dict(self) -> dict:
+        return {
+            "review_event_id": self.review_event_id,
+            "recommendation_id": self.recommendation_id,
+            "user_id": self.user_id,
+            "review_at": self.review_at.isoformat(),
+            "review_question": self.review_question,
+        }
+
+
+@dataclass
+class ReviewOutcome:
+    review_event_id: str
+    recommendation_id: str
+    user_id: str
+    recorded_at: datetime
+    followed_recommendation: bool
+    self_reported_improvement: Optional[bool]
+    free_text: Optional[str] = None
+
+    def to_dict(self) -> dict:
+        return {
+            "review_event_id": self.review_event_id,
+            "recommendation_id": self.recommendation_id,
+            "user_id": self.user_id,
+            "recorded_at": self.recorded_at.isoformat(),
+            "followed_recommendation": self.followed_recommendation,
+            "self_reported_improvement": self.self_reported_improvement,
+            "free_text": self.free_text,
+        }

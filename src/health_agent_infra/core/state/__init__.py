@@ -5,7 +5,7 @@ arrive in later phases. This module is not imported by any subcommand beyond
 ``hai state init`` and ``hai state migrate`` until 7A.2.
 """
 
-from health_agent_infra.state.projector import (
+from health_agent_infra.core.state.projector import (
     ReprojectBaseDirError,
     latest_nutrition_submission_id,
     merge_manual_stress_into_accepted_recovery,
@@ -24,12 +24,12 @@ from health_agent_infra.state.projector import (
     project_stress_manual_raw,
     reproject_from_jsonl,
 )
-from health_agent_infra.state.snapshot import (
+from health_agent_infra.core.state.snapshot import (
     available_domains,
     build_snapshot,
     read_domain,
 )
-from health_agent_infra.state.store import (
+from health_agent_infra.core.state.store import (
     DEFAULT_DB_PATH,
     apply_pending_migrations,
     current_schema_version,

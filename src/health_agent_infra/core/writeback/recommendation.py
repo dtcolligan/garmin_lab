@@ -14,10 +14,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
-from health_agent_infra.schemas import (
-    PolicyDecision,
-    TrainingRecommendation,
-)
+from health_agent_infra.core.schemas import PolicyDecision
+from health_agent_infra.domains.recovery.schemas import TrainingRecommendation
 
 
 @dataclass

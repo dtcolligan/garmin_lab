@@ -18,7 +18,7 @@ from __future__ import annotations
 from datetime import date, datetime, timedelta
 from typing import Iterable, Optional
 
-from health_agent_infra.schemas import (
+from health_agent_infra.core.schemas import (
     CleanedEvidence,
     RAW_SUMMARY_SCHEMA_VERSION,
     RawSummary,

@@ -25,9 +25,9 @@ from pathlib import Path
 import pytest
 
 from health_agent_infra.cli import main as cli_main
-from health_agent_infra.clean import build_raw_summary
-from health_agent_infra.pull.garmin import load_recovery_readiness_inputs
-from health_agent_infra.state import (
+from health_agent_infra.core.clean import build_raw_summary
+from health_agent_infra.core.pull.garmin import load_recovery_readiness_inputs
+from health_agent_infra.core.state import (
     build_snapshot,
     initialize_database,
     open_connection,

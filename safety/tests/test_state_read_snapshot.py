@@ -24,7 +24,7 @@ from pathlib import Path
 import pytest
 
 from health_agent_infra.cli import main as cli_main
-from health_agent_infra.state import (
+from health_agent_infra.core.state import (
     available_domains,
     build_snapshot,
     initialize_database,

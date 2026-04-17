@@ -45,7 +45,7 @@ from health_agent_infra.core.schemas import (
     PolicyDecisionRecord,
     canonical_daily_plan_id,
 )
-from health_agent_infra.schemas import TrainingRecommendation
+from health_agent_infra.domains.recovery.schemas import TrainingRecommendation
 
 
 # ---------------------------------------------------------------------------

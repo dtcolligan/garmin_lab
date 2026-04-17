@@ -15,11 +15,17 @@ from health_agent_infra.domains.recovery.policy import (
     RecoveryPolicyResult,
     evaluate_recovery_policy,
 )
+from health_agent_infra.domains.recovery.schemas import (
+    ActionKind,
+    TrainingRecommendation,
+)
 
 __all__ = [
+    "ActionKind",
     "ClassifiedRecoveryState",
     "classify_recovery_state",
     "PolicyDecision",
     "RecoveryPolicyResult",
+    "TrainingRecommendation",
     "evaluate_recovery_policy",
 ]

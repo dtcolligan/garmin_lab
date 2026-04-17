@@ -20,7 +20,7 @@ from pathlib import Path
 import pytest
 
 from health_agent_infra.cli import main as cli_main
-from health_agent_infra.state import initialize_database
+from health_agent_infra.core.state import initialize_database
 
 
 # ---------------------------------------------------------------------------

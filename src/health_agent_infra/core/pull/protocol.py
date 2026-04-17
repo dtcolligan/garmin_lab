@@ -2,11 +2,11 @@
 
 This Protocol captures the thin flagship contract: a named source and a
 deterministic loader that returns evidence in the dict shape
-``health_agent_infra.clean.recovery_prep.clean_inputs`` consumes (keys
+``health_agent_infra.core.clean.recovery_prep.clean_inputs`` consumes (keys
 ``sleep``, ``resting_hr``, ``hrv``, ``training_load``).
 
 Conformance is structural — no inheritance required. See
-``health_agent_infra.pull.garmin.GarminRecoveryReadinessAdapter`` for the
+``health_agent_infra.core.pull.garmin.GarminRecoveryReadinessAdapter`` for the
 reference conformer.
 """
 

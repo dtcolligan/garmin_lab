@@ -23,26 +23,26 @@ from pathlib import Path
 
 import pytest
 
-from health_agent_infra.clean import build_raw_summary, clean_inputs
-from health_agent_infra.pull.garmin import (
+from health_agent_infra.core.clean import build_raw_summary, clean_inputs
+from health_agent_infra.core.pull.garmin import (
     GarminRecoveryReadinessAdapter,
     load_recovery_readiness_inputs,
 )
-from health_agent_infra.pull.protocol import FlagshipPullAdapter
-from health_agent_infra.review.outcomes import (
+from health_agent_infra.core.pull.protocol import FlagshipPullAdapter
+from health_agent_infra.core.review.outcomes import (
     record_review_outcome,
     schedule_review,
     summarize_review_history,
 )
-from health_agent_infra.schemas import (
+from health_agent_infra.core.schemas import (
     FollowUp,
     PolicyDecision,
     RECOMMENDATION_SCHEMA_VERSION,
     ReviewEvent,
     ReviewOutcome,
-    TrainingRecommendation,
 )
-from health_agent_infra.writeback.recommendation import (
+from health_agent_infra.domains.recovery.schemas import TrainingRecommendation
+from health_agent_infra.core.writeback.recommendation import (
     ALLOWED_RELATIVE_ROOT,
     perform_writeback,
 )
@@ -247,13 +247,13 @@ def _valid_recommendation_dict() -> dict:
 
 
 def test_validator_accepts_valid_recommendation():
-    from health_agent_infra.validate import validate_recommendation_dict
+    from health_agent_infra.core.validate import validate_recommendation_dict
 
     validate_recommendation_dict(_valid_recommendation_dict())  # must not raise
 
 
 def test_validator_rejects_missing_required_fields():
-    from health_agent_infra.validate import (
+    from health_agent_infra.core.validate import (
         RecommendationValidationError,
         validate_recommendation_dict,
     )
@@ -264,7 +264,7 @@ def test_validator_rejects_missing_required_fields():
 
 
 def test_validator_rejects_wrong_schema_version():
-    from health_agent_infra.validate import (
+    from health_agent_infra.core.validate import (
         RecommendationValidationError,
         validate_recommendation_dict,
     )
@@ -278,7 +278,7 @@ def test_validator_rejects_wrong_schema_version():
 
 
 def test_validator_rejects_unknown_action():
-    from health_agent_infra.validate import (
+    from health_agent_infra.core.validate import (
         RecommendationValidationError,
         validate_recommendation_dict,
     )
@@ -292,7 +292,7 @@ def test_validator_rejects_unknown_action():
 
 
 def test_validator_rejects_unknown_confidence():
-    from health_agent_infra.validate import (
+    from health_agent_infra.core.validate import (
         RecommendationValidationError,
         validate_recommendation_dict,
     )
@@ -306,7 +306,7 @@ def test_validator_rejects_unknown_confidence():
 
 
 def test_validator_rejects_bounded_false():
-    from health_agent_infra.validate import (
+    from health_agent_infra.core.validate import (
         RecommendationValidationError,
         validate_recommendation_dict,
     )
@@ -325,7 +325,7 @@ def test_validator_rejects_bounded_false():
      "disorder", "condition", "infection", "illness", "sick"],
 )
 def test_validator_rejects_banned_tokens_in_rationale(token: str):
-    from health_agent_infra.validate import (
+    from health_agent_infra.core.validate import (
         RecommendationValidationError,
         validate_recommendation_dict,
     )
@@ -339,7 +339,7 @@ def test_validator_rejects_banned_tokens_in_rationale(token: str):
 
 
 def test_validator_rejects_banned_tokens_in_action_detail():
-    from health_agent_infra.validate import (
+    from health_agent_infra.core.validate import (
         RecommendationValidationError,
         validate_recommendation_dict,
     )
@@ -353,7 +353,7 @@ def test_validator_rejects_banned_tokens_in_action_detail():
 
 
 def test_validator_rejects_review_at_outside_24h_window():
-    from health_agent_infra.validate import (
+    from health_agent_infra.core.validate import (
         RecommendationValidationError,
         validate_recommendation_dict,
     )
@@ -368,7 +368,7 @@ def test_validator_rejects_review_at_outside_24h_window():
 
 
 def test_validator_rejects_review_at_before_issued_at():
-    from health_agent_infra.validate import (
+    from health_agent_infra.core.validate import (
         RecommendationValidationError,
         validate_recommendation_dict,
     )
@@ -484,7 +484,7 @@ def test_intake_readiness_output_feeds_hai_pull(tmp_path: Path, capsys):
 
 
 def test_validator_rejects_empty_policy_decisions():
-    from health_agent_infra.validate import (
+    from health_agent_infra.core.validate import (
         RecommendationValidationError,
         validate_recommendation_dict,
     )

@@ -13,11 +13,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
-from health_agent_infra.schemas import (
+from health_agent_infra.core.schemas import (
     ReviewEvent,
     ReviewOutcome,
-    TrainingRecommendation,
 )
+from health_agent_infra.domains.recovery.schemas import TrainingRecommendation
 
 
 def schedule_review(

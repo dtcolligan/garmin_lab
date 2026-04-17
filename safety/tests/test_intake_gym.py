@@ -25,7 +25,7 @@ from pathlib import Path
 import pytest
 
 from health_agent_infra.cli import main as cli_main
-from health_agent_infra.state import (
+from health_agent_infra.core.state import (
     build_snapshot,
     initialize_database,
     open_connection,
@@ -324,7 +324,7 @@ def test_intake_gym_projection_is_atomic_on_middle_failure(tmp_path, monkeypatch
 
     base, db = _init_intake_dirs(tmp_path)
 
-    import health_agent_infra.state as state_pkg
+    import health_agent_infra.core.state as state_pkg
 
     def boom(*args, **kwargs):
         raise RuntimeError("injected gym_set projection failure")
@@ -459,10 +459,11 @@ def test_state_reproject_gym_only_preserves_recommendation_rows(tmp_path: Path):
 
     from datetime import datetime as _dt
     from datetime import timezone as _tz
-    from health_agent_infra.schemas import (
-        FollowUp, TrainingRecommendation, ReviewEvent, ReviewOutcome,
+    from health_agent_infra.core.schemas import (
+        FollowUp, ReviewEvent, ReviewOutcome,
     )
-    from health_agent_infra.state import (
+    from health_agent_infra.domains.recovery.schemas import TrainingRecommendation
+    from health_agent_infra.core.state import (
         project_recommendation, project_review_event, project_review_outcome,
         reproject_from_jsonl,
     )
@@ -555,7 +556,7 @@ def test_state_reproject_rec_only_preserves_gym_rows(tmp_path: Path):
     base_dir containing only recommendation JSONL must not truncate gym
     tables."""
 
-    from health_agent_infra.state import reproject_from_jsonl
+    from health_agent_infra.core.state import reproject_from_jsonl
 
     base, db = _init_intake_dirs(tmp_path)
     # Seed gym rows via a full intake.
@@ -614,7 +615,7 @@ def test_state_reproject_accepts_gym_only_base_dir(tmp_path: Path):
     """Reproject must not refuse a base-dir that contains only gym
     JSONL — the fail-closed check covers any of the four expected logs."""
 
-    from health_agent_infra.state import reproject_from_jsonl, ReprojectBaseDirError
+    from health_agent_infra.core.state import reproject_from_jsonl, ReprojectBaseDirError
 
     db = _init_db(tmp_path)
     base = tmp_path / "intake"

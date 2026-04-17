@@ -27,7 +27,7 @@ from pathlib import Path
 import pytest
 
 from health_agent_infra.cli import main as cli_main
-from health_agent_infra.state import (
+from health_agent_infra.core.state import (
     build_snapshot,
     initialize_database,
     open_connection,
@@ -302,7 +302,7 @@ def test_intake_nutrition_projection_is_atomic_on_middle_failure(tmp_path, monke
     nutrition_intake_raw insert must roll back."""
 
     base, db = _init_intake_dirs(tmp_path)
-    import health_agent_infra.state as state_pkg
+    import health_agent_infra.core.state as state_pkg
 
     def boom(*args, **kwargs):
         raise RuntimeError("injected accepted nutrition projection failure")
@@ -551,8 +551,9 @@ def test_state_reproject_nutrition_only_preserves_other_groups(tmp_path: Path):
 
     from datetime import datetime as _dt
     from datetime import timezone as _tz
-    from health_agent_infra.schemas import FollowUp, TrainingRecommendation
-    from health_agent_infra.state import (
+    from health_agent_infra.core.schemas import FollowUp
+    from health_agent_infra.domains.recovery.schemas import TrainingRecommendation
+    from health_agent_infra.core.state import (
         project_recommendation, reproject_from_jsonl,
     )
 
@@ -658,7 +659,7 @@ def test_state_reproject_other_group_only_preserves_nutrition_rows(tmp_path: Pat
         "submitted_at": "2026-04-17T10:00:00+00:00",
     }) + "\n")
 
-    from health_agent_infra.state import reproject_from_jsonl
+    from health_agent_infra.core.state import reproject_from_jsonl
 
     conn = open_connection(db)
     try:

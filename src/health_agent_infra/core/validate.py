@@ -14,7 +14,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 from typing import Any
 
-from health_agent_infra.schemas import RECOMMENDATION_SCHEMA_VERSION
+from health_agent_infra.core.schemas import RECOMMENDATION_SCHEMA_VERSION
 
 
 ALLOWED_ACTIONS: frozenset[str] = frozenset({

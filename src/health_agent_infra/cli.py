@@ -24,7 +24,7 @@ from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
 
-from health_agent_infra.clean import build_raw_summary, clean_inputs
+from health_agent_infra.core.clean import build_raw_summary, clean_inputs
 from health_agent_infra.core.config import (
     ConfigError,
     load_thresholds,
@@ -35,27 +35,27 @@ from health_agent_infra.domains.recovery import (
     classify_recovery_state,
     evaluate_recovery_policy,
 )
-from health_agent_infra.pull.garmin import (
+from health_agent_infra.core.pull.garmin import (
     GarminRecoveryReadinessAdapter,
     default_manual_readiness,
 )
-from health_agent_infra.review.outcomes import (
+from health_agent_infra.core.review.outcomes import (
     record_review_outcome,
     schedule_review,
     summarize_review_history,
 )
-from health_agent_infra.schemas import (
+from health_agent_infra.core.schemas import (
     FollowUp,
     PolicyDecision,
     ReviewEvent,
     ReviewOutcome,
-    TrainingRecommendation,
 )
-from health_agent_infra.validate import (
+from health_agent_infra.domains.recovery.schemas import TrainingRecommendation
+from health_agent_infra.core.validate import (
     RecommendationValidationError,
     validate_recommendation_dict,
 )
-from health_agent_infra.writeback.recommendation import perform_writeback
+from health_agent_infra.core.writeback.recommendation import perform_writeback
 
 
 from importlib.resources import as_file, files
@@ -199,7 +199,7 @@ def _project_clean_into_state(
     ``_dual_write_project``, adapted for the three-table recovery path.
     """
 
-    from health_agent_infra.state import (
+    from health_agent_infra.core.state import (
         open_connection,
         project_accepted_recovery_state_daily,
         project_accepted_running_state_daily,
@@ -316,7 +316,7 @@ def _dual_write_project(db_path_arg, project_fn, label: str) -> None:
     ``project_fn`` receives the open connection.
     """
 
-    from health_agent_infra.state import open_connection, resolve_db_path
+    from health_agent_infra.core.state import open_connection, resolve_db_path
 
     db_path = resolve_db_path(db_path_arg)
     if not db_path.exists():
@@ -343,7 +343,7 @@ def _dual_write_project(db_path_arg, project_fn, label: str) -> None:
 
 
 def cmd_writeback(args: argparse.Namespace) -> int:
-    from health_agent_infra.state import project_recommendation
+    from health_agent_infra.core.state import project_recommendation
 
     data = json.loads(Path(args.recommendation_json).read_text(encoding="utf-8"))
     try:
@@ -377,7 +377,7 @@ def cmd_writeback(args: argparse.Namespace) -> int:
 # ---------------------------------------------------------------------------
 
 def cmd_review_schedule(args: argparse.Namespace) -> int:
-    from health_agent_infra.state import project_review_event
+    from health_agent_infra.core.state import project_review_event
 
     data = json.loads(Path(args.recommendation_json).read_text(encoding="utf-8"))
     recommendation = _recommendation_from_dict(data)
@@ -394,7 +394,7 @@ def cmd_review_schedule(args: argparse.Namespace) -> int:
 
 
 def cmd_review_record(args: argparse.Namespace) -> int:
-    from health_agent_infra.state import project_review_outcome
+    from health_agent_infra.core.state import project_review_outcome
 
     data = json.loads(Path(args.outcome_json).read_text(encoding="utf-8"))
     event = ReviewEvent(
@@ -477,7 +477,7 @@ def cmd_intake_gym(args: argparse.Namespace) -> int:
         all inside a single ``BEGIN IMMEDIATE`` / ``COMMIT``.
     """
 
-    from health_agent_infra.intake.gym import (
+    from health_agent_infra.domains.strength.intake import (
         GymSessionSubmission,
         GymSet,
         append_submission_jsonl,
@@ -584,8 +584,8 @@ def _project_gym_submission_into_state(db_path_arg, submission) -> None:
     --base-dir <d>`` can rebuild the DB.
     """
 
-    from health_agent_infra.intake.gym import deterministic_set_id
-    from health_agent_infra.state import (
+    from health_agent_infra.domains.strength.intake import deterministic_set_id
+    from health_agent_infra.core.state import (
         open_connection,
         project_accepted_resistance_training_state_daily,
         project_gym_session,
@@ -674,7 +674,7 @@ def cmd_intake_nutrition(args: argparse.Namespace) -> int:
         ``BEGIN IMMEDIATE`` / ``COMMIT``.
     """
 
-    from health_agent_infra.intake.nutrition import (
+    from health_agent_infra.domains.nutrition.intake import (
         NutritionSubmission,
         append_submission_jsonl,
     )
@@ -770,7 +770,7 @@ def _resolve_prior_nutrition_submission(
     JSONL closes that gap — chain correctness is independent of DB state.
     """
 
-    from health_agent_infra.intake.nutrition import (
+    from health_agent_infra.domains.nutrition.intake import (
         latest_submission_id_from_jsonl,
     )
 
@@ -788,7 +788,7 @@ def _project_nutrition_submission_into_state(db_path_arg, submission) -> None:
     ``hai state reproject --base-dir <d>`` can recover.
     """
 
-    from health_agent_infra.state import (
+    from health_agent_infra.core.state import (
         open_connection,
         project_accepted_nutrition_state_daily,
         project_nutrition_intake_raw,
@@ -860,7 +860,7 @@ def cmd_intake_stress(args: argparse.Namespace) -> int:
     DB-absent writes still preserve chains.
     """
 
-    from health_agent_infra.intake.stress import (
+    from health_agent_infra.domains.stress.intake import (
         StressSubmission,
         append_submission_jsonl,
         latest_submission_id_from_jsonl,
@@ -925,7 +925,7 @@ def _project_stress_submission_into_state(db_path_arg, submission) -> None:
          (the clean projector reciprocally preserves manual_stress_score).
     """
 
-    from health_agent_infra.state import (
+    from health_agent_infra.core.state import (
         merge_manual_stress_into_accepted_recovery,
         open_connection,
         project_stress_manual_raw,
@@ -989,7 +989,7 @@ def cmd_intake_note(args: argparse.Namespace) -> int:
     No correction chain in v1: each invocation makes a new note_id.
     """
 
-    from health_agent_infra.intake.note import (
+    from health_agent_infra.core.intake.note import (
         ContextNote,
         append_note_jsonl,
     )
@@ -1039,7 +1039,7 @@ def _project_context_note_into_state(db_path_arg, note) -> None:
     accepted-layer derivation, so no transaction needed for atomicity
     (nothing to roll back across)."""
 
-    from health_agent_infra.state import (
+    from health_agent_infra.core.state import (
         open_connection,
         project_context_note,
         resolve_db_path,
@@ -1108,7 +1108,7 @@ def cmd_intake_readiness(args: argparse.Namespace) -> int:
 def cmd_state_init(args: argparse.Namespace) -> int:
     """Create the state DB file (if absent) and apply pending migrations."""
 
-    from health_agent_infra.state import initialize_database, resolve_db_path
+    from health_agent_infra.core.state import initialize_database, resolve_db_path
 
     db_path = resolve_db_path(args.db_path)
     resolved, applied = initialize_database(db_path)
@@ -1122,7 +1122,7 @@ def cmd_state_init(args: argparse.Namespace) -> int:
 def cmd_state_read(args: argparse.Namespace) -> int:
     """Emit rows from one domain's canonical table within a civil-date range."""
 
-    from health_agent_infra.state import (
+    from health_agent_infra.core.state import (
         available_domains,
         open_connection,
         read_domain,
@@ -1176,7 +1176,7 @@ def cmd_state_snapshot(args: argparse.Namespace) -> int:
     shape so existing callers are unaffected.
     """
 
-    from health_agent_infra.state import (
+    from health_agent_infra.core.state import (
         build_snapshot,
         open_connection,
         resolve_db_path,
@@ -1233,7 +1233,7 @@ def cmd_state_reproject(args: argparse.Namespace) -> int:
     ``--allow-empty-reproject`` is passed.
     """
 
-    from health_agent_infra.state import (
+    from health_agent_infra.core.state import (
         ReprojectBaseDirError,
         open_connection,
         reproject_from_jsonl,
@@ -1280,7 +1280,7 @@ def cmd_state_migrate(args: argparse.Namespace) -> int:
     head returns an empty applied list.
     """
 
-    from health_agent_infra.state import (
+    from health_agent_infra.core.state import (
         apply_pending_migrations,
         current_schema_version,
         open_connection,

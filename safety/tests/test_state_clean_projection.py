@@ -35,7 +35,7 @@ from contextlib import redirect_stdout
 import pytest
 
 from health_agent_infra.cli import main as cli_main
-from health_agent_infra.state import (
+from health_agent_infra.core.state import (
     build_snapshot,
     initialize_database,
     open_connection,
@@ -791,7 +791,7 @@ def test_cli_clean_projection_is_atomic_on_middle_failure(tmp_path, monkeypatch)
     db = _init_db(tmp_path)
     evidence = _write_pull_payload(tmp_path)
 
-    import health_agent_infra.state.projector as projector_module
+    import health_agent_infra.core.state.projector as projector_module
 
     def _boom(*args, **kwargs):
         raise RuntimeError("simulated projector failure mid-flight")
@@ -802,7 +802,7 @@ def test_cli_clean_projection_is_atomic_on_middle_failure(tmp_path, monkeypatch)
     # CLI imports the projector at call time via `from ... import ...`. We
     # need to patch the symbol the CLI will see — i.e. within the
     # `health_agent_infra.state` package too.
-    import health_agent_infra.state as state_pkg
+    import health_agent_infra.core.state as state_pkg
     monkeypatch.setattr(
         state_pkg, "project_accepted_recovery_state_daily", _boom,
     )
@@ -845,7 +845,7 @@ def test_cli_clean_projection_recovers_on_retry_after_rollback(tmp_path, monkeyp
     db = _init_db(tmp_path)
     evidence = _write_pull_payload(tmp_path)
 
-    import health_agent_infra.state as state_pkg
+    import health_agent_infra.core.state as state_pkg
     real_projector = state_pkg.project_accepted_recovery_state_daily
 
     boom = {"armed": True}
