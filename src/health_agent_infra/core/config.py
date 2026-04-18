@@ -86,6 +86,47 @@ DEFAULT_THRESHOLDS: dict[str, Any] = {
                 "recovery_adjacent_compromised": 0.20,
             },
         },
+        "stress": {
+            # Garmin 0-100 all-day-stress band boundaries. A value AT a
+            # boundary lands in the higher band. These mirror the
+            # synthesis.x_rules.x7 thresholds so the Phase-3-step-5 X7
+            # rewire (which will prefer the domain-computed band) is a
+            # mechanical flip — stress.classify owns the band, X7 reads
+            # it without re-thresholding.
+            "garmin_stress_band": {
+                "moderate_min_score": 40,
+                "high_min_score": 60,
+                "very_high_min_score": 80,
+            },
+            # Manual subjective 1-5 score band boundaries. A value AT a
+            # boundary lands in the higher band.
+            "manual_stress_band": {
+                "moderate_min_score": 3,
+                "high_min_score": 4,
+                "very_high_min_score": 5,
+            },
+            # Body-battery end-of-day day-over-day trend band boundaries
+            # on ``delta = today_bb - prev_day_bb``. "depleted" fires on
+            # absolute bb below ``depleted_max_bb`` regardless of delta.
+            "body_battery_trend_band": {
+                "depleted_max_bb": 20,
+                "declining_max_delta": -10,
+                "steady_max_delta": 10,
+            },
+            # Additive penalties feeding the composite stress_score;
+            # negative values are bonuses (raise the score).
+            "stress_score_penalty": {
+                "garmin_moderate": 0.10,
+                "garmin_high": 0.20,
+                "garmin_very_high": 0.30,
+                "manual_moderate": 0.05,
+                "manual_high": 0.15,
+                "manual_very_high": 0.25,
+                "body_battery_declining": 0.10,
+                "body_battery_depleted": 0.20,
+                "body_battery_improving": -0.05,
+            },
+        },
         "sleep": {
             # Aligned with recovery.sleep_debt_band so the Phase-3-step-5
             # X1 rewire (X1a moderate → soften; X1b elevated → block) can
@@ -186,6 +227,15 @@ DEFAULT_THRESHOLDS: dict[str, Any] = {
         },
         "recovery": {
             "r6_resting_hr_spike_days_threshold": 3,
+        },
+        "stress": {
+            # R-sustained-very-high-stress: escalate when Garmin's
+            # 0-100 all-day-stress has been at or above the high-band
+            # threshold for this many consecutive days (today included).
+            # Forces ``escalate_for_user_review`` as the remedial action;
+            # the policy_decision tier records the ``escalate`` severity.
+            "r_sustained_stress_days": 5,
+            "r_sustained_stress_min_score": 60,
         },
         "running": {
             # Aligned with X3b (≥1.5 → block any hard session). The R-rule
@@ -341,6 +391,59 @@ load_spike              = 0.15
 [policy.recovery]
 # R6: escalate if resting_hr has been >=1.15 baseline for this many consecutive days.
 r6_resting_hr_spike_days_threshold = 3
+
+# ---------------------------------------------------------------------------
+# Stress domain — classification (Phase 3)
+# ---------------------------------------------------------------------------
+
+[classify.stress.garmin_stress_band]
+# Boundaries on Garmin's 0-100 all-day-stress score. A value AT a boundary
+# lands in the higher band. Mirrors the synthesis.x_rules.x7 thresholds so
+# the Phase-3-step-5 X7 rewire is mechanical.
+moderate_min_score  = 40
+high_min_score      = 60
+very_high_min_score = 80
+
+[classify.stress.manual_stress_band]
+# Boundaries on the user's subjective 1-5 score. A value AT a boundary
+# lands in the higher band.
+moderate_min_score  = 3
+high_min_score      = 4
+very_high_min_score = 5
+
+[classify.stress.body_battery_trend_band]
+# Boundaries on body-battery end-of-day trend.
+# depleted_max_bb: absolute body_battery at/under this lands in "depleted"
+# regardless of delta. Otherwise the delta (today_bb - prev_day_bb) drives
+# the band: delta <= declining_max_delta -> "declining"; delta strictly
+# between declining and steady thresholds -> "steady"; delta > steady
+# threshold -> "improving".
+depleted_max_bb       = 20
+declining_max_delta   = -10
+steady_max_delta      = 10
+
+[classify.stress.stress_score_penalty]
+# Additive penalties; negative values are bonuses.
+garmin_moderate          = 0.10
+garmin_high              = 0.20
+garmin_very_high         = 0.30
+manual_moderate          = 0.05
+manual_high              = 0.15
+manual_very_high         = 0.25
+body_battery_declining   = 0.10
+body_battery_depleted    = 0.20
+body_battery_improving   = -0.05
+
+# ---------------------------------------------------------------------------
+# Stress domain — policy rules
+# ---------------------------------------------------------------------------
+
+[policy.stress]
+# R-sustained-very-high-stress: escalate if Garmin's all-day-stress has been
+# at or above r_sustained_stress_min_score for r_sustained_stress_days
+# consecutive days (today included). Forces escalate_for_user_review.
+r_sustained_stress_days      = 5
+r_sustained_stress_min_score = 60
 
 # ---------------------------------------------------------------------------
 # Running domain — classification (Phase 2)
