@@ -301,6 +301,21 @@ DEFAULT_THRESHOLDS: dict[str, Any] = {
             "x1b": {"sleep_debt_trigger_band": "elevated"},
             "x3a": {"acwr_ratio_lower": 1.3, "acwr_ratio_upper": 1.5},
             "x3b": {"acwr_ratio_min": 1.5},
+            # Phase 4 step 5. X4 triggers when yesterday's strength
+            # volume on any of {quads, hamstrings, glutes} met this
+            # threshold — "heavy lower body yesterday" argues against
+            # running intervals/tempo today. 2000 kg·reps is roughly
+            # a 4×5 set at 100 kg (or 3×8 at 85 kg) per group.
+            "x4": {"heavy_lower_body_min_volume": 2000.0},
+            # X5 triggers when yesterday's running row had either
+            # ≥ vigorous_intensity_min (hard intervals/tempo) OR
+            # ≥ long_run_min_duration_s (75 minutes = 4500 s). Strong
+            # endurance stimulus yesterday argues against heavy
+            # lower-body strength today.
+            "x5": {
+                "vigorous_intensity_min": 20,
+                "long_run_min_duration_s": 4500,
+            },
             "x6a": {"body_battery_max": 30},
             "x6b": {"body_battery_max": 15},
             # Phase 3 will add a dedicated stress classifier; until then,

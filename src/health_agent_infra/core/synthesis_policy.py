@@ -73,6 +73,16 @@ _DOMAIN_ACTION_REGISTRY: dict[str, dict[str, Any]] = {
         "downgrade_action": "downgrade_to_easy_aerobic",
         "escalate_action": "escalate_for_user_review",
     },
+    # Phase 4 step 5: X3a/X3b soften/block hard strength proposals.
+    # X3a → downgrade_action (default softening). X5 overrides to
+    # ``downgrade_to_technique_or_accessory`` rule-locally because
+    # yesterday's long-run fatigue argues for technique work, not a
+    # moderate-load session.
+    "strength": {
+        "hard_actions": frozenset({"proceed_with_planned_session"}),
+        "downgrade_action": "downgrade_to_moderate_load",
+        "escalate_action": "escalate_for_user_review",
+    },
 }
 
 
@@ -456,6 +466,184 @@ def evaluate_x3b(
     return firings
 
 
+# ---------------------------------------------------------------------------
+# Strength cross-domain rules — X4 + X5.
+# ---------------------------------------------------------------------------
+
+_LOWER_BODY_GROUPS: frozenset[str] = frozenset({"quads", "hamstrings", "glutes"})
+
+
+def _yesterday_strength_volume_by_group(
+    snapshot: dict[str, Any],
+) -> Optional[dict[str, float]]:
+    """Return yesterday's ``volume_by_muscle_group_json`` as a dict, or
+    None if no prior strength row exists or it's not parseable."""
+
+    history = _get(snapshot, "strength", "history") or []
+    if not history:
+        return None
+    # history is oldest-first per build_snapshot; yesterday is the last row.
+    last = history[-1]
+    raw = last.get("volume_by_muscle_group_json") if isinstance(last, dict) else None
+    if not raw:
+        return None
+    if isinstance(raw, dict):
+        return {k: float(v) for k, v in raw.items() if v is not None}
+    try:
+        import json as _json
+        parsed = _json.loads(raw)
+    except (TypeError, ValueError):
+        return None
+    if not isinstance(parsed, dict):
+        return None
+    return {k: float(v) for k, v in parsed.items() if v is not None}
+
+
+def _yesterday_running_row(snapshot: dict[str, Any]) -> Optional[dict[str, Any]]:
+    history = _get(snapshot, "running", "history") or []
+    if not history:
+        return None
+    last = history[-1]
+    return last if isinstance(last, dict) else None
+
+
+def evaluate_x4(
+    snapshot: dict[str, Any],
+    proposals: list[dict[str, Any]],
+    thresholds: dict[str, Any],
+) -> list[XRuleFiring]:
+    """X4 (soften): yesterday's heavy lower body caps running hard sessions.
+
+    Trigger: any of ``{quads, hamstrings, glutes}`` in yesterday's
+    ``strength.history[-1].volume_by_muscle_group_json`` meets the
+    configured ``heavy_lower_body_min_volume`` threshold AND there is
+    a hard running proposal in the bundle.
+
+    Target: soften every hard running proposal to
+    ``downgrade_to_easy_aerobic`` (the running registry's default
+    downgrade action).
+    """
+
+    cfg = _get(thresholds, "synthesis", "x_rules", "x4") or {}
+    threshold = float(cfg.get("heavy_lower_body_min_volume", 2000.0))
+
+    vol_by_group = _yesterday_strength_volume_by_group(snapshot)
+    if not vol_by_group:
+        return []
+
+    heavy_groups = [
+        g for g in _LOWER_BODY_GROUPS
+        if vol_by_group.get(g) is not None and vol_by_group[g] >= threshold
+    ]
+    if not heavy_groups:
+        return []
+
+    firings: list[XRuleFiring] = []
+    for p in proposals:
+        if p.get("domain") != "running":
+            continue
+        if not _is_hard_proposal(p):
+            continue
+        registry = _DOMAIN_ACTION_REGISTRY["running"]
+        firings.append(XRuleFiring(
+            rule_id="X4",
+            tier="soften",
+            affected_domain="running",
+            trigger_note=(
+                f"yesterday's lower-body strength volume "
+                f"{sorted(heavy_groups)} >= {threshold} kg·reps with hard "
+                f"running proposal"
+            ),
+            recommended_mutation={
+                "action": registry["downgrade_action"],
+                "action_detail": {
+                    "reason_token": "x4_heavy_lower_body_yesterday",
+                    "heavy_groups": sorted(heavy_groups),
+                    "threshold_kg_reps": threshold,
+                },
+            },
+            source_signals={
+                "yesterday_volume_by_muscle_group": {
+                    g: vol_by_group.get(g) for g in _LOWER_BODY_GROUPS
+                },
+                "proposal_domain": "running",
+            },
+            phase="A",
+        ))
+    return firings
+
+
+def evaluate_x5(
+    snapshot: dict[str, Any],
+    proposals: list[dict[str, Any]],
+    thresholds: dict[str, Any],
+) -> list[XRuleFiring]:
+    """X5 (soften): yesterday's long run / hard intervals caps lower-body strength.
+
+    Trigger: yesterday's running row had either
+    ``vigorous_intensity_min >= x5.vigorous_intensity_min`` OR
+    ``total_duration_s >= x5.long_run_min_duration_s`` AND there is
+    a hard strength proposal in the bundle.
+
+    Target: soften the hard strength proposal to
+    ``downgrade_to_technique_or_accessory`` (rule-local override of
+    the strength registry's default ``downgrade_to_moderate_load`` —
+    fatigue from yesterday's endurance work argues for technique,
+    not heavier loading).
+    """
+
+    cfg = _get(thresholds, "synthesis", "x_rules", "x5") or {}
+    min_vigorous_min = int(cfg.get("vigorous_intensity_min", 20))
+    min_long_run_s = int(cfg.get("long_run_min_duration_s", 4500))
+
+    yrow = _yesterday_running_row(snapshot)
+    if yrow is None:
+        return []
+
+    vig = yrow.get("vigorous_intensity_min")
+    dur = yrow.get("total_duration_s")
+    triggered_reason: Optional[str] = None
+    if vig is not None and vig >= min_vigorous_min:
+        triggered_reason = "hard_intervals"
+    elif dur is not None and dur >= min_long_run_s:
+        triggered_reason = "long_run"
+    if triggered_reason is None:
+        return []
+
+    firings: list[XRuleFiring] = []
+    for p in proposals:
+        if p.get("domain") != "strength":
+            continue
+        if not _is_hard_proposal(p):
+            continue
+        firings.append(XRuleFiring(
+            rule_id="X5",
+            tier="soften",
+            affected_domain="strength",
+            trigger_note=(
+                f"yesterday's running = {triggered_reason} "
+                f"(vigorous_intensity_min={vig}, total_duration_s={dur}) "
+                f"with hard strength proposal"
+            ),
+            recommended_mutation={
+                "action": "downgrade_to_technique_or_accessory",
+                "action_detail": {
+                    "reason_token": "x5_endurance_fatigue_yesterday",
+                    "trigger": triggered_reason,
+                    "yesterday_vigorous_intensity_min": vig,
+                    "yesterday_total_duration_s": dur,
+                },
+            },
+            source_signals={
+                "yesterday_vigorous_intensity_min": vig,
+                "yesterday_total_duration_s": dur,
+                "proposal_domain": "strength",
+            },
+            phase="A",
+        ))
+    return firings
+
+
 def evaluate_x6a(
     snapshot: dict[str, Any],
     proposals: list[dict[str, Any]],
@@ -591,6 +779,8 @@ PHASE_A_EVALUATORS = (
     evaluate_x1b,
     evaluate_x3a,
     evaluate_x3b,
+    evaluate_x4,
+    evaluate_x5,
     evaluate_x6a,
     evaluate_x6b,
     evaluate_x7,

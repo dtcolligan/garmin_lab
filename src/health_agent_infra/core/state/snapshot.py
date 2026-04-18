@@ -362,6 +362,8 @@ def build_snapshot(
     # User-reported domains: follow the pending_user_input rule.
     gym_today, gym_mx = _daily_today("gym")
     nutrition_today, nutrition_mx = _daily_today("nutrition")
+    strength_today, strength_mx = gym_today, gym_mx
+    strength_history = _history("gym")
 
     goals_active = read_domain(
         conn,
@@ -458,6 +460,17 @@ def build_snapshot(
         "today_body_battery": today_body_battery,
     }
 
+    # Strength block — Phase 4 step 5 promotes the existing "gym" raw
+    # aggregate read into a first-class domain block with classify +
+    # policy + signals derivation (when an evidence_bundle is
+    # supplied). The legacy top-level "gym" key is preserved further
+    # down for pre-Phase-4 snapshot consumers.
+    strength_block: dict[str, Any] = {
+        "today": strength_today,
+        "history": strength_history,
+        "missingness": strength_mx,
+    }
+
     if evidence_bundle is not None:
         # Full-bundle shape: per-domain expansion with classify + policy.
         # Imports happen here (not at module top) so `core.schemas` /
@@ -481,6 +494,11 @@ def build_snapshot(
             classify_stress_state,
             derive_stress_signals,
             evaluate_stress_policy,
+        )
+        from health_agent_infra.domains.strength import (
+            classify_strength_state,
+            derive_strength_signals,
+            evaluate_strength_policy,
         )
 
         cleaned = evidence_bundle.get("cleaned_evidence") or {}
@@ -538,6 +556,24 @@ def build_snapshot(
         stress_block["classified_state"] = _stress_classified_to_dict(stress_classified)
         stress_block["policy_result"] = _policy_to_dict(stress_policy)
 
+        # Strength (Phase 4 step 5). X3a/X3b in synthesis read from
+        # ``strength.classified_state.recent_volume_band`` + proposal
+        # domain registry; X4 reads ``strength.history`` directly for
+        # yesterday's heavy-lower-body signal; X5 reads
+        # ``running.history`` for yesterday's long-run signal but
+        # targets strength proposals, which depend on the strength
+        # block being present in the bundle.
+        strength_signals = derive_strength_signals(
+            strength_today=strength_today,
+            strength_history=strength_history,
+            goal_domain=(goals_active[0]["domain"] if goals_active else None),
+        )
+        strength_classified = classify_strength_state(strength_signals)
+        strength_policy = evaluate_strength_policy(strength_classified)
+        strength_block["signals"] = strength_signals
+        strength_block["classified_state"] = _strength_classified_to_dict(strength_classified)
+        strength_block["policy_result"] = _policy_to_dict(strength_policy)
+
     return {
         "schema_version": "state_snapshot.v1",
         "as_of_date": as_of_date.isoformat(),
@@ -548,6 +584,7 @@ def build_snapshot(
         "running": running_block,
         "sleep": sleep_block,
         "stress": stress_block,
+        "strength": strength_block,
         "gym": {
             "today": gym_today,
             "history": _history("gym"),
@@ -652,6 +689,32 @@ def _stress_classified_to_dict(classified: Any) -> dict[str, Any]:
         "stress_state": classified.stress_state,
         "stress_score": classified.stress_score,
         "body_battery_delta": classified.body_battery_delta,
+        "uncertainty": list(classified.uncertainty),
+    }
+
+
+def _strength_classified_to_dict(classified: Any) -> dict[str, Any]:
+    """Convert a ClassifiedStrengthState frozen dataclass to a plain dict.
+
+    Field names are the strength-readiness skill's contract; do not
+    rename here without updating the skill. ``recent_volume_band``
+    feeds X3a/X3b; ``freshness_band_by_group`` is the richer read that
+    X4/X5 may consume directly in Phase 5+ if needed. For v1 X4/X5
+    synthesis reads ``strength.history`` and ``running.history``
+    directly, not the classified state — the classifier is the skill's
+    source of truth, not synthesis_policy's.
+    """
+
+    return {
+        "recent_volume_band": classified.recent_volume_band,
+        "freshness_band_by_group": dict(classified.freshness_band_by_group),
+        "coverage_band": classified.coverage_band,
+        "strength_status": classified.strength_status,
+        "strength_score": classified.strength_score,
+        "volume_ratio": classified.volume_ratio,
+        "sessions_last_7d": classified.sessions_last_7d,
+        "sessions_last_28d": classified.sessions_last_28d,
+        "unmatched_exercise_tokens": list(classified.unmatched_exercise_tokens),
         "uncertainty": list(classified.uncertainty),
     }
 
