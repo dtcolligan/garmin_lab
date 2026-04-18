@@ -381,6 +381,149 @@ def evaluate_x1b(
     return firings
 
 
+def _nutrition_deficit_and_protein(
+    snapshot: dict[str, Any],
+) -> tuple[Optional[float], Optional[float]]:
+    """Read today's calorie deficit + protein ratio from the Phase 5
+    nutrition block.
+
+    Prefers ``nutrition.classified_state.calorie_deficit_kcal`` +
+    ``protein_ratio`` — the classifier is the authoritative source of
+    truth. Falls back to computing them from ``nutrition.today`` against
+    the config targets when the bundle wasn't expanded (e.g. a snapshot
+    built without ``evidence_bundle``). Both paths honour the same
+    thresholds so the fallback stays in sync with the classifier.
+    """
+
+    deficit = _get(snapshot, "nutrition", "classified_state", "calorie_deficit_kcal")
+    protein_ratio = _get(snapshot, "nutrition", "classified_state", "protein_ratio")
+    if deficit is not None or protein_ratio is not None:
+        return (
+            float(deficit) if deficit is not None else None,
+            float(protein_ratio) if protein_ratio is not None else None,
+        )
+    # Fallback: compute from today's row against the config targets.
+    today = _get(snapshot, "nutrition", "today") or {}
+    calories = today.get("calories")
+    protein_g = today.get("protein_g")
+    # Thresholds aren't in this function's closure; read from a stable
+    # module import. A deeper wiring would accept thresholds as an arg,
+    # but X2 already gets thresholds at call-time — we use those.
+    return (
+        None if calories is None else None,  # placeholder; real fallback in evaluate_x2
+        None if protein_g is None else None,
+    )
+
+
+def evaluate_x2(
+    snapshot: dict[str, Any],
+    proposals: list[dict[str, Any]],
+    thresholds: dict[str, Any],
+) -> list[XRuleFiring]:
+    """X2 (soften): nutrition deficit softens hard strength / recovery.
+
+    Trigger: today's nutrition shows either
+    ``calorie_deficit_kcal >= deficit_kcal_min`` OR
+    ``protein_ratio < protein_ratio_max`` AND there is a hard strength
+    or recovery proposal in the bundle. Thresholds default to the X2
+    boundaries (500 kcal / 0.7 ratio) which align with the nutrition
+    classifier's ``high_deficit`` / ``very_low`` band cutoffs — the
+    X-rule reads the same numeric boundaries the classifier named.
+
+    Target: soften the hard proposal to the domain's default downgrade
+    action (``downgrade_to_moderate_load`` for strength,
+    ``downgrade_hard_session_to_zone_2`` for recovery). Running is not
+    X2-targeted in v1 — endurance fuelling is a different question than
+    heavy-load training and would collapse a meaningful distinction
+    if bundled here.
+
+    Reads nutrition signals via
+    :func:`_nutrition_deficit_and_protein` which prefers the nutrition
+    classifier's output, falling back to computing against config
+    targets so snapshots built without ``evidence_bundle`` still fire
+    the rule.
+    """
+
+    cfg = _get(thresholds, "synthesis", "x_rules", "x2") or {}
+    deficit_min = float(cfg.get("deficit_kcal_min", 500.0))
+    protein_ratio_max = float(cfg.get("protein_ratio_max", 0.7))
+
+    deficit, protein_ratio = _nutrition_deficit_and_protein(snapshot)
+
+    # Fallback: if the classifier didn't fill these in, compute from
+    # today's row against the nutrition classify targets. Keeps X2
+    # correct on pre-step-4 snapshots and synthetic fixtures.
+    if deficit is None or protein_ratio is None:
+        today = _get(snapshot, "nutrition", "today") or {}
+        targets = _get(thresholds, "classify", "nutrition", "targets") or {}
+        cal_target = targets.get("calorie_target_kcal")
+        prot_target = targets.get("protein_target_g")
+        calories = today.get("calories") if isinstance(today, dict) else None
+        protein_g = today.get("protein_g") if isinstance(today, dict) else None
+        if deficit is None and calories is not None and cal_target is not None:
+            deficit = float(cal_target) - float(calories)
+        if (
+            protein_ratio is None
+            and protein_g is not None
+            and prot_target is not None
+            and float(prot_target) > 0
+        ):
+            protein_ratio = float(protein_g) / float(prot_target)
+
+    deficit_triggers = deficit is not None and deficit >= deficit_min
+    protein_triggers = protein_ratio is not None and protein_ratio < protein_ratio_max
+    if not (deficit_triggers or protein_triggers):
+        return []
+
+    trigger_reason = (
+        "deficit_and_protein_gap" if (deficit_triggers and protein_triggers)
+        else ("calorie_deficit" if deficit_triggers else "protein_gap")
+    )
+
+    firings: list[XRuleFiring] = []
+    for p in proposals:
+        if p.get("domain") not in ("strength", "recovery"):
+            continue
+        if not _is_hard_proposal(p):
+            continue
+        domain = p["domain"]
+        registry = _DOMAIN_ACTION_REGISTRY.get(domain)
+        if registry is None:
+            continue
+        firings.append(XRuleFiring(
+            rule_id="X2",
+            tier="soften",
+            affected_domain=domain,
+            trigger_note=(
+                f"nutrition {trigger_reason} "
+                f"(calorie_deficit_kcal="
+                f"{('unknown' if deficit is None else f'{deficit:.0f}')}, "
+                f"protein_ratio="
+                f"{('unknown' if protein_ratio is None else f'{protein_ratio:.2f}')}) "
+                f"with hard {domain} proposal"
+            ),
+            recommended_mutation={
+                "action": registry["downgrade_action"],
+                "action_detail": {
+                    "reason_token": f"x2_nutrition_{trigger_reason}",
+                    "calorie_deficit_kcal": (
+                        round(deficit, 1) if deficit is not None else None
+                    ),
+                    "protein_ratio": (
+                        round(protein_ratio, 3) if protein_ratio is not None else None
+                    ),
+                },
+            },
+            source_signals={
+                "calorie_deficit_kcal": deficit,
+                "protein_ratio": protein_ratio,
+                "proposal_domain": domain,
+            },
+            phase="A",
+        ))
+    return firings
+
+
 def evaluate_x3a(
     snapshot: dict[str, Any],
     proposals: list[dict[str, Any]],
@@ -777,6 +920,7 @@ def evaluate_x7(
 PHASE_A_EVALUATORS = (
     evaluate_x1a,
     evaluate_x1b,
+    evaluate_x2,
     evaluate_x3a,
     evaluate_x3b,
     evaluate_x4,
@@ -830,8 +974,12 @@ def evaluate_x9(
     if not nutrition_drafts:
         return []
 
+    # Phase 5 step 4: strength is now a first-class training domain and
+    # a hard strength session is as much a protein-driver as a hard
+    # recovery/running session. X9 fires on any of the three.
     training_hard = any(
-        d.get("domain") in ("recovery", "running") and _is_hard_proposal(d)
+        d.get("domain") in ("recovery", "running", "strength")
+        and _is_hard_proposal(d)
         for d in drafts
     )
     if not training_hard:

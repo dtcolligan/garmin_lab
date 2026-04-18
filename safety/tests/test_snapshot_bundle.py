@@ -220,9 +220,12 @@ def test_snapshot_full_bundle_surfaces_policy_force_when_sparse(tmp_path: Path, 
 # ---------------------------------------------------------------------------
 
 @pytest.mark.parametrize("domain,expected_keys", [
-    # Running expanded in Phase 2 step 3 (see test_snapshot_running_*).
+    # Running + nutrition have their own classify/policy now (Phase 2
+    # step 3 + Phase 5 step 4 respectively). "gym" remains the legacy
+    # top-level key that mirrors the strength block's raw read — it
+    # does not receive classify/policy expansion even under
+    # --evidence-json, so this parametrize locks its minimal shape.
     ("gym", {"today", "history", "missingness"}),
-    ("nutrition", {"today", "history", "missingness"}),
 ])
 def test_snapshot_other_domains_unchanged_with_evidence_json(
     tmp_path: Path, capsys, domain: str, expected_keys: set[str]
@@ -241,6 +244,42 @@ def test_snapshot_other_domains_unchanged_with_evidence_json(
     ])
     payload = json.loads(capsys.readouterr().out)
     assert set(payload[domain].keys()) == expected_keys
+
+
+def test_snapshot_nutrition_block_expands_with_evidence_json(
+    tmp_path: Path, capsys,
+):
+    """Phase 5 step 4: nutrition is now a first-class domain block when
+    a snapshot is built with ``--evidence-json``. The block gains
+    ``signals`` + ``classified_state`` + ``policy_result`` on top of
+    the v1.0 ``today``/``history``/``missingness`` shape."""
+
+    db = _init_db(tmp_path)
+    bundle_path = _write_clean_bundle(tmp_path)
+    cli_main([
+        "state", "snapshot",
+        "--as-of", "2026-04-17", "--user-id", "u_local_1",
+        "--db-path", str(db),
+        "--evidence-json", str(bundle_path),
+    ])
+    payload = json.loads(capsys.readouterr().out)
+
+    expected = {
+        "today", "history", "missingness",
+        "signals", "classified_state", "policy_result",
+    }
+    assert set(payload["nutrition"].keys()) == expected
+
+    classified = payload["nutrition"]["classified_state"]
+    # No accepted row was seeded in this fixture → insufficient coverage.
+    assert classified["coverage_band"] == "insufficient"
+    # Micronutrient coverage honestly surfaces the v1 data limit.
+    assert classified["micronutrient_coverage"] in (
+        "unavailable_at_source", "unknown",
+    )
+    policy = payload["nutrition"]["policy_result"]
+    # R-coverage fires on the empty-row day.
+    assert policy["forced_action"] == "defer_decision_insufficient_signal"
 
 
 # ---------------------------------------------------------------------------

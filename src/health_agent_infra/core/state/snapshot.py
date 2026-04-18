@@ -471,6 +471,21 @@ def build_snapshot(
         "missingness": strength_mx,
     }
 
+    # Nutrition block — Phase 5 step 4 promotes the existing pass-through
+    # "nutrition" daily-grain read into a first-class domain block with
+    # classify + policy + signals derivation (when an evidence_bundle is
+    # supplied). Macros-only scope per the Phase 2.5 retrieval-gate
+    # outcome; micronutrient_coverage on classified_state always resolves
+    # to 'unavailable_at_source'. The separate top-level "nutrition" key
+    # on the return dict is preserved verbatim for any pre-Phase-5
+    # snapshot consumer that read it directly.
+    nutrition_history = _history("nutrition")
+    nutrition_block: dict[str, Any] = {
+        "today": nutrition_today,
+        "history": nutrition_history,
+        "missingness": nutrition_mx,
+    }
+
     if evidence_bundle is not None:
         # Full-bundle shape: per-domain expansion with classify + policy.
         # Imports happen here (not at module top) so `core.schemas` /
@@ -499,6 +514,11 @@ def build_snapshot(
             classify_strength_state,
             derive_strength_signals,
             evaluate_strength_policy,
+        )
+        from health_agent_infra.domains.nutrition import (
+            classify_nutrition_state,
+            derive_nutrition_signals,
+            evaluate_nutrition_policy,
         )
 
         cleaned = evidence_bundle.get("cleaned_evidence") or {}
@@ -574,6 +594,25 @@ def build_snapshot(
         strength_block["classified_state"] = _strength_classified_to_dict(strength_classified)
         strength_block["policy_result"] = _policy_to_dict(strength_policy)
 
+        # Nutrition (Phase 5 step 4). X2 in synthesis reads
+        # ``nutrition.classified_state.calorie_deficit_kcal`` +
+        # ``protein_ratio`` to decide whether to soften hard
+        # training proposals; X9 (Phase B) reads the finalised
+        # training action and mutates the nutrition recommendation's
+        # action_detail. Both paths require the nutrition block to
+        # carry classified_state in the snapshot when the bundle is
+        # supplied. goal_domain is reserved for post-v1 goal-aware
+        # targets — the v1 classifier ignores it.
+        nutrition_signals = derive_nutrition_signals(
+            nutrition_today=nutrition_today,
+            goal_domain=(goals_active[0]["domain"] if goals_active else None),
+        )
+        nutrition_classified = classify_nutrition_state(nutrition_signals)
+        nutrition_policy = evaluate_nutrition_policy(nutrition_classified)
+        nutrition_block["signals"] = nutrition_signals
+        nutrition_block["classified_state"] = _nutrition_classified_to_dict(nutrition_classified)
+        nutrition_block["policy_result"] = _policy_to_dict(nutrition_policy)
+
     return {
         "schema_version": "state_snapshot.v1",
         "as_of_date": as_of_date.isoformat(),
@@ -590,11 +629,7 @@ def build_snapshot(
             "history": _history("gym"),
             "missingness": gym_mx,
         },
-        "nutrition": {
-            "today": nutrition_today,
-            "history": _history("nutrition"),
-            "missingness": nutrition_mx,
-        },
+        "nutrition": nutrition_block,
         "notes": {
             "recent": recent_notes,
         },
@@ -715,6 +750,35 @@ def _strength_classified_to_dict(classified: Any) -> dict[str, Any]:
         "sessions_last_7d": classified.sessions_last_7d,
         "sessions_last_28d": classified.sessions_last_28d,
         "unmatched_exercise_tokens": list(classified.unmatched_exercise_tokens),
+        "uncertainty": list(classified.uncertainty),
+    }
+
+
+def _nutrition_classified_to_dict(classified: Any) -> dict[str, Any]:
+    """Convert a ClassifiedNutritionState frozen dataclass to a plain dict.
+
+    Field names are the nutrition-alignment skill's contract; do not
+    rename here without updating the skill. ``calorie_deficit_kcal`` and
+    ``protein_ratio`` feed X2 (nutrition deficit softens training);
+    ``micronutrient_coverage`` is always ``unavailable_at_source`` under
+    the macros-only v1 derivation. For v1 X2 reads these fields
+    directly, mirroring the pattern used for X3 (strength proposals)
+    and X4/X5 (cross-domain history reads) — the classifier is the
+    skill's source of truth, not synthesis_policy's.
+    """
+
+    return {
+        "calorie_balance_band": classified.calorie_balance_band,
+        "protein_sufficiency_band": classified.protein_sufficiency_band,
+        "hydration_band": classified.hydration_band,
+        "micronutrient_coverage": classified.micronutrient_coverage,
+        "coverage_band": classified.coverage_band,
+        "nutrition_status": classified.nutrition_status,
+        "nutrition_score": classified.nutrition_score,
+        "calorie_deficit_kcal": classified.calorie_deficit_kcal,
+        "protein_ratio": classified.protein_ratio,
+        "hydration_ratio": classified.hydration_ratio,
+        "derivation_path": classified.derivation_path,
         "uncertainty": list(classified.uncertainty),
     }
 

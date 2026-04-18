@@ -78,6 +78,7 @@ RECOMMENDATION_SCHEMA_BY_DOMAIN: dict[str, str] = {
     "running": "running_recommendation.v1",
     "sleep": "sleep_recommendation.v1",
     "stress": "stress_recommendation.v1",
+    "nutrition": "nutrition_recommendation.v1",
 }
 
 
@@ -183,6 +184,11 @@ _DEFAULT_REVIEW_QUESTIONS: dict[str, str] = {
     "maintain_routine": "Did your usual routine feel right given yesterday's stress signals?",
     "add_low_intensity_recovery": "Did the low-intensity recovery block help yesterday?",
     "schedule_decompression_time": "Were you able to take the decompression time you planned?",
+    # Nutrition (Phase 5 step 4)
+    "maintain_targets": "Did yesterday's macro targets feel sustainable?",
+    "increase_protein_intake": "Were you able to hit the higher protein target yesterday?",
+    "increase_hydration": "Did the extra fluids help yesterday?",
+    "reduce_calorie_deficit": "Did yesterday's adjusted intake feel right for your training?",
 }
 
 
