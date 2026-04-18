@@ -62,6 +62,9 @@ from health_agent_infra.core.state.projectors.stress import (
     merge_manual_stress_into_accepted_stress,
     project_accepted_stress_state_daily,
 )
+from health_agent_infra.core.state.projectors.strength import (
+    project_accepted_resistance_training_state_daily,
+)
 from health_agent_infra.domains.recovery.schemas import TrainingRecommendation
 
 __all__ = [
@@ -547,110 +550,11 @@ def project_gym_set(
     return True
 
 
-def project_accepted_resistance_training_state_daily(
-    conn: sqlite3.Connection,
-    *,
-    as_of_date: date,
-    user_id: str,
-    ingest_actor: str,
-    source: str = "user_manual",
-    commit_after: bool = True,
-) -> bool:
-    """Recompute + UPSERT the day's accepted resistance-training aggregate.
-
-    Aggregates every non-superseded gym_set via the row's session, filtered
-    to (as_of_date, user_id). Superseded rows are excluded by checking
-    whether their set_id appears as another row's ``supersedes_set_id`` —
-    kept simple for v1 (no corrections in 7C.1's CLI, so this is
-    forward-compatible when set-level corrections land).
-
-    Returns ``True`` on insert, ``False`` on update (corrected_at set).
-
-    **Provenance.** ``derived_from`` is a JSON list of session_ids that
-    contributed. Auditors can JOIN back to gym_session for per-session
-    provenance (source, ingest_actor, submission_id).
-    """
-
-    rows = conn.execute(
-        """
-        SELECT
-            gs.session_id,
-            gset.set_id, gset.exercise_name, gset.weight_kg, gset.reps
-        FROM gym_session gs
-        JOIN gym_set gset ON gset.session_id = gs.session_id
-        WHERE gs.as_of_date = ? AND gs.user_id = ?
-          AND gset.set_id NOT IN (
-              SELECT supersedes_set_id FROM gym_set
-              WHERE supersedes_set_id IS NOT NULL
-          )
-        """,
-        (as_of_date.isoformat(), user_id),
-    ).fetchall()
-
-    session_ids = sorted({r["session_id"] for r in rows})
-    exercises = sorted({r["exercise_name"] for r in rows})
-    total_sets = len(rows)
-    total_volume = None
-    if rows:
-        vol_values = [
-            (r["weight_kg"] or 0) * (r["reps"] or 0)
-            for r in rows
-            if r["weight_kg"] is not None and r["reps"] is not None
-        ]
-        if vol_values:
-            total_volume = round(sum(vol_values), 2)
-
-    now_iso = _now_iso()
-    derived_from_json = json.dumps(session_ids, sort_keys=True)
-    exercises_json = json.dumps(exercises, sort_keys=True)
-
-    existing = conn.execute(
-        "SELECT 1 FROM accepted_resistance_training_state_daily "
-        "WHERE as_of_date = ? AND user_id = ?",
-        (as_of_date.isoformat(), user_id),
-    ).fetchone()
-    is_insert = existing is None
-
-    values = (
-        len(session_ids),
-        total_sets,
-        total_volume,
-        exercises_json,
-        derived_from_json,
-        source,
-        ingest_actor,
-        now_iso,
-        None if is_insert else now_iso,
-        as_of_date.isoformat(),
-        user_id,
-    )
-
-    if is_insert:
-        conn.execute(
-            """
-            INSERT INTO accepted_resistance_training_state_daily (
-                session_count, total_sets, total_volume_kg_reps, exercises,
-                derived_from, source, ingest_actor,
-                projected_at, corrected_at,
-                as_of_date, user_id
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            values,
-        )
-    else:
-        conn.execute(
-            """
-            UPDATE accepted_resistance_training_state_daily SET
-                session_count = ?, total_sets = ?, total_volume_kg_reps = ?,
-                exercises = ?, derived_from = ?, source = ?, ingest_actor = ?,
-                projected_at = ?, corrected_at = ?
-            WHERE as_of_date = ? AND user_id = ?
-            """,
-            values,
-        )
-    if commit_after:
-        conn.commit()
-    return is_insert
+# Accepted resistance-training projection moved to
+# :mod:`health_agent_infra.core.state.projectors.strength` in Phase 4
+# step 2. The orchestrator re-exports it via the top-level imports so
+# existing callers (CLI, synthesis, reproject, tests) keep working
+# unchanged.
 
 
 # ---------------------------------------------------------------------------

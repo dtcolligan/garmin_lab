@@ -17,6 +17,9 @@ from health_agent_infra.core.state.projectors.recovery import (
 from health_agent_infra.core.state.projectors.sleep import (
     project_accepted_sleep_state_daily,
 )
+from health_agent_infra.core.state.projectors.strength import (
+    project_accepted_resistance_training_state_daily,
+)
 from health_agent_infra.core.state.projectors.stress import (
     merge_manual_stress_into_accepted_recovery,
     merge_manual_stress_into_accepted_stress,
@@ -27,6 +30,7 @@ __all__ = [
     "merge_manual_stress_into_accepted_recovery",
     "merge_manual_stress_into_accepted_stress",
     "project_accepted_recovery_state_daily",
+    "project_accepted_resistance_training_state_daily",
     "project_accepted_sleep_state_daily",
     "project_accepted_stress_state_daily",
 ]
