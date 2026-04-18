@@ -514,6 +514,7 @@ def project_gym_set(
     weight_kg: Optional[float],
     reps: Optional[int],
     rpe: Optional[float],
+    exercise_id: Optional[str] = None,
     supersedes_set_id: Optional[str] = None,
     commit_after: bool = True,
 ) -> bool:
@@ -522,6 +523,13 @@ def project_gym_set(
     Returns ``True`` on insert, ``False`` if the set_id already exists.
     Append-only raw grammar (state_model_v1.md §3): corrections pass a fresh
     set_id + ``supersedes_set_id`` pointing at the row being replaced.
+
+    ``exercise_id`` is the best-effort taxonomy match stamped at intake
+    time. NULL is legitimate when the intake surface cannot
+    unambiguously resolve the free-text ``exercise_name`` against
+    ``exercise_taxonomy``; the strength projector then re-resolves by
+    name on every projection, so a NULL stamp does not starve
+    downstream aggregates.
     """
 
     existing = conn.execute(
@@ -536,13 +544,13 @@ def project_gym_set(
         INSERT INTO gym_set (
             set_id, session_id, set_number, exercise_name,
             weight_kg, reps, rpe,
-            ingested_at, supersedes_set_id
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ingested_at, supersedes_set_id, exercise_id
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             set_id, session_id, set_number, exercise_name,
             weight_kg, reps, rpe,
-            _now_iso(), supersedes_set_id,
+            _now_iso(), supersedes_set_id, exercise_id,
         ),
     )
     if commit_after:

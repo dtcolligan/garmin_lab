@@ -871,6 +871,10 @@ def _project_gym_submission_into_state(db_path_arg, submission) -> None:
     """
 
     from health_agent_infra.domains.strength.intake import deterministic_set_id
+    from health_agent_infra.domains.strength.taxonomy_match import (
+        load_taxonomy_with_aliases,
+        match_exercise_name,
+    )
     from health_agent_infra.core.state import (
         open_connection,
         project_accepted_resistance_training_state_daily,
@@ -891,6 +895,13 @@ def _project_gym_submission_into_state(db_path_arg, submission) -> None:
 
     conn = open_connection(db_path)
     try:
+        # Build the taxonomy resolver once per invocation so every set
+        # in the submission shares a single consistent view. Only
+        # high-confidence matches (exact canonical or single-alias)
+        # stamp ``gym_set.exercise_id``; ambiguous or no-match sets
+        # leave exercise_id NULL — the projector re-resolves by name
+        # anyway, and stamping an arbitrary pick would corrupt audit.
+        taxonomy, aliases_by_id, resolver = load_taxonomy_with_aliases(conn)
         conn.execute("BEGIN IMMEDIATE")
         try:
             project_gym_session(
@@ -905,6 +916,17 @@ def _project_gym_submission_into_state(db_path_arg, submission) -> None:
                 commit_after=False,
             )
             for s in submission.sets:
+                match = match_exercise_name(
+                    s.exercise_name,
+                    taxonomy=taxonomy,
+                    aliases_by_id=aliases_by_id,
+                    resolver=resolver,
+                )
+                stamped_id = (
+                    match.exercise_id
+                    if match.confidence in ("exact", "alias")
+                    else None
+                )
                 project_gym_set(
                     conn,
                     set_id=deterministic_set_id(
@@ -916,6 +938,7 @@ def _project_gym_submission_into_state(db_path_arg, submission) -> None:
                     weight_kg=s.weight_kg,
                     reps=s.reps,
                     rpe=s.rpe,
+                    exercise_id=stamped_id,
                     supersedes_set_id=s.supersedes_set_id,
                     commit_after=False,
                 )
@@ -1716,6 +1739,75 @@ def cmd_config_show(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_exercise_search(args: argparse.Namespace) -> int:
+    """Rank top taxonomy hits for a free-text exercise name.
+
+    Code-owned ranking + scoring (see
+    ``domains.strength.taxonomy_match``). The strength-intake skill
+    calls this CLI when it needs to disambiguate a user-supplied
+    exercise reference; the CLI surface never evaluates heuristics in
+    markdown.
+
+    Output shape::
+
+        {
+            "query": "<input>",
+            "hits": [
+                {
+                    "exercise_id": "back_squat",
+                    "canonical_name": "Back Squat",
+                    "aliases": ["back squat", "squat", ...],
+                    "primary_muscle_group": "quads",
+                    "secondary_muscle_groups": ["glutes", "core"],
+                    "category": "compound",
+                    "equipment": "barbell",
+                    "score": 100,
+                    "match_reason": "exact_canonical"
+                },
+                ...
+            ]
+        }
+    """
+
+    from health_agent_infra.core.state import open_connection, resolve_db_path
+    from health_agent_infra.domains.strength.taxonomy_match import (
+        search_exercises,
+    )
+
+    db_path = resolve_db_path(args.db_path)
+    if not db_path.exists():
+        print(
+            f"state DB not found at {db_path}. Run `hai state init` first.",
+            file=sys.stderr,
+        )
+        return 2
+
+    conn = open_connection(db_path)
+    try:
+        hits = search_exercises(args.query, conn=conn, limit=args.limit)
+    finally:
+        conn.close()
+
+    _emit_json({
+        "query": args.query,
+        "hits": [
+            {
+                "exercise_id": h.exercise_id,
+                "canonical_name": h.canonical_name,
+                "aliases": list(h.aliases),
+                "primary_muscle_group": h.primary_muscle_group,
+                "secondary_muscle_groups": list(h.secondary_muscle_groups),
+                "category": h.category,
+                "equipment": h.equipment,
+                "score": h.score,
+                "match_reason": h.match_reason,
+            }
+            for h in hits
+        ],
+    })
+    return 0
+
+
 def cmd_setup_skills(args: argparse.Namespace) -> int:
     dest = Path(args.dest).expanduser()
     dest.mkdir(parents=True, exist_ok=True)
@@ -2115,6 +2207,24 @@ def build_parser() -> argparse.ArgumentParser:
     p_cs.add_argument("--path", default=None,
                       help="Override source path (default: platformdirs user_config_dir)")
     p_cs.set_defaults(func=cmd_config_show)
+
+    p_exercise = sub.add_parser(
+        "exercise",
+        help="Exercise-taxonomy helpers (search, lookup)",
+    )
+    exercise_sub = p_exercise.add_subparsers(dest="exercise_command", required=True)
+
+    p_esearch = exercise_sub.add_parser(
+        "search",
+        help="Rank top taxonomy matches for a free-text exercise name",
+    )
+    p_esearch.add_argument("--query", required=True,
+                           help="Free-text exercise name to resolve")
+    p_esearch.add_argument("--limit", type=int, default=10,
+                           help="Max hits to return (default 10)")
+    p_esearch.add_argument("--db-path", default=None,
+                           help="Path to state DB (default: platformdirs user_data_dir)")
+    p_esearch.set_defaults(func=cmd_exercise_search)
 
     return parser
 
