@@ -5,10 +5,13 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "health_agent_infra"
 version = "0.1.0"
-description = "Tools + skills package for agent-mediated recovery-readiness workflows."
+description = "Governed runtime + skills for a multi-domain personal health agent (recovery, running, sleep, stress, strength, nutrition)."
 readme = "README.md"
 requires-python = ">=3.11"
 license = { file = "LICENSE" }
+authors = [
+  { name = "Dom Colligan" },
+]
 dependencies = [
   "pandas>=2.0",
   "platformdirs>=4.0",
@@ -17,10 +20,27 @@ dependencies = [
 ]
 keywords = ["health", "agents", "cli", "claude", "skills"]
 classifiers = [
+  "Development Status :: 4 - Beta",
+  "Environment :: Console",
+  "Intended Audience :: End Users/Desktop",
   "License :: OSI Approved :: MIT License",
+  "Operating System :: MacOS",
+  "Operating System :: POSIX :: Linux",
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
+  "Topic :: Scientific/Engineering",
+]
+
+[project.urls]
+Homepage = "https://github.com/dtcolligan/health_agent_infra"
+Source = "https://github.com/dtcolligan/health_agent_infra"
+Issues = "https://github.com/dtcolligan/health_agent_infra/issues"
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=9.0.3",
+  "build>=1.2",
 ]
 
 [project.scripts]
@@ -33,15 +53,9 @@ where = ["src"]
 "health_agent_infra" = [
   "skills/**/*.md",
   "data/**/*.csv",
-  "state/migrations/*.sql",
   "core/state/migrations/*.sql",
   "domains/strength/*.csv",
 ]
 
 [tool.pytest.ini_options]
 testpaths = ["safety/tests"]
-
-[dependency-groups]
-dev = [
-    "pytest>=9.0.3",
-]
