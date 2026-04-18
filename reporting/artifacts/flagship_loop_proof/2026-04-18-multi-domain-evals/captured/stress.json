@@ -1,0 +1,241 @@
+[
+  {
+    "scenario": {
+      "scenario_id": "stress_001_calm_baseline",
+      "kind": "domain",
+      "domain": "stress",
+      "description": "Low Garmin stress, manual score 2/5, healthy body-battery trend. No firings.",
+      "input": {
+        "signals": {
+          "garmin_all_day_stress": 25,
+          "manual_stress_score": 2,
+          "body_battery_end_of_day": 72,
+          "body_battery_prev_day": 68,
+          "stress_history_garmin_last_7": [
+            20,
+            22,
+            25,
+            28,
+            24,
+            22,
+            25
+          ]
+        }
+      },
+      "expected": {
+        "classified": {
+          "coverage_band": "full"
+        },
+        "policy": {
+          "forced_action": null,
+          "capped_confidence": null,
+          "fired_rule_ids": []
+        }
+      }
+    },
+    "result": {
+      "scenario_id": "stress_001_calm_baseline",
+      "domain": "stress",
+      "classified": {
+        "garmin_stress_band": "low",
+        "manual_stress_band": "low",
+        "body_battery_trend_band": "steady",
+        "coverage_band": "full",
+        "stress_state": "calm",
+        "stress_score": 1.0,
+        "body_battery_delta": 4,
+        "uncertainty": []
+      },
+      "policy": {
+        "policy_decisions": [
+          {
+            "rule_id": "require_min_coverage",
+            "decision": "allow",
+            "note": "coverage=full; required inputs present"
+          },
+          {
+            "rule_id": "no_high_confidence_on_sparse_signal",
+            "decision": "allow",
+            "note": "coverage=full; no cap required"
+          },
+          {
+            "rule_id": "sustained_very_high_stress_escalation",
+            "decision": "allow",
+            "note": "consecutive_days=0 below threshold=5 (history_len=7)"
+          }
+        ],
+        "forced_action": null,
+        "forced_action_detail": null,
+        "capped_confidence": null
+      }
+    },
+    "score": {
+      "scenario_id": "stress_001_calm_baseline",
+      "passed": true,
+      "axes": {
+        "classified_bands": "pass",
+        "policy_decisions": "pass",
+        "rationale_quality": "skipped_requires_agent_harness"
+      },
+      "diffs": {}
+    }
+  },
+  {
+    "scenario": {
+      "scenario_id": "stress_002_sustained_high_escalates",
+      "kind": "domain",
+      "domain": "stress",
+      "description": "5 consecutive days of Garmin stress >= 60 ending today \u2192 R-sustained-stress escalates.",
+      "input": {
+        "signals": {
+          "garmin_all_day_stress": 72,
+          "manual_stress_score": 4,
+          "body_battery_end_of_day": 30,
+          "body_battery_prev_day": 38,
+          "stress_history_garmin_last_7": [
+            40,
+            42,
+            65,
+            70,
+            68,
+            75,
+            72
+          ]
+        }
+      },
+      "expected": {
+        "policy": {
+          "forced_action": "escalate_for_user_review",
+          "fired_rule_ids": [
+            "sustained_very_high_stress_escalation"
+          ]
+        }
+      }
+    },
+    "result": {
+      "scenario_id": "stress_002_sustained_high_escalates",
+      "domain": "stress",
+      "classified": {
+        "garmin_stress_band": "high",
+        "manual_stress_band": "high",
+        "body_battery_trend_band": "steady",
+        "coverage_band": "full",
+        "stress_state": "elevated",
+        "stress_score": 0.65,
+        "body_battery_delta": -8,
+        "uncertainty": []
+      },
+      "policy": {
+        "policy_decisions": [
+          {
+            "rule_id": "require_min_coverage",
+            "decision": "allow",
+            "note": "coverage=full; required inputs present"
+          },
+          {
+            "rule_id": "no_high_confidence_on_sparse_signal",
+            "decision": "allow",
+            "note": "coverage=full; no cap required"
+          },
+          {
+            "rule_id": "sustained_very_high_stress_escalation",
+            "decision": "escalate",
+            "note": "consecutive_days=5 >= threshold=5 (>= 60 in last 7 days)"
+          }
+        ],
+        "forced_action": "escalate_for_user_review",
+        "forced_action_detail": {
+          "reason_token": "sustained_very_high_stress",
+          "consecutive_days": 5,
+          "window_nights": 7,
+          "threshold_score": 60,
+          "threshold_days": 5
+        },
+        "capped_confidence": null
+      }
+    },
+    "score": {
+      "scenario_id": "stress_002_sustained_high_escalates",
+      "passed": true,
+      "axes": {
+        "classified_bands": "pass",
+        "policy_decisions": "pass",
+        "rationale_quality": "skipped_requires_agent_harness"
+      },
+      "diffs": {}
+    }
+  },
+  {
+    "scenario": {
+      "scenario_id": "stress_003_sparse_coverage_caps",
+      "kind": "domain",
+      "domain": "stress",
+      "description": "Only manual stress score present; Garmin + body battery unknown \u2192 sparse \u2192 R-sparse caps confidence.",
+      "input": {
+        "signals": {
+          "manual_stress_score": 3
+        }
+      },
+      "expected": {
+        "classified": {
+          "coverage_band": "sparse"
+        },
+        "policy": {
+          "capped_confidence": "moderate",
+          "fired_rule_ids": [
+            "no_high_confidence_on_sparse_signal"
+          ]
+        }
+      }
+    },
+    "result": {
+      "scenario_id": "stress_003_sparse_coverage_caps",
+      "domain": "stress",
+      "classified": {
+        "garmin_stress_band": "unknown",
+        "manual_stress_band": "moderate",
+        "body_battery_trend_band": "unknown",
+        "coverage_band": "sparse",
+        "stress_state": "manageable",
+        "stress_score": 0.95,
+        "body_battery_delta": null,
+        "uncertainty": [
+          "body_battery_unavailable",
+          "garmin_all_day_stress_unavailable"
+        ]
+      },
+      "policy": {
+        "policy_decisions": [
+          {
+            "rule_id": "require_min_coverage",
+            "decision": "allow",
+            "note": "coverage=sparse; required inputs present"
+          },
+          {
+            "rule_id": "no_high_confidence_on_sparse_signal",
+            "decision": "soften",
+            "note": "capped confidence to moderate on sparse signal (body_battery_unavailable,garmin_all_day_stress_unavailable)"
+          },
+          {
+            "rule_id": "sustained_very_high_stress_escalation",
+            "decision": "allow",
+            "note": "consecutive_days=0 below threshold=5 (history_len=0)"
+          }
+        ],
+        "forced_action": null,
+        "forced_action_detail": null,
+        "capped_confidence": "moderate"
+      }
+    },
+    "score": {
+      "scenario_id": "stress_003_sparse_coverage_caps",
+      "passed": true,
+      "axes": {
+        "classified_bands": "pass",
+        "policy_decisions": "pass",
+        "rationale_quality": "skipped_requires_agent_harness"
+      },
+      "diffs": {}
+    }
+  }
+]

@@ -1,0 +1,1174 @@
+[
+  {
+    "scenario": {
+      "scenario_id": "syn_001_no_firings_baseline",
+      "kind": "synthesis",
+      "description": "Rested snapshot with recovery + running hard proposals; no X-rule triggers apply. Actions pass through unchanged.",
+      "as_of_date": "2026-04-18",
+      "user_id": "u_eval",
+      "snapshot": {
+        "sleep": {
+          "classified_state": {
+            "sleep_debt_band": "none"
+          }
+        },
+        "recovery": {
+          "today": {
+            "acwr_ratio": 1.0
+          }
+        },
+        "stress": {
+          "today_garmin": 25,
+          "today_body_battery": 65
+        }
+      },
+      "proposals": [
+        {
+          "proposal_id": "prop_rec_syn001",
+          "user_id": "u_eval",
+          "for_date": "2026-04-18",
+          "domain": "recovery",
+          "action": "proceed_with_planned_session",
+          "confidence": "high"
+        },
+        {
+          "proposal_id": "prop_run_syn001",
+          "user_id": "u_eval",
+          "for_date": "2026-04-18",
+          "domain": "running",
+          "action": "proceed_with_planned_run",
+          "confidence": "high"
+        }
+      ],
+      "expected": {
+        "x_rules_fired": [],
+        "final_actions": {
+          "recovery": "proceed_with_planned_session",
+          "running": "proceed_with_planned_run"
+        },
+        "final_confidences": {
+          "recovery": "high",
+          "running": "high"
+        },
+        "synthesis_error": "none"
+      }
+    },
+    "result": {
+      "scenario_id": "syn_001_no_firings_baseline",
+      "daily_plan_id": "plan_2026-04-18_u_eval",
+      "phase_a_firings": [],
+      "phase_b_firings": [],
+      "recommendations": [
+        {
+          "recommendation_id": "rec_2026-04-18_u_eval_recovery_01",
+          "domain": "recovery",
+          "action": "proceed_with_planned_session",
+          "confidence": "high",
+          "action_detail": null
+        },
+        {
+          "recommendation_id": "rec_2026-04-18_u_eval_running_01",
+          "domain": "running",
+          "action": "proceed_with_planned_run",
+          "confidence": "high",
+          "action_detail": null
+        }
+      ],
+      "validation_errors": [],
+      "synthesis_error": null
+    },
+    "score": {
+      "scenario_id": "syn_001_no_firings_baseline",
+      "passed": true,
+      "axes": {
+        "x_rules_fired": "pass",
+        "final_actions": "pass",
+        "final_confidences": "pass",
+        "synthesis_error": "pass",
+        "rationale_quality": "skipped_requires_agent_harness"
+      },
+      "diffs": {}
+    }
+  },
+  {
+    "scenario": {
+      "scenario_id": "syn_002_x1a_sleep_debt_softens",
+      "kind": "synthesis",
+      "description": "Moderate sleep debt fires X1a. Softens both hard recovery + hard running to their domain downgrades.",
+      "as_of_date": "2026-04-18",
+      "user_id": "u_eval",
+      "snapshot": {
+        "sleep": {
+          "classified_state": {
+            "sleep_debt_band": "moderate"
+          }
+        },
+        "recovery": {
+          "today": {
+            "acwr_ratio": 1.0
+          }
+        },
+        "stress": {
+          "today_garmin": 25,
+          "today_body_battery": 60
+        }
+      },
+      "proposals": [
+        {
+          "proposal_id": "prop_rec_syn002",
+          "user_id": "u_eval",
+          "for_date": "2026-04-18",
+          "domain": "recovery",
+          "action": "proceed_with_planned_session",
+          "confidence": "high"
+        },
+        {
+          "proposal_id": "prop_run_syn002",
+          "user_id": "u_eval",
+          "for_date": "2026-04-18",
+          "domain": "running",
+          "action": "proceed_with_planned_run",
+          "confidence": "high"
+        }
+      ],
+      "expected": {
+        "x_rules_fired": [
+          "X1a"
+        ],
+        "final_actions": {
+          "recovery": "downgrade_hard_session_to_zone_2",
+          "running": "downgrade_to_easy_aerobic"
+        },
+        "final_confidences": {
+          "recovery": "high",
+          "running": "high"
+        }
+      }
+    },
+    "result": {
+      "scenario_id": "syn_002_x1a_sleep_debt_softens",
+      "daily_plan_id": "plan_2026-04-18_u_eval",
+      "phase_a_firings": [
+        {
+          "rule_id": "X1a",
+          "tier": "soften",
+          "affected_domain": "recovery",
+          "trigger_note": "sleep_debt_band=moderate with hard recovery proposal (action=proceed_with_planned_session)",
+          "recommended_mutation": {
+            "action": "downgrade_hard_session_to_zone_2",
+            "action_detail": {
+              "reason_token": "x1a_sleep_debt_trigger",
+              "trigger_band": "moderate"
+            }
+          },
+          "source_signals": {
+            "sleep_debt_band": "moderate",
+            "proposal_domain": "recovery",
+            "proposal_action": "proceed_with_planned_session"
+          },
+          "phase": "A"
+        },
+        {
+          "rule_id": "X1a",
+          "tier": "soften",
+          "affected_domain": "running",
+          "trigger_note": "sleep_debt_band=moderate with hard running proposal (action=proceed_with_planned_run)",
+          "recommended_mutation": {
+            "action": "downgrade_to_easy_aerobic",
+            "action_detail": {
+              "reason_token": "x1a_sleep_debt_trigger",
+              "trigger_band": "moderate"
+            }
+          },
+          "source_signals": {
+            "sleep_debt_band": "moderate",
+            "proposal_domain": "running",
+            "proposal_action": "proceed_with_planned_run"
+          },
+          "phase": "A"
+        }
+      ],
+      "phase_b_firings": [],
+      "recommendations": [
+        {
+          "recommendation_id": "rec_2026-04-18_u_eval_recovery_01",
+          "domain": "recovery",
+          "action": "downgrade_hard_session_to_zone_2",
+          "confidence": "high",
+          "action_detail": {
+            "reason_token": "x1a_sleep_debt_trigger",
+            "trigger_band": "moderate"
+          }
+        },
+        {
+          "recommendation_id": "rec_2026-04-18_u_eval_running_01",
+          "domain": "running",
+          "action": "downgrade_to_easy_aerobic",
+          "confidence": "high",
+          "action_detail": {
+            "reason_token": "x1a_sleep_debt_trigger",
+            "trigger_band": "moderate"
+          }
+        }
+      ],
+      "validation_errors": [],
+      "synthesis_error": null
+    },
+    "score": {
+      "scenario_id": "syn_002_x1a_sleep_debt_softens",
+      "passed": true,
+      "axes": {
+        "x_rules_fired": "pass",
+        "final_actions": "pass",
+        "final_confidences": "pass",
+        "rationale_quality": "skipped_requires_agent_harness"
+      },
+      "diffs": {}
+    }
+  },
+  {
+    "scenario": {
+      "scenario_id": "syn_003_x1b_elevated_sleep_debt_blocks",
+      "kind": "synthesis",
+      "description": "Elevated sleep debt fires X1b (block tier). Both hard proposals are escalated for user review.",
+      "as_of_date": "2026-04-18",
+      "user_id": "u_eval",
+      "snapshot": {
+        "sleep": {
+          "classified_state": {
+            "sleep_debt_band": "elevated"
+          }
+        },
+        "recovery": {
+          "today": {
+            "acwr_ratio": 1.0
+          }
+        },
+        "stress": {
+          "today_garmin": 25,
+          "today_body_battery": 60
+        }
+      },
+      "proposals": [
+        {
+          "proposal_id": "prop_rec_syn003",
+          "user_id": "u_eval",
+          "for_date": "2026-04-18",
+          "domain": "recovery",
+          "action": "proceed_with_planned_session",
+          "confidence": "high"
+        },
+        {
+          "proposal_id": "prop_run_syn003",
+          "user_id": "u_eval",
+          "for_date": "2026-04-18",
+          "domain": "running",
+          "action": "proceed_with_planned_run",
+          "confidence": "high"
+        }
+      ],
+      "expected": {
+        "x_rules_fired": [
+          "X1b"
+        ],
+        "final_actions": {
+          "recovery": "escalate_for_user_review",
+          "running": "escalate_for_user_review"
+        }
+      }
+    },
+    "result": {
+      "scenario_id": "syn_003_x1b_elevated_sleep_debt_blocks",
+      "daily_plan_id": "plan_2026-04-18_u_eval",
+      "phase_a_firings": [
+        {
+          "rule_id": "X1b",
+          "tier": "block",
+          "affected_domain": "recovery",
+          "trigger_note": "sleep_debt_band=elevated with hard recovery proposal",
+          "recommended_mutation": {
+            "action": "escalate_for_user_review",
+            "action_detail": {
+              "reason_token": "x1b_sleep_debt_elevated",
+              "trigger_band": "elevated"
+            }
+          },
+          "source_signals": {
+            "sleep_debt_band": "elevated",
+            "proposal_domain": "recovery"
+          },
+          "phase": "A"
+        },
+        {
+          "rule_id": "X1b",
+          "tier": "block",
+          "affected_domain": "running",
+          "trigger_note": "sleep_debt_band=elevated with hard running proposal",
+          "recommended_mutation": {
+            "action": "escalate_for_user_review",
+            "action_detail": {
+              "reason_token": "x1b_sleep_debt_elevated",
+              "trigger_band": "elevated"
+            }
+          },
+          "source_signals": {
+            "sleep_debt_band": "elevated",
+            "proposal_domain": "running"
+          },
+          "phase": "A"
+        }
+      ],
+      "phase_b_firings": [],
+      "recommendations": [
+        {
+          "recommendation_id": "rec_2026-04-18_u_eval_recovery_01",
+          "domain": "recovery",
+          "action": "escalate_for_user_review",
+          "confidence": "high",
+          "action_detail": {
+            "reason_token": "x1b_sleep_debt_elevated",
+            "trigger_band": "elevated"
+          }
+        },
+        {
+          "recommendation_id": "rec_2026-04-18_u_eval_running_01",
+          "domain": "running",
+          "action": "escalate_for_user_review",
+          "confidence": "high",
+          "action_detail": {
+            "reason_token": "x1b_sleep_debt_elevated",
+            "trigger_band": "elevated"
+          }
+        }
+      ],
+      "validation_errors": [],
+      "synthesis_error": null
+    },
+    "score": {
+      "scenario_id": "syn_003_x1b_elevated_sleep_debt_blocks",
+      "passed": true,
+      "axes": {
+        "x_rules_fired": "pass",
+        "final_actions": "pass",
+        "rationale_quality": "skipped_requires_agent_harness"
+      },
+      "diffs": {}
+    }
+  },
+  {
+    "scenario": {
+      "scenario_id": "syn_004_x3a_acwr_elevated_softens",
+      "kind": "synthesis",
+      "description": "ACWR 1.35 \u2208 [1.3, 1.5) fires X3a; soften hard running proposal.",
+      "as_of_date": "2026-04-18",
+      "user_id": "u_eval",
+      "snapshot": {
+        "sleep": {
+          "classified_state": {
+            "sleep_debt_band": "none"
+          }
+        },
+        "recovery": {
+          "today": {
+            "acwr_ratio": 1.35
+          }
+        },
+        "stress": {
+          "today_garmin": 30,
+          "today_body_battery": 60
+        }
+      },
+      "proposals": [
+        {
+          "proposal_id": "prop_run_syn004",
+          "user_id": "u_eval",
+          "for_date": "2026-04-18",
+          "domain": "running",
+          "action": "proceed_with_planned_run",
+          "confidence": "high"
+        }
+      ],
+      "expected": {
+        "x_rules_fired": [
+          "X3a"
+        ],
+        "final_actions": {
+          "running": "downgrade_to_easy_aerobic"
+        }
+      }
+    },
+    "result": {
+      "scenario_id": "syn_004_x3a_acwr_elevated_softens",
+      "daily_plan_id": "plan_2026-04-18_u_eval",
+      "phase_a_firings": [
+        {
+          "rule_id": "X3a",
+          "tier": "soften",
+          "affected_domain": "running",
+          "trigger_note": "acwr_ratio=1.350 in [1.3, 1.5) with hard running proposal",
+          "recommended_mutation": {
+            "action": "downgrade_to_easy_aerobic",
+            "action_detail": {
+              "reason_token": "x3a_acwr_elevated",
+              "acwr_ratio": 1.35
+            }
+          },
+          "source_signals": {
+            "acwr_ratio": 1.35,
+            "proposal_domain": "running"
+          },
+          "phase": "A"
+        }
+      ],
+      "phase_b_firings": [],
+      "recommendations": [
+        {
+          "recommendation_id": "rec_2026-04-18_u_eval_running_01",
+          "domain": "running",
+          "action": "downgrade_to_easy_aerobic",
+          "confidence": "high",
+          "action_detail": {
+            "acwr_ratio": 1.35,
+            "reason_token": "x3a_acwr_elevated"
+          }
+        }
+      ],
+      "validation_errors": [],
+      "synthesis_error": null
+    },
+    "score": {
+      "scenario_id": "syn_004_x3a_acwr_elevated_softens",
+      "passed": true,
+      "axes": {
+        "x_rules_fired": "pass",
+        "final_actions": "pass",
+        "rationale_quality": "skipped_requires_agent_harness"
+      },
+      "diffs": {}
+    }
+  },
+  {
+    "scenario": {
+      "scenario_id": "syn_005_x3b_acwr_spike_blocks",
+      "kind": "synthesis",
+      "description": "ACWR \u2265 1.5 fires X3b (block tier); recovery + running escalate.",
+      "as_of_date": "2026-04-18",
+      "user_id": "u_eval",
+      "snapshot": {
+        "sleep": {
+          "classified_state": {
+            "sleep_debt_band": "none"
+          }
+        },
+        "recovery": {
+          "today": {
+            "acwr_ratio": 1.55
+          }
+        },
+        "stress": {
+          "today_garmin": 30,
+          "today_body_battery": 55
+        }
+      },
+      "proposals": [
+        {
+          "proposal_id": "prop_rec_syn005",
+          "user_id": "u_eval",
+          "for_date": "2026-04-18",
+          "domain": "recovery",
+          "action": "proceed_with_planned_session",
+          "confidence": "high"
+        },
+        {
+          "proposal_id": "prop_run_syn005",
+          "user_id": "u_eval",
+          "for_date": "2026-04-18",
+          "domain": "running",
+          "action": "proceed_with_planned_run",
+          "confidence": "high"
+        }
+      ],
+      "expected": {
+        "x_rules_fired": [
+          "X3b"
+        ],
+        "final_actions": {
+          "recovery": "escalate_for_user_review",
+          "running": "escalate_for_user_review"
+        }
+      }
+    },
+    "result": {
+      "scenario_id": "syn_005_x3b_acwr_spike_blocks",
+      "daily_plan_id": "plan_2026-04-18_u_eval",
+      "phase_a_firings": [
+        {
+          "rule_id": "X3b",
+          "tier": "block",
+          "affected_domain": "recovery",
+          "trigger_note": "acwr_ratio=1.550 \u2265 1.5 with hard recovery proposal",
+          "recommended_mutation": {
+            "action": "escalate_for_user_review",
+            "action_detail": {
+              "reason_token": "x3b_acwr_spike",
+              "acwr_ratio": 1.55
+            }
+          },
+          "source_signals": {
+            "acwr_ratio": 1.55,
+            "proposal_domain": "recovery"
+          },
+          "phase": "A"
+        },
+        {
+          "rule_id": "X3b",
+          "tier": "block",
+          "affected_domain": "running",
+          "trigger_note": "acwr_ratio=1.550 \u2265 1.5 with hard running proposal",
+          "recommended_mutation": {
+            "action": "escalate_for_user_review",
+            "action_detail": {
+              "reason_token": "x3b_acwr_spike",
+              "acwr_ratio": 1.55
+            }
+          },
+          "source_signals": {
+            "acwr_ratio": 1.55,
+            "proposal_domain": "running"
+          },
+          "phase": "A"
+        }
+      ],
+      "phase_b_firings": [],
+      "recommendations": [
+        {
+          "recommendation_id": "rec_2026-04-18_u_eval_recovery_01",
+          "domain": "recovery",
+          "action": "escalate_for_user_review",
+          "confidence": "high",
+          "action_detail": {
+            "acwr_ratio": 1.55,
+            "reason_token": "x3b_acwr_spike"
+          }
+        },
+        {
+          "recommendation_id": "rec_2026-04-18_u_eval_running_01",
+          "domain": "running",
+          "action": "escalate_for_user_review",
+          "confidence": "high",
+          "action_detail": {
+            "acwr_ratio": 1.55,
+            "reason_token": "x3b_acwr_spike"
+          }
+        }
+      ],
+      "validation_errors": [],
+      "synthesis_error": null
+    },
+    "score": {
+      "scenario_id": "syn_005_x3b_acwr_spike_blocks",
+      "passed": true,
+      "axes": {
+        "x_rules_fired": "pass",
+        "final_actions": "pass",
+        "rationale_quality": "skipped_requires_agent_harness"
+      },
+      "diffs": {}
+    }
+  },
+  {
+    "scenario": {
+      "scenario_id": "syn_006_x6a_low_battery_softens",
+      "kind": "synthesis",
+      "description": "body_battery_end_of_day=20 (< 30, \u2265 15) fires X6a; softens both hard training proposals.",
+      "as_of_date": "2026-04-18",
+      "user_id": "u_eval",
+      "snapshot": {
+        "sleep": {
+          "classified_state": {
+            "sleep_debt_band": "none"
+          }
+        },
+        "recovery": {
+          "today": {
+            "acwr_ratio": 1.0
+          }
+        },
+        "stress": {
+          "today_garmin": 30,
+          "today_body_battery": 20
+        }
+      },
+      "proposals": [
+        {
+          "proposal_id": "prop_rec_syn006",
+          "user_id": "u_eval",
+          "for_date": "2026-04-18",
+          "domain": "recovery",
+          "action": "proceed_with_planned_session",
+          "confidence": "high"
+        },
+        {
+          "proposal_id": "prop_run_syn006",
+          "user_id": "u_eval",
+          "for_date": "2026-04-18",
+          "domain": "running",
+          "action": "proceed_with_planned_run",
+          "confidence": "high"
+        }
+      ],
+      "expected": {
+        "x_rules_fired": [
+          "X6a"
+        ],
+        "final_actions": {
+          "recovery": "downgrade_hard_session_to_zone_2",
+          "running": "downgrade_to_easy_aerobic"
+        }
+      }
+    },
+    "result": {
+      "scenario_id": "syn_006_x6a_low_battery_softens",
+      "daily_plan_id": "plan_2026-04-18_u_eval",
+      "phase_a_firings": [
+        {
+          "rule_id": "X6a",
+          "tier": "soften",
+          "affected_domain": "recovery",
+          "trigger_note": "body_battery_end_of_day=20 < 30 (depleted reserve)",
+          "recommended_mutation": {
+            "action": "downgrade_hard_session_to_zone_2",
+            "action_detail": {
+              "reason_token": "x6a_body_battery_low",
+              "body_battery_end_of_day": 20
+            }
+          },
+          "source_signals": {
+            "body_battery_end_of_day": 20,
+            "proposal_domain": "recovery"
+          },
+          "phase": "A"
+        },
+        {
+          "rule_id": "X6a",
+          "tier": "soften",
+          "affected_domain": "running",
+          "trigger_note": "body_battery_end_of_day=20 < 30 (depleted reserve)",
+          "recommended_mutation": {
+            "action": "downgrade_to_easy_aerobic",
+            "action_detail": {
+              "reason_token": "x6a_body_battery_low",
+              "body_battery_end_of_day": 20
+            }
+          },
+          "source_signals": {
+            "body_battery_end_of_day": 20,
+            "proposal_domain": "running"
+          },
+          "phase": "A"
+        }
+      ],
+      "phase_b_firings": [],
+      "recommendations": [
+        {
+          "recommendation_id": "rec_2026-04-18_u_eval_recovery_01",
+          "domain": "recovery",
+          "action": "downgrade_hard_session_to_zone_2",
+          "confidence": "high",
+          "action_detail": {
+            "body_battery_end_of_day": 20,
+            "reason_token": "x6a_body_battery_low"
+          }
+        },
+        {
+          "recommendation_id": "rec_2026-04-18_u_eval_running_01",
+          "domain": "running",
+          "action": "downgrade_to_easy_aerobic",
+          "confidence": "high",
+          "action_detail": {
+            "body_battery_end_of_day": 20,
+            "reason_token": "x6a_body_battery_low"
+          }
+        }
+      ],
+      "validation_errors": [],
+      "synthesis_error": null
+    },
+    "score": {
+      "scenario_id": "syn_006_x6a_low_battery_softens",
+      "passed": true,
+      "axes": {
+        "x_rules_fired": "pass",
+        "final_actions": "pass",
+        "rationale_quality": "skipped_requires_agent_harness"
+      },
+      "diffs": {}
+    }
+  },
+  {
+    "scenario": {
+      "scenario_id": "syn_007_x7_high_stress_caps_confidence",
+      "kind": "synthesis",
+      "description": "Garmin stress in the 'high' band fires X7 (cap_confidence). Actions pass through but both proposals' confidence is capped to moderate.",
+      "as_of_date": "2026-04-18",
+      "user_id": "u_eval",
+      "snapshot": {
+        "sleep": {
+          "classified_state": {
+            "sleep_debt_band": "none"
+          }
+        },
+        "recovery": {
+          "today": {
+            "acwr_ratio": 1.0
+          }
+        },
+        "stress": {
+          "today_garmin": 70,
+          "today_body_battery": 55
+        }
+      },
+      "proposals": [
+        {
+          "proposal_id": "prop_rec_syn007",
+          "user_id": "u_eval",
+          "for_date": "2026-04-18",
+          "domain": "recovery",
+          "action": "proceed_with_planned_session",
+          "confidence": "high"
+        },
+        {
+          "proposal_id": "prop_run_syn007",
+          "user_id": "u_eval",
+          "for_date": "2026-04-18",
+          "domain": "running",
+          "action": "proceed_with_planned_run",
+          "confidence": "high"
+        }
+      ],
+      "expected": {
+        "x_rules_fired": [
+          "X7"
+        ],
+        "final_actions": {
+          "recovery": "proceed_with_planned_session",
+          "running": "proceed_with_planned_run"
+        },
+        "final_confidences": {
+          "recovery": "moderate",
+          "running": "moderate"
+        }
+      }
+    },
+    "result": {
+      "scenario_id": "syn_007_x7_high_stress_caps_confidence",
+      "daily_plan_id": "plan_2026-04-18_u_eval",
+      "phase_a_firings": [
+        {
+          "rule_id": "X7",
+          "tier": "cap_confidence",
+          "affected_domain": "recovery",
+          "trigger_note": "stress_band=high \u2208 ['high', 'very_high']",
+          "recommended_mutation": null,
+          "source_signals": {
+            "stress_band": "high",
+            "garmin_all_day_stress": 70
+          },
+          "phase": "A"
+        },
+        {
+          "rule_id": "X7",
+          "tier": "cap_confidence",
+          "affected_domain": "running",
+          "trigger_note": "stress_band=high \u2208 ['high', 'very_high']",
+          "recommended_mutation": null,
+          "source_signals": {
+            "stress_band": "high",
+            "garmin_all_day_stress": 70
+          },
+          "phase": "A"
+        }
+      ],
+      "phase_b_firings": [],
+      "recommendations": [
+        {
+          "recommendation_id": "rec_2026-04-18_u_eval_recovery_01",
+          "domain": "recovery",
+          "action": "proceed_with_planned_session",
+          "confidence": "moderate",
+          "action_detail": null
+        },
+        {
+          "recommendation_id": "rec_2026-04-18_u_eval_running_01",
+          "domain": "running",
+          "action": "proceed_with_planned_run",
+          "confidence": "moderate",
+          "action_detail": null
+        }
+      ],
+      "validation_errors": [],
+      "synthesis_error": null
+    },
+    "score": {
+      "scenario_id": "syn_007_x7_high_stress_caps_confidence",
+      "passed": true,
+      "axes": {
+        "x_rules_fired": "pass",
+        "final_actions": "pass",
+        "final_confidences": "pass",
+        "rationale_quality": "skipped_requires_agent_harness"
+      },
+      "diffs": {}
+    }
+  },
+  {
+    "scenario": {
+      "scenario_id": "syn_008_x2_nutrition_deficit_softens_recovery",
+      "kind": "synthesis",
+      "description": "Nutrition snapshot (macros-only) shows 600 kcal deficit AND protein ratio 0.55; X2 softens hard recovery proposal. Reinforces the v1 macros-only scope: X2 fires against classified calorie_deficit_kcal / protein_ratio derived from daily_macros \u2014 no meal-level or micronutrient signal is consulted or asserted.",
+      "as_of_date": "2026-04-18",
+      "user_id": "u_eval",
+      "snapshot": {
+        "sleep": {
+          "classified_state": {
+            "sleep_debt_band": "none"
+          }
+        },
+        "recovery": {
+          "today": {
+            "acwr_ratio": 1.0
+          }
+        },
+        "stress": {
+          "today_garmin": 25,
+          "today_body_battery": 60
+        },
+        "nutrition": {
+          "classified_state": {
+            "calorie_deficit_kcal": 600.0,
+            "protein_ratio": 0.55,
+            "derivation_path": "daily_macros"
+          }
+        }
+      },
+      "proposals": [
+        {
+          "proposal_id": "prop_rec_syn008",
+          "user_id": "u_eval",
+          "for_date": "2026-04-18",
+          "domain": "recovery",
+          "action": "proceed_with_planned_session",
+          "confidence": "high"
+        },
+        {
+          "proposal_id": "prop_nut_syn008",
+          "user_id": "u_eval",
+          "for_date": "2026-04-18",
+          "domain": "nutrition",
+          "action": "increase_protein_intake",
+          "confidence": "moderate"
+        }
+      ],
+      "expected": {
+        "x_rules_fired": [
+          "X2"
+        ],
+        "final_actions": {
+          "recovery": "downgrade_hard_session_to_zone_2",
+          "nutrition": "increase_protein_intake"
+        }
+      }
+    },
+    "result": {
+      "scenario_id": "syn_008_x2_nutrition_deficit_softens_recovery",
+      "daily_plan_id": "plan_2026-04-18_u_eval",
+      "phase_a_firings": [
+        {
+          "rule_id": "X2",
+          "tier": "soften",
+          "affected_domain": "recovery",
+          "trigger_note": "nutrition deficit_and_protein_gap (calorie_deficit_kcal=600, protein_ratio=0.55) with hard recovery proposal",
+          "recommended_mutation": {
+            "action": "downgrade_hard_session_to_zone_2",
+            "action_detail": {
+              "reason_token": "x2_nutrition_deficit_and_protein_gap",
+              "calorie_deficit_kcal": 600.0,
+              "protein_ratio": 0.55
+            }
+          },
+          "source_signals": {
+            "calorie_deficit_kcal": 600.0,
+            "protein_ratio": 0.55,
+            "proposal_domain": "recovery"
+          },
+          "phase": "A"
+        }
+      ],
+      "phase_b_firings": [],
+      "recommendations": [
+        {
+          "recommendation_id": "rec_2026-04-18_u_eval_nutrition_01",
+          "domain": "nutrition",
+          "action": "increase_protein_intake",
+          "confidence": "moderate",
+          "action_detail": null
+        },
+        {
+          "recommendation_id": "rec_2026-04-18_u_eval_recovery_01",
+          "domain": "recovery",
+          "action": "downgrade_hard_session_to_zone_2",
+          "confidence": "high",
+          "action_detail": {
+            "calorie_deficit_kcal": 600.0,
+            "protein_ratio": 0.55,
+            "reason_token": "x2_nutrition_deficit_and_protein_gap"
+          }
+        }
+      ],
+      "validation_errors": [],
+      "synthesis_error": null
+    },
+    "score": {
+      "scenario_id": "syn_008_x2_nutrition_deficit_softens_recovery",
+      "passed": true,
+      "axes": {
+        "x_rules_fired": "pass",
+        "final_actions": "pass",
+        "rationale_quality": "skipped_requires_agent_harness"
+      },
+      "diffs": {}
+    }
+  },
+  {
+    "scenario": {
+      "scenario_id": "syn_009_x9_phase_b_adjusts_nutrition",
+      "kind": "synthesis",
+      "description": "Hard running stays hard (no Phase A triggers); nutrition draft exists \u2192 X9 (Phase B, post_adjust) adjusts nutrition action_detail without touching its action. Reinforces the code-vs-skill boundary: runtime owns X9 action_detail mutation; skills must not pre-bake this adjustment.",
+      "as_of_date": "2026-04-18",
+      "user_id": "u_eval",
+      "snapshot": {
+        "sleep": {
+          "classified_state": {
+            "sleep_debt_band": "none"
+          }
+        },
+        "recovery": {
+          "today": {
+            "acwr_ratio": 1.0
+          }
+        },
+        "stress": {
+          "today_garmin": 25,
+          "today_body_battery": 70
+        },
+        "nutrition": {
+          "classified_state": {
+            "calorie_deficit_kcal": 100.0,
+            "protein_ratio": 0.9,
+            "derivation_path": "daily_macros"
+          }
+        }
+      },
+      "proposals": [
+        {
+          "proposal_id": "prop_run_syn009",
+          "user_id": "u_eval",
+          "for_date": "2026-04-18",
+          "domain": "running",
+          "action": "proceed_with_planned_run",
+          "confidence": "high"
+        },
+        {
+          "proposal_id": "prop_nut_syn009",
+          "user_id": "u_eval",
+          "for_date": "2026-04-18",
+          "domain": "nutrition",
+          "action": "maintain_targets",
+          "confidence": "moderate"
+        }
+      ],
+      "expected": {
+        "x_rules_fired": [
+          "X9"
+        ],
+        "final_actions": {
+          "running": "proceed_with_planned_run",
+          "nutrition": "maintain_targets"
+        }
+      }
+    },
+    "result": {
+      "scenario_id": "syn_009_x9_phase_b_adjusts_nutrition",
+      "daily_plan_id": "plan_2026-04-18_u_eval",
+      "phase_a_firings": [],
+      "phase_b_firings": [
+        {
+          "rule_id": "X9",
+          "tier": "adjust",
+          "affected_domain": "nutrition",
+          "trigger_note": "training_intensity=hard \u2192 nutrition target adjustment",
+          "recommended_mutation": {
+            "action_detail": {
+              "reason_token": "x9_training_intensity_bump",
+              "protein_target_multiplier": 1.1
+            }
+          },
+          "source_signals": {
+            "training_intensity": "hard",
+            "nutrition_domain": "nutrition"
+          },
+          "phase": "B"
+        }
+      ],
+      "recommendations": [
+        {
+          "recommendation_id": "rec_2026-04-18_u_eval_nutrition_01",
+          "domain": "nutrition",
+          "action": "maintain_targets",
+          "confidence": "moderate",
+          "action_detail": {
+            "protein_target_multiplier": 1.1,
+            "reason_token": "x9_training_intensity_bump"
+          }
+        },
+        {
+          "recommendation_id": "rec_2026-04-18_u_eval_running_01",
+          "domain": "running",
+          "action": "proceed_with_planned_run",
+          "confidence": "high",
+          "action_detail": null
+        }
+      ],
+      "validation_errors": [],
+      "synthesis_error": null
+    },
+    "score": {
+      "scenario_id": "syn_009_x9_phase_b_adjusts_nutrition",
+      "passed": true,
+      "axes": {
+        "x_rules_fired": "pass",
+        "final_actions": "pass",
+        "rationale_quality": "skipped_requires_agent_harness"
+      },
+      "diffs": {}
+    }
+  },
+  {
+    "scenario": {
+      "scenario_id": "syn_010_stale_schema_rejected",
+      "kind": "synthesis",
+      "description": "A proposal carrying a stale schema_version + an out-of-enum action is rejected at writeback validation before synthesis consumes it. Synthesis then refuses because no proposals reached proposal_log. Mirrors Phase 2.5 Track B s4.",
+      "as_of_date": "2026-04-18",
+      "user_id": "u_eval",
+      "snapshot": {
+        "sleep": {
+          "classified_state": {
+            "sleep_debt_band": "none"
+          }
+        },
+        "recovery": {
+          "today": {
+            "acwr_ratio": 1.0
+          }
+        },
+        "stress": {
+          "today_garmin": 25,
+          "today_body_battery": 60
+        }
+      },
+      "proposals": [
+        {
+          "proposal_id": "prop_stale_schema",
+          "schema_version": "recovery_proposal.v0.9",
+          "user_id": "u_eval",
+          "for_date": "2026-04-18",
+          "domain": "recovery",
+          "action": "proceed_with_planned_session",
+          "action_detail": null,
+          "rationale": [],
+          "confidence": "high",
+          "uncertainty": [],
+          "policy_decisions": [
+            {
+              "rule_id": "r1_coverage",
+              "decision": "allow",
+              "note": "eval_fixture"
+            }
+          ],
+          "bounded": true,
+          "_defect": "stale_schema_version"
+        },
+        {
+          "proposal_id": "prop_bad_enum",
+          "schema_version": "recovery_proposal.v1",
+          "user_id": "u_eval",
+          "for_date": "2026-04-18",
+          "domain": "recovery",
+          "action": "train_hard_anyway",
+          "action_detail": null,
+          "rationale": [],
+          "confidence": "high",
+          "uncertainty": [],
+          "policy_decisions": [
+            {
+              "rule_id": "r1_coverage",
+              "decision": "allow",
+              "note": "eval_fixture"
+            }
+          ],
+          "bounded": true,
+          "_defect": "out_of_enum_action"
+        }
+      ],
+      "expected": {
+        "validation_errors": [
+          {
+            "proposal_id": "prop_stale_schema",
+            "accepted": false,
+            "error_invariant": "schema_version"
+          },
+          {
+            "proposal_id": "prop_bad_enum",
+            "accepted": false,
+            "error_invariant": "action_enum"
+          }
+        ],
+        "synthesis_error": "expected"
+      }
+    },
+    "result": {
+      "scenario_id": "syn_010_stale_schema_rejected",
+      "daily_plan_id": "",
+      "phase_a_firings": [],
+      "phase_b_firings": [],
+      "recommendations": [],
+      "validation_errors": [
+        {
+          "proposal_id": "prop_stale_schema",
+          "intended_defect": "stale_schema_version",
+          "accepted": false,
+          "error_invariant": "schema_version",
+          "error_message": "expected schema_version='recovery_proposal.v1' for domain 'recovery', got 'recovery_proposal.v0.9'"
+        },
+        {
+          "proposal_id": "prop_bad_enum",
+          "intended_defect": "out_of_enum_action",
+          "accepted": false,
+          "error_invariant": "action_enum",
+          "error_message": "action 'train_hard_anyway' not in 'recovery' enum ['defer_decision_insufficient_signal', 'downgrade_hard_session_to_zone_2', 'downgrade_session_to_mobility_only', 'escalate_for_user_review', 'proceed_with_planned_session', 'rest_day_recommended']"
+        }
+      ],
+      "synthesis_error": "no proposals in proposal_log for (for_date=2026-04-18, user_id='u_eval'). Call `hai propose` first."
+    },
+    "score": {
+      "scenario_id": "syn_010_stale_schema_rejected",
+      "passed": true,
+      "axes": {
+        "validation_errors": "pass",
+        "synthesis_error": "pass",
+        "rationale_quality": "skipped_requires_agent_harness"
+      },
+      "diffs": {}
+    }
+  }
+]

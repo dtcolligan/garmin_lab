@@ -1,0 +1,246 @@
+[
+  {
+    "scenario": {
+      "scenario_id": "sleep_001_adequate_baseline",
+      "kind": "domain",
+      "domain": "sleep",
+      "description": "8h sleep, good score, tight timing consistency. Expect full coverage, no firings.",
+      "input": {
+        "signals": {
+          "sleep_hours": 8.0,
+          "sleep_score_overall": 85,
+          "sleep_awake_min": 20.0,
+          "sleep_start_variance_minutes": 15.0,
+          "sleep_history_hours_last_7": [
+            8.0,
+            7.8,
+            8.1,
+            7.9,
+            8.0,
+            8.2,
+            8.0
+          ]
+        }
+      },
+      "expected": {
+        "classified": {
+          "sleep_debt_band": "none",
+          "coverage_band": "full"
+        },
+        "policy": {
+          "forced_action": null,
+          "capped_confidence": null,
+          "fired_rule_ids": []
+        }
+      }
+    },
+    "result": {
+      "scenario_id": "sleep_001_adequate_baseline",
+      "domain": "sleep",
+      "classified": {
+        "sleep_debt_band": "none",
+        "sleep_quality_band": "good",
+        "sleep_timing_consistency_band": "consistent",
+        "sleep_efficiency_band": "excellent",
+        "coverage_band": "full",
+        "sleep_status": "optimal",
+        "sleep_score": 1.0,
+        "sleep_efficiency_pct": 96.0,
+        "uncertainty": []
+      },
+      "policy": {
+        "policy_decisions": [
+          {
+            "rule_id": "require_min_coverage",
+            "decision": "allow",
+            "note": "coverage=full; required inputs present"
+          },
+          {
+            "rule_id": "no_high_confidence_on_sparse_signal",
+            "decision": "allow",
+            "note": "coverage=full; no cap required"
+          },
+          {
+            "rule_id": "chronic_deprivation_escalation",
+            "decision": "allow",
+            "note": "short_nights=0 below threshold=4 (history_len=7)"
+          }
+        ],
+        "forced_action": null,
+        "forced_action_detail": null,
+        "capped_confidence": null
+      }
+    },
+    "score": {
+      "scenario_id": "sleep_001_adequate_baseline",
+      "passed": true,
+      "axes": {
+        "classified_bands": "pass",
+        "policy_decisions": "pass",
+        "rationale_quality": "skipped_requires_agent_harness"
+      },
+      "diffs": {}
+    }
+  },
+  {
+    "scenario": {
+      "scenario_id": "sleep_002_chronic_deprivation_forces_repayment",
+      "kind": "domain",
+      "domain": "sleep",
+      "description": "4 nights < 6h in the trailing 7 fires R-chronic-deprivation \u2192 forces sleep_debt_repayment_day.",
+      "input": {
+        "signals": {
+          "sleep_hours": 5.5,
+          "sleep_score_overall": 60,
+          "sleep_awake_min": 45.0,
+          "sleep_start_variance_minutes": 40.0,
+          "sleep_history_hours_last_7": [
+            5.5,
+            5.8,
+            5.2,
+            5.9,
+            7.2,
+            7.1,
+            7.0
+          ]
+        }
+      },
+      "expected": {
+        "policy": {
+          "forced_action": "sleep_debt_repayment_day",
+          "fired_rule_ids": [
+            "chronic_deprivation_escalation"
+          ]
+        }
+      }
+    },
+    "result": {
+      "scenario_id": "sleep_002_chronic_deprivation_forces_repayment",
+      "domain": "sleep",
+      "classified": {
+        "sleep_debt_band": "elevated",
+        "sleep_quality_band": "fair",
+        "sleep_timing_consistency_band": "variable",
+        "sleep_efficiency_band": "good",
+        "coverage_band": "full",
+        "sleep_status": "compromised",
+        "sleep_score": 0.63,
+        "sleep_efficiency_pct": 88.0,
+        "uncertainty": []
+      },
+      "policy": {
+        "policy_decisions": [
+          {
+            "rule_id": "require_min_coverage",
+            "decision": "allow",
+            "note": "coverage=full; required inputs present"
+          },
+          {
+            "rule_id": "no_high_confidence_on_sparse_signal",
+            "decision": "allow",
+            "note": "coverage=full; no cap required"
+          },
+          {
+            "rule_id": "chronic_deprivation_escalation",
+            "decision": "escalate",
+            "note": "short_nights=4 >= threshold=4 (< 6.0h in last 7 nights)"
+          }
+        ],
+        "forced_action": "sleep_debt_repayment_day",
+        "forced_action_detail": {
+          "reason_token": "chronic_deprivation_detected",
+          "short_nights": 4,
+          "window_nights": 7,
+          "threshold_hours": 6.0,
+          "threshold_nights": 4
+        },
+        "capped_confidence": null
+      }
+    },
+    "score": {
+      "scenario_id": "sleep_002_chronic_deprivation_forces_repayment",
+      "passed": true,
+      "axes": {
+        "classified_bands": "pass",
+        "policy_decisions": "pass",
+        "rationale_quality": "skipped_requires_agent_harness"
+      },
+      "diffs": {}
+    }
+  },
+  {
+    "scenario": {
+      "scenario_id": "sleep_003_sparse_coverage_caps",
+      "kind": "domain",
+      "domain": "sleep",
+      "description": "Only sleep_hours available; score + efficiency + timing all missing \u2192 sparse \u2192 R-sparse caps confidence.",
+      "input": {
+        "signals": {
+          "sleep_hours": 7.6
+        }
+      },
+      "expected": {
+        "classified": {
+          "coverage_band": "sparse"
+        },
+        "policy": {
+          "capped_confidence": "moderate",
+          "fired_rule_ids": [
+            "no_high_confidence_on_sparse_signal"
+          ]
+        }
+      }
+    },
+    "result": {
+      "scenario_id": "sleep_003_sparse_coverage_caps",
+      "domain": "sleep",
+      "classified": {
+        "sleep_debt_band": "none",
+        "sleep_quality_band": "unknown",
+        "sleep_timing_consistency_band": "unknown",
+        "sleep_efficiency_band": "unknown",
+        "coverage_band": "sparse",
+        "sleep_status": "adequate",
+        "sleep_score": 1.0,
+        "sleep_efficiency_pct": null,
+        "uncertainty": [
+          "sleep_efficiency_unavailable",
+          "sleep_score_unavailable",
+          "sleep_start_ts_unavailable_in_v1"
+        ]
+      },
+      "policy": {
+        "policy_decisions": [
+          {
+            "rule_id": "require_min_coverage",
+            "decision": "allow",
+            "note": "coverage=sparse; required inputs present"
+          },
+          {
+            "rule_id": "no_high_confidence_on_sparse_signal",
+            "decision": "soften",
+            "note": "capped confidence to moderate on sparse signal (sleep_efficiency_unavailable,sleep_score_unavailable,sleep_start_ts_unavailable_in_v1)"
+          },
+          {
+            "rule_id": "chronic_deprivation_escalation",
+            "decision": "allow",
+            "note": "short_nights=0 below threshold=4 (history_len=0)"
+          }
+        ],
+        "forced_action": null,
+        "forced_action_detail": null,
+        "capped_confidence": "moderate"
+      }
+    },
+    "score": {
+      "scenario_id": "sleep_003_sparse_coverage_caps",
+      "passed": true,
+      "axes": {
+        "classified_bands": "pass",
+        "policy_decisions": "pass",
+        "rationale_quality": "skipped_requires_agent_harness"
+      },
+      "diffs": {}
+    }
+  }
+]

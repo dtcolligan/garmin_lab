@@ -1,0 +1,271 @@
+[
+  {
+    "scenario": {
+      "scenario_id": "rec_001_rested_baseline",
+      "kind": "domain",
+      "domain": "recovery",
+      "description": "Well-rested baseline day; all signals at baseline. Expect no policy firings and no forced_action.",
+      "input": {
+        "evidence": {
+          "as_of_date": "2026-04-17",
+          "user_id": "u_eval",
+          "sleep_hours": 8.0,
+          "resting_hr": 52.0,
+          "hrv_ms": 80.0,
+          "soreness_self_report": "low"
+        },
+        "raw_summary": {
+          "as_of_date": "2026-04-17",
+          "user_id": "u_eval",
+          "resting_hr_baseline": 52.0,
+          "resting_hr_ratio_vs_baseline": 1.0,
+          "hrv_ratio_vs_baseline": 1.0,
+          "trailing_7d_training_load": 400.0,
+          "training_load_baseline": 400.0,
+          "training_load_ratio_vs_baseline": 1.0,
+          "resting_hr_spike_days": 0
+        }
+      },
+      "expected": {
+        "classified": {
+          "sleep_debt_band": "none",
+          "resting_hr_band": "at",
+          "hrv_band": "at",
+          "training_load_band": "moderate",
+          "soreness_band": "low",
+          "coverage_band": "full",
+          "recovery_status": "recovered"
+        },
+        "policy": {
+          "forced_action": null,
+          "capped_confidence": null,
+          "fired_rule_ids": []
+        }
+      }
+    },
+    "result": {
+      "scenario_id": "rec_001_rested_baseline",
+      "domain": "recovery",
+      "classified": {
+        "sleep_debt_band": "none",
+        "resting_hr_band": "at",
+        "hrv_band": "at",
+        "training_load_band": "moderate",
+        "soreness_band": "low",
+        "coverage_band": "full",
+        "recovery_status": "recovered",
+        "readiness_score": 1.0,
+        "uncertainty": []
+      },
+      "policy": {
+        "policy_decisions": [
+          {
+            "rule_id": "require_min_coverage",
+            "decision": "allow",
+            "note": "coverage=full; required inputs present"
+          },
+          {
+            "rule_id": "no_high_confidence_on_sparse_signal",
+            "decision": "allow",
+            "note": "coverage=full; no cap required"
+          },
+          {
+            "rule_id": "resting_hr_spike_escalation",
+            "decision": "allow",
+            "note": "resting_hr_spike_days=0 below threshold=3"
+          }
+        ],
+        "forced_action": null,
+        "forced_action_detail": null,
+        "capped_confidence": null
+      }
+    },
+    "score": {
+      "scenario_id": "rec_001_rested_baseline",
+      "passed": true,
+      "axes": {
+        "classified_bands": "pass",
+        "policy_decisions": "pass",
+        "rationale_quality": "skipped_requires_agent_harness"
+      },
+      "diffs": {}
+    }
+  },
+  {
+    "scenario": {
+      "scenario_id": "rec_002_rhr_spike_escalates",
+      "kind": "domain",
+      "domain": "recovery",
+      "description": "Sustained resting-HR spike (\u22653 days) fires R6 and forces escalate_for_user_review.",
+      "input": {
+        "evidence": {
+          "as_of_date": "2026-04-17",
+          "user_id": "u_eval",
+          "sleep_hours": 7.5,
+          "resting_hr": 65.0,
+          "hrv_ms": 60.0,
+          "soreness_self_report": "moderate"
+        },
+        "raw_summary": {
+          "as_of_date": "2026-04-17",
+          "user_id": "u_eval",
+          "resting_hr_baseline": 52.0,
+          "resting_hr_ratio_vs_baseline": 1.25,
+          "hrv_ratio_vs_baseline": 0.85,
+          "trailing_7d_training_load": 450.0,
+          "training_load_baseline": 400.0,
+          "training_load_ratio_vs_baseline": 1.12,
+          "resting_hr_spike_days": 3
+        }
+      },
+      "expected": {
+        "classified": {
+          "resting_hr_band": "well_above"
+        },
+        "policy": {
+          "forced_action": "escalate_for_user_review",
+          "fired_rule_ids": [
+            "resting_hr_spike_escalation"
+          ]
+        }
+      }
+    },
+    "result": {
+      "scenario_id": "rec_002_rhr_spike_escalates",
+      "domain": "recovery",
+      "classified": {
+        "sleep_debt_band": "none",
+        "resting_hr_band": "well_above",
+        "hrv_band": "below",
+        "training_load_band": "high",
+        "soreness_band": "moderate",
+        "coverage_band": "full",
+        "recovery_status": "mildly_impaired",
+        "readiness_score": 0.5,
+        "uncertainty": []
+      },
+      "policy": {
+        "policy_decisions": [
+          {
+            "rule_id": "require_min_coverage",
+            "decision": "allow",
+            "note": "coverage=full; required inputs present"
+          },
+          {
+            "rule_id": "no_high_confidence_on_sparse_signal",
+            "decision": "allow",
+            "note": "coverage=full; no cap required"
+          },
+          {
+            "rule_id": "resting_hr_spike_escalation",
+            "decision": "escalate",
+            "note": "resting_hr_spike_days=3 >= threshold=3"
+          }
+        ],
+        "forced_action": "escalate_for_user_review",
+        "forced_action_detail": {
+          "reason_token": "resting_hr_spike_3_days_running",
+          "consecutive_days": 3
+        },
+        "capped_confidence": null
+      }
+    },
+    "score": {
+      "scenario_id": "rec_002_rhr_spike_escalates",
+      "passed": true,
+      "axes": {
+        "classified_bands": "pass",
+        "policy_decisions": "pass",
+        "rationale_quality": "skipped_requires_agent_harness"
+      },
+      "diffs": {}
+    }
+  },
+  {
+    "scenario": {
+      "scenario_id": "rec_003_sparse_coverage_caps_confidence",
+      "kind": "domain",
+      "domain": "recovery",
+      "description": "Missing HRV + missing training-load baseline \u2192 sparse coverage \u2192 R5 caps confidence to moderate.",
+      "input": {
+        "evidence": {
+          "as_of_date": "2026-04-17",
+          "user_id": "u_eval",
+          "sleep_hours": 7.8,
+          "resting_hr": 54.0,
+          "soreness_self_report": "low"
+        },
+        "raw_summary": {
+          "as_of_date": "2026-04-17",
+          "user_id": "u_eval",
+          "resting_hr_baseline": 52.0,
+          "resting_hr_ratio_vs_baseline": 1.03,
+          "resting_hr_spike_days": 0
+        }
+      },
+      "expected": {
+        "classified": {
+          "coverage_band": "sparse",
+          "hrv_band": "unknown",
+          "training_load_band": "unknown"
+        },
+        "policy": {
+          "capped_confidence": "moderate",
+          "fired_rule_ids": [
+            "no_high_confidence_on_sparse_signal"
+          ]
+        }
+      }
+    },
+    "result": {
+      "scenario_id": "rec_003_sparse_coverage_caps_confidence",
+      "domain": "recovery",
+      "classified": {
+        "sleep_debt_band": "none",
+        "resting_hr_band": "at",
+        "hrv_band": "unknown",
+        "training_load_band": "unknown",
+        "soreness_band": "low",
+        "coverage_band": "sparse",
+        "recovery_status": "recovered",
+        "readiness_score": 1.0,
+        "uncertainty": [
+          "hrv_unavailable",
+          "training_load_window_incomplete"
+        ]
+      },
+      "policy": {
+        "policy_decisions": [
+          {
+            "rule_id": "require_min_coverage",
+            "decision": "allow",
+            "note": "coverage=sparse; required inputs present"
+          },
+          {
+            "rule_id": "no_high_confidence_on_sparse_signal",
+            "decision": "soften",
+            "note": "capped confidence to moderate on sparse signal (hrv_unavailable,training_load_window_incomplete)"
+          },
+          {
+            "rule_id": "resting_hr_spike_escalation",
+            "decision": "allow",
+            "note": "resting_hr_spike_days=0 below threshold=3"
+          }
+        ],
+        "forced_action": null,
+        "forced_action_detail": null,
+        "capped_confidence": "moderate"
+      }
+    },
+    "score": {
+      "scenario_id": "rec_003_sparse_coverage_caps_confidence",
+      "passed": true,
+      "axes": {
+        "classified_bands": "pass",
+        "policy_decisions": "pass",
+        "rationale_quality": "skipped_requires_agent_harness"
+      },
+      "diffs": {}
+    }
+  }
+]

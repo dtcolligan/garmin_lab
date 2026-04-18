@@ -1,0 +1,231 @@
+[
+  {
+    "scenario": {
+      "scenario_id": "run_001_fresh_baseline",
+      "kind": "domain",
+      "domain": "running",
+      "description": "Typical week on baseline mileage with one hard session; ACWR balanced. Expect no policy firings.",
+      "input": {
+        "signals": {
+          "weekly_mileage_m": 50000.0,
+          "weekly_mileage_baseline_m": 50000.0,
+          "recent_hard_session_count_7d": 1,
+          "acwr_ratio": 1.0,
+          "training_readiness_pct": 75,
+          "sleep_debt_band": "none",
+          "resting_hr_band": "at"
+        }
+      },
+      "expected": {
+        "classified": {
+          "weekly_mileage_trend_band": "moderate",
+          "hard_session_load_band": "light",
+          "coverage_band": "full"
+        },
+        "policy": {
+          "forced_action": null,
+          "capped_confidence": null,
+          "fired_rule_ids": []
+        }
+      }
+    },
+    "result": {
+      "scenario_id": "run_001_fresh_baseline",
+      "domain": "running",
+      "classified": {
+        "weekly_mileage_trend_band": "moderate",
+        "hard_session_load_band": "light",
+        "freshness_band": "neutral",
+        "recovery_adjacent_band": "favourable",
+        "coverage_band": "full",
+        "running_readiness_status": "ready",
+        "readiness_score": 1.0,
+        "uncertainty": []
+      },
+      "policy": {
+        "policy_decisions": [
+          {
+            "rule_id": "require_min_coverage",
+            "decision": "allow",
+            "note": "coverage=full; required inputs present"
+          },
+          {
+            "rule_id": "no_high_confidence_on_sparse_signal",
+            "decision": "allow",
+            "note": "coverage=full; no cap required"
+          },
+          {
+            "rule_id": "acwr_spike_escalation",
+            "decision": "allow",
+            "note": "acwr_ratio=1.0 below threshold=1.5"
+          }
+        ],
+        "forced_action": null,
+        "forced_action_detail": null,
+        "capped_confidence": null
+      }
+    },
+    "score": {
+      "scenario_id": "run_001_fresh_baseline",
+      "passed": true,
+      "axes": {
+        "classified_bands": "pass",
+        "policy_decisions": "pass",
+        "rationale_quality": "skipped_requires_agent_harness"
+      },
+      "diffs": {}
+    }
+  },
+  {
+    "scenario": {
+      "scenario_id": "run_002_acwr_spike_escalates",
+      "kind": "domain",
+      "domain": "running",
+      "description": "ACWR ratio at 1.5 fires R-acwr-spike; forces escalate_for_user_review regardless of other bands.",
+      "input": {
+        "signals": {
+          "weekly_mileage_m": 75000.0,
+          "weekly_mileage_baseline_m": 50000.0,
+          "recent_hard_session_count_7d": 3,
+          "acwr_ratio": 1.55,
+          "training_readiness_pct": 65,
+          "sleep_debt_band": "none",
+          "resting_hr_band": "above"
+        }
+      },
+      "expected": {
+        "policy": {
+          "forced_action": "escalate_for_user_review",
+          "fired_rule_ids": [
+            "acwr_spike_escalation"
+          ]
+        }
+      }
+    },
+    "result": {
+      "scenario_id": "run_002_acwr_spike_escalates",
+      "domain": "running",
+      "classified": {
+        "weekly_mileage_trend_band": "very_high",
+        "hard_session_load_band": "heavy",
+        "freshness_band": "overreaching",
+        "recovery_adjacent_band": "neutral",
+        "coverage_band": "full",
+        "running_readiness_status": "hold",
+        "readiness_score": 0.4,
+        "uncertainty": []
+      },
+      "policy": {
+        "policy_decisions": [
+          {
+            "rule_id": "require_min_coverage",
+            "decision": "allow",
+            "note": "coverage=full; required inputs present"
+          },
+          {
+            "rule_id": "no_high_confidence_on_sparse_signal",
+            "decision": "allow",
+            "note": "coverage=full; no cap required"
+          },
+          {
+            "rule_id": "acwr_spike_escalation",
+            "decision": "escalate",
+            "note": "acwr_ratio=1.55 >= threshold=1.5"
+          }
+        ],
+        "forced_action": "escalate_for_user_review",
+        "forced_action_detail": {
+          "reason_token": "acwr_spike",
+          "acwr_ratio": 1.55,
+          "threshold": 1.5
+        },
+        "capped_confidence": null
+      }
+    },
+    "score": {
+      "scenario_id": "run_002_acwr_spike_escalates",
+      "passed": true,
+      "axes": {
+        "classified_bands": "pass",
+        "policy_decisions": "pass",
+        "rationale_quality": "skipped_requires_agent_harness"
+      },
+      "diffs": {}
+    }
+  },
+  {
+    "scenario": {
+      "scenario_id": "run_003_sparse_coverage_caps",
+      "kind": "domain",
+      "domain": "running",
+      "description": "Only weekly-mileage signal present; rest unknown \u2192 sparse coverage triggers R-sparse cap.",
+      "input": {
+        "signals": {
+          "weekly_mileage_m": 50000.0,
+          "weekly_mileage_baseline_m": 50000.0
+        }
+      },
+      "expected": {
+        "classified": {
+          "coverage_band": "sparse"
+        },
+        "policy": {
+          "capped_confidence": "moderate",
+          "fired_rule_ids": [
+            "no_high_confidence_on_sparse_signal"
+          ]
+        }
+      }
+    },
+    "result": {
+      "scenario_id": "run_003_sparse_coverage_caps",
+      "domain": "running",
+      "classified": {
+        "weekly_mileage_trend_band": "moderate",
+        "hard_session_load_band": "unknown",
+        "freshness_band": "unknown",
+        "recovery_adjacent_band": "unknown",
+        "coverage_band": "sparse",
+        "running_readiness_status": "conditional",
+        "readiness_score": 1.0,
+        "uncertainty": [
+          "acwr_unavailable",
+          "hard_session_history_unavailable",
+          "recovery_adjacent_signals_unavailable"
+        ]
+      },
+      "policy": {
+        "policy_decisions": [
+          {
+            "rule_id": "require_min_coverage",
+            "decision": "allow",
+            "note": "coverage=sparse; required inputs present"
+          },
+          {
+            "rule_id": "no_high_confidence_on_sparse_signal",
+            "decision": "soften",
+            "note": "capped confidence to moderate on sparse signal (acwr_unavailable,hard_session_history_unavailable,recovery_adjacent_signals_unavailable)"
+          },
+          {
+            "rule_id": "acwr_spike_escalation",
+            "decision": "allow",
+            "note": "acwr_ratio unavailable; no escalation"
+          }
+        ],
+        "forced_action": null,
+        "forced_action_detail": null,
+        "capped_confidence": "moderate"
+      }
+    },
+    "score": {
+      "scenario_id": "run_003_sparse_coverage_caps",
+      "passed": true,
+      "axes": {
+        "classified_bands": "pass",
+        "policy_decisions": "pass",
+        "rationale_quality": "skipped_requires_agent_harness"
+      },
+      "diffs": {}
+    }
+  }
+]

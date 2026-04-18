@@ -1,0 +1,32 @@
+{
+  "domain": {
+    "nutrition": {
+      "total": 3,
+      "passed": 3
+    },
+    "recovery": {
+      "total": 3,
+      "passed": 3
+    },
+    "running": {
+      "total": 3,
+      "passed": 3
+    },
+    "sleep": {
+      "total": 3,
+      "passed": 3
+    },
+    "strength": {
+      "total": 3,
+      "passed": 3
+    },
+    "stress": {
+      "total": 3,
+      "passed": 3
+    }
+  },
+  "synthesis": {
+    "total": 10,
+    "passed": 10
+  }
+}
