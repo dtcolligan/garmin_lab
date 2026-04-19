@@ -134,9 +134,11 @@ except legacy recovery-only writeback) `recommendation_log`. `hai
 writeback` writes `recommendation_log` only for the recovery-only
 legacy direct path.
 
-**Who reads it.** Today: direct SQLite reads during audit. In Phase C,
-the `hai explain` surface will read this layer to reconstruct why a
-given plan exists (see [`query_taxonomy.md`](query_taxonomy.md) §2.3).
+**Who reads it.** `hai explain` (shipped in Phase C) reads this layer
+to reconstruct why a given plan exists; direct SQLite reads remain
+available. See [`explainability.md`](explainability.md) for the
+bundle shape and [`query_taxonomy.md`](query_taxonomy.md) §2.3 for
+the question class it answers.
 
 **Why it exists.** This is the project's strongest differentiator. The
 runtime does not just tell the user what to do — it retains an
@@ -157,8 +159,8 @@ proposal → firing → mutation → final recommendation.
 review record` writes `review_outcome`.
 
 **Who reads it.** `hai review summary` rolls outcomes up per domain.
-Phase C's `hai explain` surface will include review linkage when
-present.
+`hai explain` (Phase C) includes review linkage when present — see
+[`explainability.md`](explainability.md).
 
 **Why it exists.** Outcome memory closes the audit loop: a later
 reader can see not only what was recommended and why, but also how it

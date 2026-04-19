@@ -662,6 +662,86 @@ def cmd_synthesize(args: argparse.Namespace) -> int:
 
 
 # ---------------------------------------------------------------------------
+# hai explain — read-only audit-chain reconstruction (Phase C)
+# ---------------------------------------------------------------------------
+
+def cmd_explain(args: argparse.Namespace) -> int:
+    """Reconstruct the audit chain for a committed plan, read-only.
+
+    Two key forms:
+
+    - ``--daily-plan-id <id>`` returns the bundle for an exact plan,
+      including ``_v<N>`` superseded variants.
+    - ``--for-date <d> --user-id <u>`` returns the canonical plan for
+      that key. The bundle's ``supersedes`` / ``superseded_by`` fields
+      let a caller walk any supersession chain by reissuing
+      ``hai explain --daily-plan-id``.
+
+    Output is JSON by default (machine-readable for agents). Pass
+    ``--text`` for the operator-facing report. Nothing in this command
+    opens a write transaction.
+    """
+
+    from health_agent_infra.core.explain import (
+        ExplainNotFoundError,
+        bundle_to_dict,
+        load_bundle_by_daily_plan_id,
+        load_bundle_for_date,
+        render_bundle_text,
+    )
+    from health_agent_infra.core.state import open_connection, resolve_db_path
+
+    if args.daily_plan_id and (args.for_date or args.user_id):
+        print(
+            "hai explain rejected: pass either --daily-plan-id OR "
+            "(--for-date and --user-id), not both.",
+            file=sys.stderr,
+        )
+        return 2
+    if not args.daily_plan_id and not (args.for_date and args.user_id):
+        print(
+            "hai explain rejected: provide --daily-plan-id, or both "
+            "--for-date and --user-id.",
+            file=sys.stderr,
+        )
+        return 2
+
+    db_path = resolve_db_path(args.db_path)
+    if not db_path.exists():
+        print(
+            f"hai explain requires an initialized state DB; not found at "
+            f"{db_path}. Run `hai state init` first.",
+            file=sys.stderr,
+        )
+        return 2
+
+    conn = open_connection(db_path)
+    try:
+        try:
+            if args.daily_plan_id:
+                bundle = load_bundle_by_daily_plan_id(
+                    conn, daily_plan_id=args.daily_plan_id,
+                )
+            else:
+                bundle = load_bundle_for_date(
+                    conn,
+                    for_date=date.fromisoformat(args.for_date),
+                    user_id=args.user_id,
+                )
+        except ExplainNotFoundError as exc:
+            print(f"hai explain: {exc}", file=sys.stderr)
+            return 2
+    finally:
+        conn.close()
+
+    if args.text:
+        sys.stdout.write(render_bundle_text(bundle))
+    else:
+        _emit_json(bundle_to_dict(bundle))
+    return 0
+
+
+# ---------------------------------------------------------------------------
 # hai review
 # ---------------------------------------------------------------------------
 
@@ -2697,6 +2777,38 @@ def build_parser() -> argparse.ArgumentParser:
     p_syn.add_argument("--db-path", default=None,
                        help="State DB path (same semantics as `hai writeback --db-path`)")
     p_syn.set_defaults(func=cmd_synthesize)
+
+    p_explain = sub.add_parser(
+        "explain",
+        help=(
+            "Read-only audit-chain reconstruction for a committed plan: "
+            "proposals, X-rule firings, final recommendations, "
+            "supersession linkage, and review records."
+        ),
+    )
+    p_explain.add_argument(
+        "--daily-plan-id", default=None,
+        help="Exact plan id to explain (e.g. 'plan_2026-04-17_u_local_1' "
+             "or its '_v<N>' supersession variants). Mutually exclusive "
+             "with --for-date / --user-id.",
+    )
+    p_explain.add_argument(
+        "--for-date", default=None,
+        help="Civil date of the canonical plan to explain, ISO-8601. "
+             "Pair with --user-id.",
+    )
+    p_explain.add_argument(
+        "--user-id", default=None,
+        help="User whose canonical plan to explain. Pair with --for-date.",
+    )
+    p_explain.add_argument(
+        "--text", action="store_true",
+        help="Render the bundle as a plain-text operator report instead "
+             "of JSON.",
+    )
+    p_explain.add_argument("--db-path", default=None,
+                           help="State DB path (same semantics as `hai writeback --db-path`)")
+    p_explain.set_defaults(func=cmd_explain)
 
     p_review = sub.add_parser("review", help="Review scheduling + outcome persistence")
     review_sub = p_review.add_subparsers(dest="review_command", required=True)

@@ -270,6 +270,9 @@ hai synthesize --as-of <d> --user-id <u> --drafts-json <p>      # skill overlay 
 
 hai writeback --recommendation-json <p> --base-dir <root>        # recovery-only legacy path
 
+hai explain --for-date <d> --user-id <u> [--text]                # read-only audit-chain reconstruction
+hai explain --daily-plan-id <id> [--text]                        # exact-plan form (incl. _v<N> variants)
+
 hai review schedule | record | summary [--domain <d>] --base-dir <root>
 
 hai config init | show

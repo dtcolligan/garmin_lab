@@ -21,7 +21,7 @@ asked.*
 |---|---|---|
 | 1. Current state understanding | "Am I recovered enough to train hard today?" | `hai state snapshot`; per-domain readiness skills reading `classified_state` + `policy_result` |
 | 2. Action planning | "What should I do today, across domains?" | `hai daily`; `hai synthesize` (optionally two-pass with `--bundle-only` + `--drafts-json`) |
-| 3. Explanation / audit | "Why did the system recommend an easy run today?" | Today: direct reads of `proposal_log`, `x_rule_firing`, `recommendation_log`. First-class `hai explain` lands in **Phase C**. |
+| 3. Explanation / audit | "Why did the system recommend an easy run today?" | `hai explain` (added in Phase C, see [`explainability.md`](explainability.md)); direct reads of `proposal_log`, `x_rule_firing`, `recommendation_log`, `review_*` remain available. |
 | 4. Longitudinal review | "How has the last two weeks gone?" | `hai review schedule / record / summary [--domain <d>]`; direct reads of `accepted_*_state_daily` + `daily_plan` history |
 | 5. Grounded topic explanation | "What does sleep debt mean in this system?" | **Not shipped in v0.1.0.** Read-only grounded-expert prototype is **Phase F**, under explicit source/privacy rules. |
 | 6. Human-input routing | "I did squats today — 3×8 at 225" | `hai intake gym|exercise|nutrition|stress|note|readiness`; `strength-intake` + `merge-human-inputs` skills |
@@ -105,11 +105,13 @@ recommendation is already persisted:
 In v0.1.0 the agent (or a user) reaches this via direct SQLite reads.
 That works but is not ergonomic.
 
-**Phase C adds a first-class surface.** `hai explain` (roadmap Phase C)
-is a read-only CLI that reconstructs the audit chain for
+**`hai explain` is the first-class surface (Phase C, shipped).** It is
+a read-only CLI that reconstructs the audit chain for
 `--for-date <d> --user-id <u>` or `--daily-plan-id <id>`, in both JSON
 and human-readable form. It does not mutate state and does not recompute
-anything — it reads from the tables above.
+anything — it reads from the tables above. See
+[`explainability.md`](explainability.md) for the bundle shape and use
+cases.
 
 **What it will not do.** It will not invent rationale that was not
 recorded. If a firing did not happen, no firing is shown. The explain
@@ -222,7 +224,7 @@ six classes pinned to stages:
 |---|---|---|---|
 | Current state | projection → snapshot | `accepted_*_state_daily` | projectors (`hai state reproject`) |
 | Action planning | proposal → synthesis | `proposal_log` → `daily_plan`, `x_rule_firing`, `recommendation_log` | `hai propose`, `hai synthesize` |
-| Explanation / audit | post-synthesis read | proposal_log + x_rule_firing + recommendation_log (+ review tables) | none (read-only); Phase C adds `hai explain` |
+| Explanation / audit | post-synthesis read | proposal_log + x_rule_firing + recommendation_log (+ review tables) | none (read-only); `hai explain` ships in Phase C |
 | Longitudinal review | review loop + historical snapshot | `review_event`, `review_outcome`, historical `accepted_*_state_daily` / `daily_plan` | `hai review` |
 | Grounded topic explanation | *not shipped* | *(Phase F)* | *(Phase F)* |
 | Human-input routing | intake | raw tables (`gym_session`, `gym_set`, `nutrition_intake_raw`, `stress_manual_raw`, `context_note`, user-defined `exercise_taxonomy`) | `hai intake *` |
