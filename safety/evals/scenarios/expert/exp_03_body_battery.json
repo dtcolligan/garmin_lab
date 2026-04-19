@@ -1,0 +1,11 @@
+{
+  "scenario_id": "exp_03_body_battery",
+  "description": "Bounded explainer question about what body battery measures. Retrieval must surface the recovery-readiness skill-contract excerpt (vendor passive aggregate) and the X6a rule source so the explainer can name both the vendor semantics and how the runtime reacts to a low value.",
+  "question": "What does body battery measure?",
+  "expected_topic": "body_battery",
+  "expected_source_ids_subset": [
+    "recovery_skill_body_battery_passive",
+    "x_rules_x6a_low_battery_softens"
+  ],
+  "must_cite_or_abstain": true
+}

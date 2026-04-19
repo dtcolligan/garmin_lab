@@ -1,0 +1,10 @@
+{
+  "scenario_id": "exp_02_protein_strength",
+  "description": "Bounded explainer question about why low protein would soften a strength session. Retrieval must return the X2 X-rule source so the explainer can ground the claim in the runtime's rule text rather than paraphrasing nutrition-science knowledge.",
+  "question": "Why would low protein soften strength?",
+  "expected_topic": "protein_ratio_strength",
+  "expected_source_ids_subset": [
+    "x_rules_x2_nutrition_deficit_softens_strength"
+  ],
+  "must_cite_or_abstain": true
+}

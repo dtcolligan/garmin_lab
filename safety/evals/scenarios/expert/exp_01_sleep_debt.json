@@ -1,0 +1,11 @@
+{
+  "scenario_id": "exp_01_sleep_debt",
+  "description": "Bounded explainer question about sleep debt. Retrieval must return at least one source tagged with the sleep_debt topic, and the state-model band-definition source must be among the results so the explainer can name the band enum.",
+  "question": "What does elevated sleep debt mean in this system?",
+  "expected_topic": "sleep_debt",
+  "expected_source_ids_subset": [
+    "state_model_sleep_debt_band",
+    "x_rules_x1b_sleep_debt_blocks"
+  ],
+  "must_cite_or_abstain": true
+}

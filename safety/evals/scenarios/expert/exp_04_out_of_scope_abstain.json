@@ -1,0 +1,8 @@
+{
+  "scenario_id": "exp_04_out_of_scope_abstain",
+  "description": "An open-ended general health question whose topic is deliberately not on the allowlist. Retrieval must abstain rather than fabricate a source — this scenario locks the cite-or-abstain fence.",
+  "question": "What is the best sports drink for recovery?",
+  "expected_topic": "sports_drink_recovery",
+  "expected_abstain": true,
+  "must_cite_or_abstain": true
+}
