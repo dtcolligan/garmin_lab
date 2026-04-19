@@ -128,12 +128,15 @@ hai setup-skills
 
 ## Read this repo in 5 minutes
 
-1. **Architecture overview** — [`reporting/docs/architecture.md`](reporting/docs/architecture.md)
-2. **X-rule catalogue** — [`reporting/docs/x_rules.md`](reporting/docs/x_rules.md)
-3. **Non-goals (scope discipline)** — [`reporting/docs/non_goals.md`](reporting/docs/non_goals.md)
-4. **State schema** — [`reporting/docs/state_model_v1.md`](reporting/docs/state_model_v1.md)
-5. **10-minute reading tour** — [`reporting/docs/tour.md`](reporting/docs/tour.md)
-6. **Eval capture** — [`reporting/artifacts/flagship_loop_proof/2026-04-18-multi-domain-evals/`](reporting/artifacts/flagship_loop_proof/2026-04-18-multi-domain-evals/)
+1. **Positioning & role map** — [`reporting/docs/personal_health_agent_positioning.md`](reporting/docs/personal_health_agent_positioning.md)
+2. **Query taxonomy** — [`reporting/docs/query_taxonomy.md`](reporting/docs/query_taxonomy.md)
+3. **Memory model** — [`reporting/docs/memory_model.md`](reporting/docs/memory_model.md)
+4. **Architecture overview** — [`reporting/docs/architecture.md`](reporting/docs/architecture.md)
+5. **X-rule catalogue** — [`reporting/docs/x_rules.md`](reporting/docs/x_rules.md)
+6. **Non-goals (scope discipline)** — [`reporting/docs/non_goals.md`](reporting/docs/non_goals.md)
+7. **State schema** — [`reporting/docs/state_model_v1.md`](reporting/docs/state_model_v1.md)
+8. **10-minute reading tour** — [`reporting/docs/tour.md`](reporting/docs/tour.md)
+9. **Eval capture** — [`reporting/artifacts/flagship_loop_proof/2026-04-18-multi-domain-evals/`](reporting/artifacts/flagship_loop_proof/2026-04-18-multi-domain-evals/)
 
 ## Repo layout
 

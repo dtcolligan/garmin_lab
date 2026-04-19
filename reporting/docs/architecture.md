@@ -9,6 +9,15 @@ writeback`` boundary. Every deterministic guarantee lives in code;
 every judgment call lives in a skill; the contract between them is
 typed.
 
+This doc covers *how* the runtime is wired. For the framing layer
+(what this project is, how roles split across runtime / coach / memory
+/ grounded expert, and why it is local-first) see
+[``personal_health_agent_positioning.md``](personal_health_agent_positioning.md).
+For the layered view of what lives on disk see
+[``memory_model.md``](memory_model.md). For the classes of user
+question the runtime is built to answer see
+[``query_taxonomy.md``](query_taxonomy.md).
+
 ## Six domains in v1
 
 | Domain | What it reasons about |
