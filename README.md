@@ -143,6 +143,10 @@ hai setup-skills
 
 ## Repo layout
 
+For a one-page orientation of every top-level entry (active vs
+historical vs generated) see [`REPO_MAP.md`](REPO_MAP.md). The
+package itself looks like this:
+
 ```
 src/health_agent_infra/
 ├── cli.py                          # hai dispatcher
@@ -150,6 +154,7 @@ src/health_agent_infra/
 │   ├── schemas.py  validate.py  config.py
 │   ├── synthesis.py  synthesis_policy.py
 │   ├── writeback/  state/  clean/  pull/  review/
+│   ├── memory/  explain/  research/
 │   └── intake/
 ├── domains/
 │   ├── recovery/  running/  sleep/  stress/  strength/  nutrition/
@@ -157,18 +162,21 @@ src/health_agent_infra/
 ├── skills/
 │   ├── recovery-readiness/  running-readiness/  sleep-quality/
 │   ├── stress-regulation/  strength-readiness/  nutrition-alignment/
-│   ├── daily-plan-synthesis/
+│   ├── daily-plan-synthesis/  expert-explainer/
 │   └── strength-intake/  merge-human-inputs/  writeback-protocol/
 │       reporting/  safety/
+├── evals/                          # packaged eval runner + scenarios
 └── data/garmin/export/              # committed CSV fixture
-reporting/
-├── docs/                            # architecture, x_rules, non_goals, ...
-├── artifacts/flagship_loop_proof/   # eval runner captures
-├── plans/                           # comprehensive rebuild plan + gates
-└── experiments/                     # Phase 0.5 / 2.5 throwaway prototypes
-safety/
+reporting/                          # see reporting/README.md
+├── docs/                            # architecture, x_rules, non_goals, ... (+ archive/)
+├── artifacts/flagship_loop_proof/   # eval runner captures (+ archive/, phase_0/)
+├── plans/                           # post-v0.1 roadmap + historical phase docs
+└── experiments/                     # frozen Phase 0.5 / 2.5 prototypes
+safety/                             # see safety/README.md
 ├── tests/                           # 1200+ unit + contract + integration
-└── evals/                           # Phase 6 eval framework (28 scenarios)
+├── evals/                           # eval-doc reference + skill-harness pilot
+└── scripts/                         # legacy pre-rebuild demo shim (do not run)
+merge_human_inputs/                 # docs + example payloads bucket; not a Python module
 ```
 
 ## What's proven in v1

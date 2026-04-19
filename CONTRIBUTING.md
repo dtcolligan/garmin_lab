@@ -96,6 +96,7 @@ Start with these:
 
 - `README.md`
 - `STATUS.md`
+- `REPO_MAP.md` — one-page orientation of every top-level entry
 - `reporting/docs/architecture.md`
 - `reporting/docs/non_goals.md`
 - `reporting/docs/tour.md`

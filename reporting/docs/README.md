@@ -3,6 +3,12 @@
 Current v1 documentation for Health Agent Infra. Start with
 ``architecture.md`` if this is your first read.
 
+For a one-page orientation of the top-level repo layout (what each
+top-level directory is, what is active vs historical), see
+[`../../REPO_MAP.md`](../../REPO_MAP.md). For a map of `reporting/`
+itself (docs / artifacts / plans / experiments), see
+[`../README.md`](../README.md).
+
 ## Controlling docs
 
 - [`architecture.md`](architecture.md) — pipeline diagram,
