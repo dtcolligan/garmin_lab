@@ -41,6 +41,7 @@ Issues = "https://github.com/dtcolligan/health_agent_infra/issues"
 dev = [
   "pytest>=9.0.3",
   "build>=1.2",
+  "hypothesis>=6.100",
 ]
 
 [project.scripts]
