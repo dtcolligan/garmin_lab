@@ -331,14 +331,15 @@ def _load_firings_for_plan(
 def _load_recommendations_for_plan(
     conn: sqlite3.Connection, *, daily_plan_id: str,
 ) -> list[ExplainRecommendation]:
-    # ``daily_plan_id`` lives inside ``payload_json`` (recommendation_log
-    # carries no FK column for it), so we json_extract on lookup. Same
-    # pattern :func:`delete_canonical_plan_cascade` uses on the write side.
+    # M3: ``daily_plan_id`` is now a first-class column with a dedicated
+    # index (``idx_recommendation_log_daily_plan_id``), so this is a
+    # plain B-tree lookup. The column is populated on write and
+    # backfilled for pre-M3 rows by migration 009.
     rows = conn.execute(
         "SELECT recommendation_id, domain, action, confidence, "
         "  bounded, payload_json, issued_at "
         "FROM recommendation_log "
-        "WHERE json_extract(payload_json, '$.daily_plan_id') = ? "
+        "WHERE daily_plan_id = ? "
         "ORDER BY domain, recommendation_id",
         (daily_plan_id,),
     ).fetchall()

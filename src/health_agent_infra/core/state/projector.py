@@ -1154,8 +1154,9 @@ def reproject_from_jsonl(conn: sqlite3.Connection, base_dir, *, allow_empty: boo
                         recommendation_id, user_id, for_date, issued_at,
                         action, confidence, bounded, payload_json,
                         jsonl_offset, source, ingest_actor, agent_version,
-                        produced_at, validated_at, projected_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        produced_at, validated_at, projected_at,
+                        daily_plan_id
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         data["recommendation_id"],
@@ -1173,6 +1174,11 @@ def reproject_from_jsonl(conn: sqlite3.Connection, base_dir, *, allow_empty: boo
                         data.get("produced_at", data["issued_at"]),
                         data.get("validated_at", _now_iso()),
                         _now_iso(),
+                        # JSONL rows predating M3 simply won't carry a
+                        # daily_plan_id; .get returns None and the
+                        # column stays NULL, matching the backfill's
+                        # pre-M3 semantics.
+                        data.get("daily_plan_id"),
                     ),
                 )
                 counts["recommendations"] += 1
@@ -1654,14 +1660,19 @@ def project_bounded_recommendation(
     ``recommendation_id`` is a programming error.
     """
 
+    # M3: ``daily_plan_id`` is now a first-class column. The linkage
+    # still lives in payload_json for audit completeness (and for the
+    # JSONL reproject path that doesn't have the column at parse time
+    # in older logs), but the column is the queryable join key.
     conn.execute(
         """
         INSERT INTO recommendation_log (
             recommendation_id, user_id, for_date, issued_at,
             action, confidence, bounded, payload_json,
             jsonl_offset, source, ingest_actor, agent_version,
-            produced_at, validated_at, projected_at, domain
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            produced_at, validated_at, projected_at, domain,
+            daily_plan_id
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             recommendation["recommendation_id"],
@@ -1680,6 +1691,7 @@ def project_bounded_recommendation(
             _now_iso(),
             _now_iso(),
             recommendation.get("domain", "recovery"),
+            recommendation.get("daily_plan_id"),
         ),
     )
     if commit_after:
@@ -1705,12 +1717,13 @@ def delete_canonical_plan_cascade(
     the whole replacement lands or nothing changes.
     """
 
-    # Every recommendation we wrote for this plan has daily_plan_id baked
-    # into its payload_json. We stored the linkage there; now reverse it
-    # by pulling the ids out of the JSON blob.
+    # M3: every recommendation for this plan carries daily_plan_id as a
+    # proper column (migration 009). Pre-M3 rows were backfilled from
+    # payload_json at migration time, so the column lookup finds every
+    # row the previous json_extract path did.
     rec_rows = conn.execute(
-        "SELECT recommendation_id, payload_json FROM recommendation_log "
-        "WHERE json_extract(payload_json, '$.daily_plan_id') = ?",
+        "SELECT recommendation_id FROM recommendation_log "
+        "WHERE daily_plan_id = ?",
         (daily_plan_id,),
     ).fetchall()
     for row in rec_rows:
