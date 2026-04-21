@@ -1253,6 +1253,50 @@ def cmd_review_record(args: argparse.Namespace) -> int:
         review_question=data.get("review_question", ""),
         domain=domain,
     )
+
+    # M4 enrichment: CLI flags override the same key in --outcome-json
+    # when both are present. Each resolution is explicit — we never
+    # "merge" lists or coerce types silently.
+    if args.completed is not None:
+        completed_val: Optional[bool] = args.completed == "yes"
+    else:
+        completed_val = data.get("completed")
+
+    intensity_delta = (
+        args.intensity_delta
+        if args.intensity_delta is not None
+        else data.get("intensity_delta")
+    )
+    duration_minutes = (
+        args.duration_minutes
+        if args.duration_minutes is not None
+        else data.get("duration_minutes")
+    )
+    pre_energy_score = (
+        args.pre_energy
+        if args.pre_energy is not None
+        else data.get("pre_energy_score")
+    )
+    post_energy_score = (
+        args.post_energy
+        if args.post_energy is not None
+        else data.get("post_energy_score")
+    )
+
+    if args.disagreed_firings is not None:
+        disagreed_raw = args.disagreed_firings.strip()
+        if disagreed_raw == "":
+            # Explicit empty string = "I was asked and had no disagreements."
+            # NULL in the column would mean "not asked," so preserve the
+            # empty-list distinction.
+            disagreed_firing_ids: Optional[list[str]] = []
+        else:
+            disagreed_firing_ids = [
+                tok.strip() for tok in disagreed_raw.split(",") if tok.strip()
+            ]
+    else:
+        disagreed_firing_ids = data.get("disagreed_firing_ids")
+
     outcome = record_review_outcome(
         event,
         base_dir=Path(args.base_dir),
@@ -1260,6 +1304,12 @@ def cmd_review_record(args: argparse.Namespace) -> int:
         self_reported_improvement=data.get("self_reported_improvement"),
         free_text=data.get("free_text"),
         now=_coerce_dt(data.get("recorded_at")),
+        completed=completed_val,
+        intensity_delta=intensity_delta,
+        duration_minutes=duration_minutes,
+        pre_energy_score=pre_energy_score,
+        post_energy_score=post_energy_score,
+        disagreed_firing_ids=disagreed_firing_ids,
     )
 
     _dual_write_project(
@@ -1294,6 +1344,14 @@ def cmd_review_summary(args: argparse.Namespace) -> int:
             self_reported_improvement=d.get("self_reported_improvement"),
             free_text=d.get("free_text"),
             domain=d.get("domain", "recovery"),
+            # M4 enrichment — pre-M4 JSONL rows don't carry these keys,
+            # .get returns None, dataclass defaults align.
+            completed=d.get("completed"),
+            intensity_delta=d.get("intensity_delta"),
+            duration_minutes=d.get("duration_minutes"),
+            pre_energy_score=d.get("pre_energy_score"),
+            post_energy_score=d.get("post_energy_score"),
+            disagreed_firing_ids=d.get("disagreed_firing_ids"),
         ))
     _emit_json(summarize_review_history(outcomes, domain=domain_filter))
     return 0
@@ -1305,6 +1363,13 @@ def cmd_review_summary(args: argparse.Namespace) -> int:
 
 SORENESS_CHOICES = ("low", "moderate", "high")
 ENERGY_CHOICES = ("low", "moderate", "high")
+# M4 — intensity_delta ordinal axis. Kept here (not inside the review
+# module) so the CLI-facing choices list lives next to other CLI enums.
+# summarize_review_history imports this via the mapping below so there's
+# one source of truth.
+INTENSITY_DELTA_CHOICES = (
+    "much_lighter", "lighter", "same", "harder", "much_harder",
+)
 EXERCISE_CATEGORY_CHOICES = ("compound", "isolation")
 EXERCISE_EQUIPMENT_CHOICES = (
     "barbell", "dumbbell", "cable", "bodyweight", "machine", "kettlebell",
@@ -3447,6 +3512,42 @@ def build_parser() -> argparse.ArgumentParser:
     p_rr.add_argument("--base-dir", required=True)
     p_rr.add_argument("--db-path", default=None,
                       help="State DB path (same semantics as `hai writeback --db-path`)")
+    # M4 enrichment flags. All optional; each overrides the same key in
+    # --outcome-json when both are provided. Omitted flags + JSON-absent
+    # fields land NULL in the DB, which is the pre-M4 shape.
+    p_rr.add_argument(
+        "--completed", choices=("yes", "no"), default=None,
+        help="Whether the user completed the recommended session.",
+    )
+    p_rr.add_argument(
+        "--intensity-delta",
+        choices=INTENSITY_DELTA_CHOICES, default=None,
+        help=(
+            "Intensity the user applied relative to the recommendation. "
+            "Ordinals used by summary aggregation: "
+            "much_lighter=-2, lighter=-1, same=0, harder=1, much_harder=2."
+        ),
+    )
+    p_rr.add_argument(
+        "--duration-minutes", type=int, default=None,
+        help="Actual session duration in whole minutes.",
+    )
+    p_rr.add_argument(
+        "--pre-energy", type=int, choices=range(1, 6), default=None,
+        help="Self-reported energy score before the session, 1–5.",
+    )
+    p_rr.add_argument(
+        "--post-energy", type=int, choices=range(1, 6), default=None,
+        help="Self-reported energy score after the session, 1–5.",
+    )
+    p_rr.add_argument(
+        "--disagreed-firings", default=None,
+        help=(
+            "Comma-separated x_rule_firing.firing_id list the user "
+            "marked as 'should not have fired'. Empty string records an "
+            "explicit empty list (the question was asked, no disagreement)."
+        ),
+    )
     p_rr.set_defaults(func=cmd_review_record)
 
     p_rsum = review_sub.add_parser("summary", help="Summarize outcome history counts")

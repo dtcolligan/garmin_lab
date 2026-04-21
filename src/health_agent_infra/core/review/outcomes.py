@@ -84,11 +84,23 @@ def record_review_outcome(
     free_text: Optional[str] = None,
     now: Optional[datetime] = None,
     domain: Optional[str] = None,
+    completed: Optional[bool] = None,
+    intensity_delta: Optional[str] = None,
+    duration_minutes: Optional[int] = None,
+    pre_energy_score: Optional[int] = None,
+    post_energy_score: Optional[int] = None,
+    disagreed_firing_ids: Optional[list[str]] = None,
 ) -> ReviewOutcome:
     """Persist a user-supplied outcome for a previously scheduled review event.
 
     ``domain`` defaults to the event's domain (which itself defaults to
     ``"recovery"``) so outcomes stay aligned with their owning event.
+
+    The M4 enrichment kwargs (``completed`` / ``intensity_delta`` /
+    ``duration_minutes`` / ``pre_energy_score`` / ``post_energy_score`` /
+    ``disagreed_firing_ids``) are all optional. Callers that don't
+    populate them land NULL columns — which is how pre-M4 outcomes
+    always looked, so the expansion is backward-compatible.
     """
 
     now = now or datetime.now(timezone.utc)
@@ -106,6 +118,12 @@ def record_review_outcome(
         self_reported_improvement=self_reported_improvement,
         free_text=free_text,
         domain=resolved_domain,
+        completed=completed,
+        intensity_delta=intensity_delta,
+        duration_minutes=duration_minutes,
+        pre_energy_score=pre_energy_score,
+        post_energy_score=post_energy_score,
+        disagreed_firing_ids=disagreed_firing_ids,
     )
 
     with outcomes_path.open("a", encoding="utf-8") as fh:
@@ -127,11 +145,26 @@ def _event_already_written(path: Path, review_event_id: str) -> bool:
     return False
 
 
+# M4 — intensity_delta ordinal axis. Surfaced alongside the CLI's
+# ``INTENSITY_DELTA_CHOICES`` as a single source of truth for how an
+# ordinal "intensity_delta" string maps to a numeric score. Unknown
+# strings are skipped during aggregation rather than silently treated
+# as zero, because "unrecognised label" and "user reported same
+# intensity" are not the same signal.
+INTENSITY_DELTA_ORDINAL: dict[str, int] = {
+    "much_lighter": -2,
+    "lighter": -1,
+    "same": 0,
+    "harder": 1,
+    "much_harder": 2,
+}
+
+
 def summarize_review_history(
     outcomes: list[ReviewOutcome],
     *,
     domain: Optional[str] = None,
-) -> dict[str, int]:
+) -> dict[str, Any]:
     """Count review outcomes by category. Deterministic bookkeeping, not judgment.
 
     The runtime surfaces structured summary state; the LLM consumer forms
@@ -157,12 +190,32 @@ def summarize_review_history(
     The four non-total keys always sum to ``total``; a consumer can derive
     any rate it wants from these counts without the runtime taking a
     position on which rate matters.
+
+    M4 enrichment aggregates are emitted under the ``enriched`` key
+    **only when at least one outcome in the filtered input populates at
+    least one enriched field**. This keeps the legacy shape intact for
+    callers that only see pre-M4 rows and avoids inventing zero-valued
+    aggregates for samples that were never collected. The ``enriched``
+    dict carries:
+      - ``completion_rate``: fraction of outcomes with ``completed=True``
+        out of outcomes where ``completed`` was recorded. ``None`` when
+        no outcome recorded a completion.
+      - ``completion_count``: count contributing to ``completion_rate``.
+      - ``mean_intensity_delta``: mean of
+        ``INTENSITY_DELTA_ORDINAL[intensity_delta]`` across outcomes
+        whose ``intensity_delta`` is a recognised key. ``None`` when no
+        outcome contributed.
+      - ``intensity_delta_count``: count contributing.
+      - ``mean_energy_delta``: mean of ``post - pre`` across outcomes
+        where both scores are populated. ``None`` when no outcome
+        contributed.
+      - ``energy_delta_count``: count contributing.
     """
 
     if domain is not None:
         outcomes = [o for o in outcomes if o.domain == domain]
 
-    summary = {
+    summary: dict[str, Any] = {
         "total": len(outcomes),
         "followed_improved": 0,
         "followed_no_change": 0,
@@ -181,4 +234,71 @@ def summarize_review_history(
         else:
             summary["followed_unknown"] += 1
 
+    enriched = _enriched_aggregates(outcomes)
+    if enriched is not None:
+        summary["enriched"] = enriched
+
     return summary
+
+
+def _enriched_aggregates(
+    outcomes: list[ReviewOutcome],
+) -> Optional[dict[str, Any]]:
+    """Compute the M4 enriched-tier aggregates, or return ``None``.
+
+    Returns ``None`` when no outcome in ``outcomes`` populates any of the
+    enrichment fields, so the legacy 5-key summary shape is preserved
+    for callers that only see pre-M4 data.
+    """
+
+    completed_values = [
+        o.completed for o in outcomes if o.completed is not None
+    ]
+    intensity_values = [
+        INTENSITY_DELTA_ORDINAL[o.intensity_delta]
+        for o in outcomes
+        if o.intensity_delta in INTENSITY_DELTA_ORDINAL
+    ]
+    energy_deltas = [
+        o.post_energy_score - o.pre_energy_score
+        for o in outcomes
+        if o.pre_energy_score is not None and o.post_energy_score is not None
+    ]
+
+    has_any = (
+        bool(completed_values)
+        or bool(intensity_values)
+        or bool(energy_deltas)
+        or any(
+            o.duration_minutes is not None
+            or o.disagreed_firing_ids is not None
+            for o in outcomes
+        )
+    )
+    if not has_any:
+        return None
+
+    completion_rate = (
+        sum(1 for v in completed_values if v) / len(completed_values)
+        if completed_values
+        else None
+    )
+    mean_intensity_delta = (
+        sum(intensity_values) / len(intensity_values)
+        if intensity_values
+        else None
+    )
+    mean_energy_delta = (
+        sum(energy_deltas) / len(energy_deltas)
+        if energy_deltas
+        else None
+    )
+
+    return {
+        "completion_rate": completion_rate,
+        "completion_count": len(completed_values),
+        "mean_intensity_delta": mean_intensity_delta,
+        "intensity_delta_count": len(intensity_values),
+        "mean_energy_delta": mean_energy_delta,
+        "energy_delta_count": len(energy_deltas),
+    }

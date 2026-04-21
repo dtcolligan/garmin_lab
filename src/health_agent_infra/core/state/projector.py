@@ -243,13 +243,24 @@ def project_review_outcome(
     appends unconditionally; rely on the source JSONL being canonical.
     """
 
+    # M4 enrichment columns (migration 010). Every field is optional;
+    # NULL means "not recorded" rather than any semantic default.
+    # disagreed_firing_ids is JSON-encoded on write so the column can
+    # stay a simple TEXT without a dedicated join table.
+    disagreed_json = (
+        json.dumps(list(outcome.disagreed_firing_ids))
+        if outcome.disagreed_firing_ids is not None
+        else None
+    )
     cursor = conn.execute(
         """
         INSERT INTO review_outcome (
             review_event_id, recommendation_id, user_id, recorded_at,
             followed_recommendation, self_reported_improvement, free_text,
-            domain, jsonl_offset, source, ingest_actor, projected_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            domain, jsonl_offset, source, ingest_actor, projected_at,
+            completed, intensity_delta, duration_minutes,
+            pre_energy_score, post_energy_score, disagreed_firing_ids
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             outcome.review_event_id,
@@ -264,6 +275,12 @@ def project_review_outcome(
             source,
             ingest_actor,
             _now_iso(),
+            _opt_bool_to_int(outcome.completed),
+            outcome.intensity_delta,
+            outcome.duration_minutes,
+            outcome.pre_energy_score,
+            outcome.post_energy_score,
+            disagreed_json,
         ),
     )
     conn.commit()

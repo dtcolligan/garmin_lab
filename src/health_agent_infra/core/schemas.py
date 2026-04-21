@@ -342,6 +342,14 @@ class ReviewOutcome:
     self_reported_improvement: Optional[bool]
     free_text: Optional[str] = None
     domain: str = "recovery"
+    # M4 enrichment — every field is optional. Legacy outcomes and
+    # callers that don't populate these stay unaffected.
+    completed: Optional[bool] = None
+    intensity_delta: Optional[str] = None
+    duration_minutes: Optional[int] = None
+    pre_energy_score: Optional[int] = None
+    post_energy_score: Optional[int] = None
+    disagreed_firing_ids: Optional[list[str]] = None
 
     def to_dict(self) -> dict:
         return {
@@ -353,4 +361,14 @@ class ReviewOutcome:
             "self_reported_improvement": self.self_reported_improvement,
             "free_text": self.free_text,
             "domain": self.domain,
+            "completed": self.completed,
+            "intensity_delta": self.intensity_delta,
+            "duration_minutes": self.duration_minutes,
+            "pre_energy_score": self.pre_energy_score,
+            "post_energy_score": self.post_energy_score,
+            "disagreed_firing_ids": (
+                list(self.disagreed_firing_ids)
+                if self.disagreed_firing_ids is not None
+                else None
+            ),
         }
