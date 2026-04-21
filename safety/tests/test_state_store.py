@@ -110,6 +110,7 @@ def test_schema_migrations_has_one_row_per_applied_migration(tmp_path: Path):
         (6, "006_nutrition_macros_only.sql"),
         (7, "007_user_memory.sql"),
         (8, "008_sync_run_log.sql"),
+        (9, "009_recommendation_log_fk.sql"),
     ]
 
 
@@ -125,7 +126,7 @@ def test_schema_migrations_not_duplicated_on_repeat_init(tmp_path: Path):
     finally:
         conn.close()
 
-    assert count == 8
+    assert count == 9
 
 
 def test_current_schema_version_zero_on_empty_db(tmp_path: Path):
@@ -143,7 +144,7 @@ def test_current_schema_version_matches_head_after_init(tmp_path: Path):
 
     conn = open_connection(db_path)
     try:
-        assert current_schema_version(conn) == 8
+        assert current_schema_version(conn) == 9
     finally:
         conn.close()
 
@@ -282,8 +283,8 @@ def test_cli_state_migrate_on_head_db_reports_empty_applied(tmp_path: Path, caps
 
     import json
     payload = json.loads(capsys.readouterr().out)
-    assert payload["schema_version_before"] == 8
-    assert payload["schema_version_after"] == 8
+    assert payload["schema_version_before"] == 9
+    assert payload["schema_version_after"] == 9
     assert payload["applied"] == []
 
 
@@ -354,7 +355,7 @@ def test_broken_migration_rolls_back_ddl_and_bookkeeping(tmp_path: Path):
         assert len(rows) == 1
 
         # Version is still at head (pre-broken migration), not 99.
-        assert current_schema_version(conn) == 8
+        assert current_schema_version(conn) == 9
     finally:
         conn.close()
 
