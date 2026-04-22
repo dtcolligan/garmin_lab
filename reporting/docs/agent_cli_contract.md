@@ -47,7 +47,7 @@ forward-compatibility but is not currently emitted.
 
 ## Commands
 
-*37 commands; hai 0.1.2; schema agent_cli_contract.v1*
+*37 commands; hai 0.1.3.dev0; schema agent_cli_contract.v1*
 
 | Command | Mutation | Idempotent | JSON | Agent-safe | Exit codes | Description |
 |---|---|---|---|---|---|---|
