@@ -40,6 +40,7 @@ from health_agent_infra.core.writeback.recommendation import (
     perform_writeback,
 )
 from health_agent_infra.core.review.outcomes import record_review_outcome, schedule_review
+from health_agent_infra.core import exit_codes
 
 
 AS_OF = datetime(2026, 4, 17, 7, 0, tzinfo=timezone.utc).date()
@@ -474,7 +475,7 @@ def test_reproject_fails_clearly_when_db_missing(tmp_path: Path, capsys):
         "--db-path", str(absent_db),
     ])
     err = capsys.readouterr().err
-    assert rc == 2
+    assert rc == exit_codes.USER_INPUT
     assert "state DB not found" in err
 
 
@@ -486,7 +487,7 @@ def test_reproject_fails_clearly_when_base_dir_missing(tmp_path: Path, capsys):
         "--db-path", str(db),
     ])
     err = capsys.readouterr().err
-    assert rc == 2
+    assert rc == exit_codes.USER_INPUT
     assert "base-dir not found" in err
 
 
@@ -549,7 +550,7 @@ def test_reproject_cli_fails_closed_on_empty_base_dir(tmp_path: Path, capsys):
         "--db-path", str(db),
     ])
     err = capsys.readouterr().err
-    assert rc == 2
+    assert rc == exit_codes.USER_INPUT
     assert "reproject refused" in err
     assert "allow-empty-reproject" in err
 

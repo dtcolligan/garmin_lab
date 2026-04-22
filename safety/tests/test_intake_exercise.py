@@ -20,6 +20,7 @@ from pathlib import Path
 
 from health_agent_infra.cli import main as cli_main
 from health_agent_infra.core.state import initialize_database, open_connection
+from health_agent_infra.core import exit_codes
 
 
 def _init_db(tmp_path: Path) -> Path:
@@ -127,7 +128,7 @@ def test_intake_exercise_rejects_conflicting_duplicate(tmp_path: Path, capsys):
         "--equipment", "bodyweight",
         "--db-path", str(db),
     ])
-    assert rc == 2
+    assert rc == exit_codes.USER_INPUT
     err = capsys.readouterr().err
     assert "intake exercise rejected" in err
     assert "canonical_name" in err or "exercise_id" in err
@@ -168,7 +169,7 @@ def test_intake_exercise_missing_db_exits_nonzero(tmp_path: Path, capsys):
         "--equipment", "barbell",
         "--db-path", str(db),
     ])
-    assert rc == 2
+    assert rc == exit_codes.USER_INPUT
     err = capsys.readouterr().err
     assert "state DB not found" in err
     assert "hai state init" in err
@@ -184,6 +185,6 @@ def test_intake_exercise_rejects_unknown_muscle_group(tmp_path: Path, capsys):
         "--equipment", "barbell",
         "--db-path", str(db),
     ])
-    assert rc == 2
+    assert rc == exit_codes.USER_INPUT
     err = capsys.readouterr().err
     assert "--primary-muscle-group must be one of" in err

@@ -23,6 +23,7 @@ from pathlib import Path
 import pytest
 
 from health_agent_infra.cli import main as cli_main
+from health_agent_infra.core import exit_codes
 from health_agent_infra.core.state import (
     initialize_database,
     open_connection,
@@ -108,7 +109,7 @@ def test_exercise_search_missing_db_exits_nonzero(tmp_path: Path, capsys):
         "--query", "Back Squat",
         "--db-path", str(db),
     ])
-    assert rc == 2
+    assert rc == exit_codes.USER_INPUT
     err = capsys.readouterr().err
     assert "state DB not found" in err
 

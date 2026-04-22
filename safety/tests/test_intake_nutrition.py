@@ -27,6 +27,7 @@ from pathlib import Path
 import pytest
 
 from health_agent_infra.cli import main as cli_main
+from health_agent_infra.core import exit_codes
 from health_agent_infra.core.state import (
     build_snapshot,
     initialize_database,
@@ -247,7 +248,7 @@ def test_intake_nutrition_negative_value_is_rejected(tmp_path: Path, capsys):
         "--as-of", AS_OF.isoformat(), "--user-id", USER,
         "--base-dir", str(base), "--db-path", str(db),
     ])
-    assert rc == 2
+    assert rc == exit_codes.USER_INPUT
     assert "must be >= 0" in capsys.readouterr().err
     assert not (base / "nutrition_intake.jsonl").exists()
 
@@ -455,7 +456,7 @@ def test_intake_nutrition_chain_resolver_prefers_jsonl_over_db(tmp_path: Path):
 def test_intake_nutrition_rejects_negative_hydration(tmp_path: Path, capsys):
     base, db = _init_intake_dirs(tmp_path)
     rc = cli_main(_args(base, db) + ["--hydration-l", "-1"])
-    assert rc == 2
+    assert rc == exit_codes.USER_INPUT
     err = capsys.readouterr().err
     assert "hydration-l" in err and "must be >= 0" in err
     assert not (base / "nutrition_intake.jsonl").exists()
@@ -472,7 +473,7 @@ def test_intake_nutrition_rejects_negative_hydration(tmp_path: Path, capsys):
 def test_intake_nutrition_rejects_negative_meals_count(tmp_path: Path, capsys):
     base, db = _init_intake_dirs(tmp_path)
     rc = cli_main(_args(base, db) + ["--meals-count", "-2"])
-    assert rc == 2
+    assert rc == exit_codes.USER_INPUT
     err = capsys.readouterr().err
     assert "meals-count" in err and "must be >= 0" in err
     assert not (base / "nutrition_intake.jsonl").exists()

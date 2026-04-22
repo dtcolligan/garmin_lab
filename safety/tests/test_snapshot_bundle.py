@@ -21,6 +21,7 @@ import pytest
 
 from health_agent_infra.cli import main as cli_main
 from health_agent_infra.core.state import initialize_database
+from health_agent_infra.core import exit_codes
 
 
 # ---------------------------------------------------------------------------
@@ -551,7 +552,7 @@ def test_snapshot_evidence_json_missing_file_fails_clean(tmp_path: Path, capsys)
         "--db-path", str(db),
         "--evidence-json", str(tmp_path / "does_not_exist.json"),
     ])
-    assert rc == 2
+    assert rc == exit_codes.USER_INPUT
     err = capsys.readouterr().err
     assert "not found" in err
 
@@ -566,7 +567,7 @@ def test_snapshot_evidence_json_missing_required_keys_fails_clean(tmp_path: Path
         "--db-path", str(db),
         "--evidence-json", str(bad),
     ])
-    assert rc == 2
+    assert rc == exit_codes.USER_INPUT
     err = capsys.readouterr().err
     assert "cleaned_evidence" in err or "raw_summary" in err
 

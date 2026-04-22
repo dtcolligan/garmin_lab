@@ -29,6 +29,7 @@ from pathlib import Path
 import pytest
 
 from health_agent_infra.cli import main as cli_main
+from health_agent_infra.core import exit_codes
 from health_agent_infra.core.state import (
     initialize_database,
     open_connection,
@@ -128,7 +129,7 @@ def test_daily_rejects_unknown_domain_subset(tmp_path, capsys, monkeypatch):
         "--domains", "recovery,sleep,bogus",
     )
     captured = capsys.readouterr()
-    assert rc == 2
+    assert rc == exit_codes.USER_INPUT
     assert "bogus" in captured.err
     assert "unsupported --domains" in captured.err
 
@@ -145,7 +146,7 @@ def test_daily_rejects_missing_db(tmp_path, capsys, monkeypatch):
         "--skip-pull",
     )
     captured = capsys.readouterr()
-    assert rc == 2
+    assert rc == exit_codes.USER_INPUT
     assert "hai state init" in captured.err
 
 

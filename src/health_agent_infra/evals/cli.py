@@ -28,24 +28,26 @@ def cmd_eval_run(args: argparse.Namespace) -> int:
         kind = "domain"
         domain = args.domain
 
+    from health_agent_infra.core import exit_codes
+
     try:
         scenarios = load_scenarios(kind, domain=domain)
     except EvalRunError as exc:
         print(f"eval error: {exc}", file=sys.stderr)
-        return 2
+        return exit_codes.USER_INPUT
 
     if not scenarios:
         print(
             f"no scenarios found for kind={kind!r} domain={domain!r}",
             file=sys.stderr,
         )
-        return 2
+        return exit_codes.USER_INPUT
 
     try:
         scores = run_scenarios(scenarios)
     except EvalRunError as exc:
         print(f"eval error: {exc}", file=sys.stderr)
-        return 2
+        return exit_codes.INTERNAL
 
     total = len(scores)
     passed = sum(1 for s in scores if s.passed)
@@ -73,7 +75,10 @@ def cmd_eval_run(args: argparse.Namespace) -> int:
                         diff = s.diffs.get(axis, {})
                         print(f"      - {axis}: FAIL {diff}")
 
-    return 0 if failed == 0 else 1
+    # Scenario pass/fail outcome: OK when everything passed, USER_INPUT
+    # when at least one failed — failed scenarios indicate a rubric /
+    # runtime delta the caller can investigate, not a runtime crash.
+    return exit_codes.OK if failed == 0 else exit_codes.USER_INPUT
 
 
 def register_eval_subparser(sub: argparse._SubParsersAction) -> None:
@@ -106,3 +111,22 @@ def register_eval_subparser(sub: argparse._SubParsersAction) -> None:
         help="Emit machine-readable JSON instead of human-readable text",
     )
     p_run.set_defaults(func=cmd_eval_run)
+    # Contract annotation — kept local to the eval module so the
+    # packaged wheel's eval surface stays self-describing. The wider
+    # capabilities module tolerates annotations anywhere in the tree.
+    from health_agent_infra.core.capabilities import annotate_contract
+    annotate_contract(
+        p_run,
+        mutation="read-only",
+        idempotent="n/a",
+        json_output="opt-in",
+        exit_codes=("OK", "USER_INPUT", "INTERNAL"),
+        agent_safe=True,
+        description=(
+            "Execute frozen deterministic eval scenarios for a domain "
+            "(--domain) or the synthesis layer (--synthesis). Read-only "
+            "— scores scenarios, never writes state. USER_INPUT when a "
+            "scenario fails its rubric; INTERNAL if the runner itself "
+            "crashes."
+        ),
+    )

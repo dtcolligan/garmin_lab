@@ -22,6 +22,7 @@ from pathlib import Path
 import pytest
 
 from health_agent_infra.cli import main as cli_main
+from health_agent_infra.core import exit_codes
 from health_agent_infra.core.config import (
     DEFAULT_THRESHOLDS,
     ConfigError,
@@ -214,7 +215,7 @@ def test_cli_config_init_refuses_existing_without_force(tmp_path: Path, capsys):
     dest = tmp_path / "thresholds.toml"
     dest.write_text("# existing\n", encoding="utf-8")
     rc = cli_main(["config", "init", "--path", str(dest)])
-    assert rc == 2
+    assert rc == exit_codes.USER_INPUT
     err = capsys.readouterr().err
     assert "already exists" in err
     # File unchanged.
@@ -265,7 +266,7 @@ def test_cli_config_show_fails_cleanly_on_malformed_toml(tmp_path: Path, capsys)
     bad = tmp_path / "bad.toml"
     bad.write_text("lol = = not toml", encoding="utf-8")
     rc = cli_main(["config", "show", "--path", str(bad)])
-    assert rc == 2
+    assert rc == exit_codes.USER_INPUT
     err = capsys.readouterr().err
     assert "config error" in err
     assert str(bad) in err

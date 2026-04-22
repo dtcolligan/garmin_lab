@@ -31,27 +31,16 @@ retry loops without a clean signal to the caller. ``1`` was free, so
 
 ## Scope
 
-M1 migrated the five CLI handlers with the highest operational value
-(the pull → synthesize → explain path, plus credential setup). Every
-other handler still returns the legacy ``0 / 2``; those will migrate
-in follow-up PRs.
+All ``hai`` subcommand handlers have been migrated to the taxonomy as
+of Phase 2 of the agent-operable runtime plan. The authoritative
+per-command list lives in [`agent_cli_contract.md`](agent_cli_contract.md)
+(generated from the annotations on each `add_parser` call); this
+document now only enumerates the codes themselves.
 
-| Handler | Migrated in M1? | Codes produced |
-|---|:---:|---|
-| ``hai pull``           | ✅ | ``OK``, ``USER_INPUT`` (no creds), ``TRANSIENT`` (adapter 5xx) |
-| ``hai auth garmin``    | ✅ | ``OK``, ``USER_INPUT`` |
-| ``hai auth status``    | ✅ | ``OK`` |
-| ``hai synthesize``     | ✅ | ``OK``, ``USER_INPUT``, ``INTERNAL`` (write-surface violation) |
-| ``hai explain``        | ✅ | ``OK``, ``USER_INPUT``, ``NOT_FOUND`` |
-| ``hai daily``          | ❌ | legacy ``0 / 2`` |
-| ``hai state *``        | ❌ | legacy ``0 / 2`` |
-| ``hai intake *``       | ❌ | legacy ``0 / 2`` |
-| ``hai review *``       | ❌ | legacy ``0 / 2`` |
-| ``hai memory *``       | ❌ | legacy ``0 / 2`` |
-| ``hai propose``        | ❌ | legacy ``0 / 2`` |
-| ``hai writeback``      | ❌ | legacy ``0 / 2`` |
-| ``hai clean``          | ❌ | legacy ``0 / 2`` |
-| ``hai doctor``         | ❌ | legacy ``0 / 2`` |
+Argparse's own rejection path (unknown flag, missing required arg,
+invalid ``choices=`` value) still exits with its built-in ``2``,
+before any handler runs — that's outside the taxonomy. Tests for
+those argparse-level rejections assert the literal ``2``.
 
 ## Usage — Python
 

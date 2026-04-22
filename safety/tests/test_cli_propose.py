@@ -20,6 +20,7 @@ from pathlib import Path
 
 import pytest
 
+from health_agent_infra.core import exit_codes
 from health_agent_infra.core.state import (
     initialize_database,
     open_connection,
@@ -256,7 +257,7 @@ def test_cli_propose_rejects_invalid_and_exits_2(tmp_path):
         "--base-dir", str(base_dir),
         "--db-path", str(db_path),
     )
-    assert result.returncode == 2
+    assert result.returncode == exit_codes.USER_INPUT
     assert "invariant=action_enum" in result.stderr
 
 
@@ -279,7 +280,7 @@ def test_cli_propose_domain_flag_matches_payload(tmp_path):
         "--base-dir", str(base_dir),
         "--db-path", str(db_path),
     )
-    assert result.returncode == 2
+    assert result.returncode == exit_codes.USER_INPUT
     assert "invariant=domain_match" in result.stderr
 
 

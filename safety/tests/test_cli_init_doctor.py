@@ -35,6 +35,7 @@ from health_agent_infra import cli as cli_mod
 from health_agent_infra.cli import main as cli_main
 from health_agent_infra.core.config import scaffold_thresholds_toml
 from health_agent_infra.core.pull.auth import CredentialStore
+from health_agent_infra.core import exit_codes
 
 
 # ---------------------------------------------------------------------------
@@ -306,7 +307,7 @@ def test_doctor_malformed_config_returns_fail_exit_two(
     cfg_path.write_text("lol = = not toml", encoding="utf-8")
 
     rc = cli_main(_doctor_argv(tmp_path))
-    assert rc == 2
+    assert rc == exit_codes.USER_INPUT
     report = _stdout_json(capsys)
     assert report["overall_status"] == "fail"
     assert report["checks"]["config"]["status"] == "fail"

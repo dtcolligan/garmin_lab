@@ -8,6 +8,7 @@ from pathlib import Path
 import pytest
 
 from health_agent_infra.cli import main as cli_main
+from health_agent_infra.core import exit_codes
 
 
 # ---------------------------------------------------------------------------
@@ -80,7 +81,7 @@ def test_cli_classify_missing_evidence_file_fails_clean(tmp_path: Path, capsys):
     rc = cli_main(
         ["classify", "--domain", "recovery", "--evidence-json", str(missing)]
     )
-    assert rc == 2
+    assert rc == exit_codes.USER_INPUT
     err = capsys.readouterr().err
     assert "not found" in err
 
@@ -91,7 +92,7 @@ def test_cli_classify_malformed_evidence_json(tmp_path: Path, capsys):
     rc = cli_main(
         ["classify", "--domain", "recovery", "--evidence-json", str(bad)]
     )
-    assert rc == 2
+    assert rc == exit_codes.USER_INPUT
     err = capsys.readouterr().err
     assert "not valid JSON" in err
 
@@ -102,7 +103,7 @@ def test_cli_classify_bundle_missing_required_keys(tmp_path: Path, capsys):
     rc = cli_main(
         ["classify", "--domain", "recovery", "--evidence-json", str(bad)]
     )
-    assert rc == 2
+    assert rc == exit_codes.USER_INPUT
     err = capsys.readouterr().err
     assert "cleaned_evidence" in err or "raw_summary" in err
 
@@ -173,6 +174,6 @@ def test_cli_policy_fails_on_malformed_thresholds(tmp_path: Path, capsys):
         "--evidence-json", str(bundle_path),
         "--thresholds-path", str(bad),
     ])
-    assert rc == 2
+    assert rc == exit_codes.USER_INPUT
     err = capsys.readouterr().err
     assert "config error" in err

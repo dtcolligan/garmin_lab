@@ -28,6 +28,11 @@ from typing import Any, Optional
 
 from health_agent_infra import __version__ as _PACKAGE_VERSION
 from health_agent_infra.core import exit_codes
+from health_agent_infra.core.capabilities import (
+    annotate_contract,
+    build_manifest,
+)
+from health_agent_infra.core.capabilities.render import render_markdown
 from health_agent_infra.core.clean import build_raw_summary, clean_inputs
 from health_agent_infra.core.config import (
     ConfigError,
@@ -432,7 +437,7 @@ def cmd_clean(args: argparse.Namespace) -> int:
         "cleaned_evidence": evidence.to_dict(),
         "raw_summary": summary.to_dict(),
     })
-    return 0
+    return exit_codes.OK
 
 
 def _project_clean_into_state(
@@ -727,15 +732,15 @@ def cmd_writeback(args: argparse.Namespace) -> int:
             f"writeback rejected: invariant={exc.invariant}: {exc}",
             file=sys.stderr,
         )
-        return 2
+        return exit_codes.USER_INPUT
     except (ValueError, KeyError) as exc:
         print(f"writeback rejected: {exc}", file=sys.stderr)
-        return 2
+        return exit_codes.USER_INPUT
 
     # JSONL is the audit boundary. Always happens first.
     record = perform_writeback(recommendation, base_dir=Path(args.base_dir))
 
-    # DB projection is best-effort. Failure => stderr warning + exit 0.
+    # DB projection is best-effort. Failure => stderr warning + exit OK.
     _dual_write_project(
         args.db_path,
         lambda conn: project_recommendation(conn, recommendation),
@@ -743,7 +748,7 @@ def cmd_writeback(args: argparse.Namespace) -> int:
     )
 
     _emit_json(record.to_dict())
-    return 0
+    return exit_codes.OK
 
 
 # ---------------------------------------------------------------------------
@@ -766,10 +771,10 @@ def cmd_propose(args: argparse.Namespace) -> int:
             f"propose rejected: invariant={exc.invariant}: {exc}",
             file=sys.stderr,
         )
-        return 2
+        return exit_codes.USER_INPUT
     except (ValueError, KeyError) as exc:
         print(f"propose rejected: {exc}", file=sys.stderr)
-        return 2
+        return exit_codes.USER_INPUT
 
     # JSONL audit first.
     record = perform_proposal_writeback(data, base_dir=Path(args.base_dir))
@@ -782,7 +787,7 @@ def cmd_propose(args: argparse.Namespace) -> int:
     )
 
     _emit_json(record.to_dict())
-    return 0
+    return exit_codes.OK
 
 
 # ---------------------------------------------------------------------------
@@ -1012,7 +1017,7 @@ def cmd_memory_set(args: argparse.Namespace) -> int:
             f"at {db_path}. Run `hai state init` first.",
             file=sys.stderr,
         )
-        return 2
+        return exit_codes.USER_INPUT
 
     try:
         category = validate_category(args.category)
@@ -1023,7 +1028,7 @@ def cmd_memory_set(args: argparse.Namespace) -> int:
             f"hai memory set rejected: invariant={exc.invariant}: {exc}",
             file=sys.stderr,
         )
-        return 2
+        return exit_codes.USER_INPUT
 
     now = datetime.now(timezone.utc)
     memory_id = args.memory_id or _memory_id_for(
@@ -1061,7 +1066,7 @@ def cmd_memory_set(args: argparse.Namespace) -> int:
         "source": entry.source,
         "ingest_actor": entry.ingest_actor,
     })
-    return 0
+    return exit_codes.OK
 
 
 def cmd_memory_list(args: argparse.Namespace) -> int:
@@ -1088,7 +1093,7 @@ def cmd_memory_list(args: argparse.Namespace) -> int:
             f"at {db_path}. Run `hai state init` first.",
             file=sys.stderr,
         )
-        return 2
+        return exit_codes.USER_INPUT
 
     conn = open_connection(db_path)
     try:
@@ -1140,12 +1145,12 @@ def cmd_memory_list(args: argparse.Namespace) -> int:
                 f"hai memory list rejected: invariant={exc.invariant}: {exc}",
                 file=sys.stderr,
             )
-            return 2
+            return exit_codes.USER_INPUT
     finally:
         conn.close()
 
     _emit_json(payload)
-    return 0
+    return exit_codes.OK
 
 
 def cmd_memory_archive(args: argparse.Namespace) -> int:
@@ -1170,7 +1175,7 @@ def cmd_memory_archive(args: argparse.Namespace) -> int:
             f"found at {db_path}. Run `hai state init` first.",
             file=sys.stderr,
         )
-        return 2
+        return exit_codes.USER_INPUT
 
     conn = open_connection(db_path)
     try:
@@ -1181,7 +1186,7 @@ def cmd_memory_archive(args: argparse.Namespace) -> int:
                 f"{args.memory_id!r}",
                 file=sys.stderr,
             )
-            return 2
+            return exit_codes.USER_INPUT
         archived = archive_memory_entry(conn, memory_id=args.memory_id)
         refreshed = read_memory_entry(conn, memory_id=args.memory_id)
     finally:
@@ -1197,7 +1202,7 @@ def cmd_memory_archive(args: argparse.Namespace) -> int:
             if refreshed.archived_at else None
         )
     _emit_json(payload)
-    return 0
+    return exit_codes.OK
 
 
 def _memory_entry_to_dict(entry) -> dict[str, Any]:
@@ -1263,7 +1268,7 @@ def cmd_review_schedule(args: argparse.Namespace) -> int:
     )
 
     _emit_json(event.to_dict())
-    return 0
+    return exit_codes.OK
 
 
 def cmd_review_record(args: argparse.Namespace) -> int:
@@ -1345,7 +1350,7 @@ def cmd_review_record(args: argparse.Namespace) -> int:
     )
 
     _emit_json(outcome.to_dict())
-    return 0
+    return exit_codes.OK
 
 
 def cmd_review_summary(args: argparse.Namespace) -> int:
@@ -1353,7 +1358,7 @@ def cmd_review_summary(args: argparse.Namespace) -> int:
     domain_filter = getattr(args, "domain", None)
     if not outcomes_path.exists():
         _emit_json(summarize_review_history([], domain=domain_filter))
-        return 0
+        return exit_codes.OK
     outcomes: list[ReviewOutcome] = []
     for line in outcomes_path.read_text(encoding="utf-8").splitlines():
         if not line.strip():
@@ -1380,7 +1385,7 @@ def cmd_review_summary(args: argparse.Namespace) -> int:
             disagreed_firing_ids=d.get("disagreed_firing_ids"),
         ))
     _emit_json(summarize_review_history(outcomes, domain=domain_filter))
-    return 0
+    return exit_codes.OK
 
 
 # ---------------------------------------------------------------------------
@@ -1440,7 +1445,7 @@ def cmd_intake_gym(args: argparse.Namespace) -> int:
             parse_bulk_session_json(payload)
         except (json.JSONDecodeError, ValueError) as exc:
             print(f"intake gym rejected: {exc}", file=sys.stderr)
-            return 2
+            return exit_codes.USER_INPUT
         session_id = payload["session_id"]
         session_name = payload.get("session_name")
         notes = payload.get("notes")
@@ -1467,13 +1472,13 @@ def cmd_intake_gym(args: argparse.Namespace) -> int:
                 f"Missing: {missing}",
                 file=sys.stderr,
             )
-            return 2
+            return exit_codes.USER_INPUT
         if args.reps is None and args.weight_kg is None:
             print(
                 "intake gym: at least one of --reps or --weight-kg must be given",
                 file=sys.stderr,
             )
-            return 2
+            return exit_codes.USER_INPUT
         session_id = args.session_id
         session_name = args.session_name
         notes = args.notes
@@ -1527,7 +1532,7 @@ def cmd_intake_gym(args: argparse.Namespace) -> int:
         "sets_logged": len(submission.sets),
         "jsonl_path": str(jsonl_path),
     })
-    return 0
+    return exit_codes.OK
 
 
 def _project_gym_submission_into_state(db_path_arg, submission) -> None:
@@ -1665,7 +1670,7 @@ def cmd_intake_exercise(args: argparse.Namespace) -> int:
         )
     except ValueError as exc:
         print(f"intake exercise rejected: {exc}", file=sys.stderr)
-        return 2
+        return exit_codes.USER_INPUT
 
     db_path = resolve_db_path(args.db_path)
     if not db_path.exists():
@@ -1673,7 +1678,7 @@ def cmd_intake_exercise(args: argparse.Namespace) -> int:
             f"state DB not found at {db_path}. Run `hai state init` first.",
             file=sys.stderr,
         )
-        return 2
+        return exit_codes.USER_INPUT
 
     # Exercise-taxonomy entries are global (not per-user), so sync rows
     # here use a "global" sentinel — the snapshot's user-scoped
@@ -1704,7 +1709,7 @@ def cmd_intake_exercise(args: argparse.Namespace) -> int:
         except sqlite3.IntegrityError as exc:
             _close_sync_row_failed(args.db_path, sync_id, exc)
             print(f"intake exercise rejected: {exc}", file=sys.stderr)
-            return 2
+            return exit_codes.USER_INPUT
 
         saved = conn.execute(
             """
@@ -1742,7 +1747,7 @@ def cmd_intake_exercise(args: argparse.Namespace) -> int:
         "equipment": saved["equipment"],
         "source": saved["source"],
     })
-    return 0
+    return exit_codes.OK
 
 
 def cmd_intake_nutrition(args: argparse.Namespace) -> int:
@@ -1781,11 +1786,11 @@ def cmd_intake_nutrition(args: argparse.Namespace) -> int:
                 f"intake nutrition requires --{name.replace('_', '-')}",
                 file=sys.stderr,
             )
-            return 2
+            return exit_codes.USER_INPUT
         if value < 0:
             print(f"intake nutrition: --{name.replace('_', '-')} must be >= 0",
                   file=sys.stderr)
-            return 2
+            return exit_codes.USER_INPUT
     # Optional fields: if supplied, reject negatives too. Same boundary
     # discipline as the required macros; silently accepting negatives here
     # would land bad data in the accepted row.
@@ -1796,7 +1801,7 @@ def cmd_intake_nutrition(args: argparse.Namespace) -> int:
         if value is not None and value < 0:
             print(f"intake nutrition: --{name.replace('_', '-')} must be >= 0",
                   file=sys.stderr)
-            return 2
+            return exit_codes.USER_INPUT
 
     as_of = _coerce_date(args.as_of)
     issued_at = datetime.now(timezone.utc)
@@ -1854,7 +1859,7 @@ def cmd_intake_nutrition(args: argparse.Namespace) -> int:
         "supersedes_submission_id": submission.supersedes_submission_id,
         "jsonl_path": str(jsonl_path),
     })
-    return 0
+    return exit_codes.OK
 
 
 def _resolve_prior_nutrition_submission(
@@ -1971,7 +1976,7 @@ def cmd_intake_stress(args: argparse.Namespace) -> int:
         # argparse choices already enforces, but defensive:
         print("intake stress: --score must be one of {1,2,3,4,5}",
               file=sys.stderr)
-        return 2
+        return exit_codes.USER_INPUT
 
     tags: Optional[list[str]] = None
     if args.tags:
@@ -2022,7 +2027,7 @@ def cmd_intake_stress(args: argparse.Namespace) -> int:
         "supersedes_submission_id": submission.supersedes_submission_id,
         "jsonl_path": str(jsonl_path),
     })
-    return 0
+    return exit_codes.OK
 
 
 def _project_stress_submission_into_state(db_path_arg, submission) -> None:
@@ -2108,7 +2113,7 @@ def cmd_intake_note(args: argparse.Namespace) -> int:
 
     if not args.text or not args.text.strip():
         print("intake note: --text must be a non-empty string", file=sys.stderr)
-        return 2
+        return exit_codes.USER_INPUT
 
     tags: Optional[list[str]] = None
     if args.tags:
@@ -2154,7 +2159,7 @@ def cmd_intake_note(args: argparse.Namespace) -> int:
         "recorded_at": note.recorded_at.isoformat(),
         "jsonl_path": str(jsonl_path),
     })
-    return 0
+    return exit_codes.OK
 
 
 def _project_context_note_into_state(db_path_arg, note) -> None:
@@ -2221,7 +2226,7 @@ def cmd_intake_readiness(args: argparse.Namespace) -> int:
     if args.active_goal:
         payload["active_goal"] = args.active_goal
     _emit_json(payload)
-    return 0
+    return exit_codes.OK
 
 
 # ---------------------------------------------------------------------------
@@ -2239,7 +2244,7 @@ def cmd_state_init(args: argparse.Namespace) -> int:
         "db_path": str(resolved),
         "created": applied,  # empty list if nothing was applied in this call
     })
-    return 0
+    return exit_codes.OK
 
 
 def cmd_state_read(args: argparse.Namespace) -> int:
@@ -2256,7 +2261,7 @@ def cmd_state_read(args: argparse.Namespace) -> int:
     if not db_path.exists():
         print(f"state DB not found at {db_path}. Run `hai state init` first.",
               file=sys.stderr)
-        return 2
+        return exit_codes.USER_INPUT
 
     since = date.fromisoformat(args.since)
     until = date.fromisoformat(args.until) if args.until else since
@@ -2276,7 +2281,7 @@ def cmd_state_read(args: argparse.Namespace) -> int:
                 f"unknown domain: {args.domain!r}. known: {available_domains()}",
                 file=sys.stderr,
             )
-            return 2
+            return exit_codes.USER_INPUT
     finally:
         conn.close()
 
@@ -2286,7 +2291,7 @@ def cmd_state_read(args: argparse.Namespace) -> int:
         "user_id": args.user_id,
         "rows": rows,
     })
-    return 0
+    return exit_codes.OK
 
 
 def cmd_state_snapshot(args: argparse.Namespace) -> int:
@@ -2309,7 +2314,7 @@ def cmd_state_snapshot(args: argparse.Namespace) -> int:
     if not db_path.exists():
         print(f"state DB not found at {db_path}. Run `hai state init` first.",
               file=sys.stderr)
-        return 2
+        return exit_codes.USER_INPUT
 
     as_of = date.fromisoformat(args.as_of)
 
@@ -2318,7 +2323,7 @@ def cmd_state_snapshot(args: argparse.Namespace) -> int:
         evidence, raw_summary, err = _load_cleaned_bundle(args.evidence_json)
         if err is not None:
             print(err, file=sys.stderr)
-            return 2
+            return exit_codes.USER_INPUT
         evidence_bundle = {"cleaned_evidence": evidence, "raw_summary": raw_summary}
 
     conn = open_connection(db_path)
@@ -2334,7 +2339,7 @@ def cmd_state_snapshot(args: argparse.Namespace) -> int:
         conn.close()
 
     _emit_json(snapshot)
-    return 0
+    return exit_codes.OK
 
 
 def cmd_state_reproject(args: argparse.Namespace) -> int:
@@ -2369,12 +2374,12 @@ def cmd_state_reproject(args: argparse.Namespace) -> int:
             f"state DB not found at {db_path}. Run `hai state init` first.",
             file=sys.stderr,
         )
-        return 2
+        return exit_codes.USER_INPUT
 
     base_dir = Path(args.base_dir)
     if not base_dir.exists():
         print(f"base-dir not found at {base_dir}", file=sys.stderr)
-        return 2
+        return exit_codes.USER_INPUT
 
     conn = open_connection(db_path)
     try:
@@ -2384,7 +2389,7 @@ def cmd_state_reproject(args: argparse.Namespace) -> int:
             )
         except ReprojectBaseDirError as exc:
             print(f"reproject refused: {exc}", file=sys.stderr)
-            return 2
+            return exit_codes.USER_INPUT
     finally:
         conn.close()
     _emit_json({
@@ -2392,7 +2397,7 @@ def cmd_state_reproject(args: argparse.Namespace) -> int:
         "base_dir": str(base_dir),
         "reprojected": counts,
     })
-    return 0
+    return exit_codes.OK
 
 
 def cmd_state_migrate(args: argparse.Namespace) -> int:
@@ -2416,7 +2421,7 @@ def cmd_state_migrate(args: argparse.Namespace) -> int:
             f"state DB not found at {db_path}. Run `hai state init` first.",
             file=sys.stderr,
         )
-        return 2
+        return exit_codes.USER_INPUT
     conn = open_connection(db_path)
     try:
         before = current_schema_version(conn)
@@ -2430,7 +2435,7 @@ def cmd_state_migrate(args: argparse.Namespace) -> int:
         "schema_version_after": after,
         "applied": applied,
     })
-    return 0
+    return exit_codes.OK
 
 
 # ---------------------------------------------------------------------------
@@ -2464,12 +2469,12 @@ def cmd_classify(args: argparse.Namespace) -> int:
             f"unsupported domain: {args.domain!r}; only {sorted(_SUPPORTED_CLASSIFY_DOMAINS)} supported in v1",
             file=sys.stderr,
         )
-        return 2
+        return exit_codes.USER_INPUT
 
     evidence, raw_summary, error = _load_cleaned_bundle(args.evidence_json)
     if error is not None:
         print(error, file=sys.stderr)
-        return 2
+        return exit_codes.USER_INPUT
 
     try:
         thresholds = load_thresholds(
@@ -2477,7 +2482,7 @@ def cmd_classify(args: argparse.Namespace) -> int:
         )
     except ConfigError as exc:
         print(f"config error: {exc}", file=sys.stderr)
-        return 2
+        return exit_codes.USER_INPUT
 
     classified = classify_recovery_state(evidence, raw_summary, thresholds=thresholds)
     _emit_json({
@@ -2486,7 +2491,7 @@ def cmd_classify(args: argparse.Namespace) -> int:
         "user_id": evidence.get("user_id"),
         "classified": classified,
     })
-    return 0
+    return exit_codes.OK
 
 
 def cmd_policy(args: argparse.Namespace) -> int:
@@ -2495,12 +2500,12 @@ def cmd_policy(args: argparse.Namespace) -> int:
             f"unsupported domain: {args.domain!r}; only {sorted(_SUPPORTED_CLASSIFY_DOMAINS)} supported in v1",
             file=sys.stderr,
         )
-        return 2
+        return exit_codes.USER_INPUT
 
     evidence, raw_summary, error = _load_cleaned_bundle(args.evidence_json)
     if error is not None:
         print(error, file=sys.stderr)
-        return 2
+        return exit_codes.USER_INPUT
 
     try:
         thresholds = load_thresholds(
@@ -2508,7 +2513,7 @@ def cmd_policy(args: argparse.Namespace) -> int:
         )
     except ConfigError as exc:
         print(f"config error: {exc}", file=sys.stderr)
-        return 2
+        return exit_codes.USER_INPUT
 
     classified = classify_recovery_state(evidence, raw_summary, thresholds=thresholds)
     policy = evaluate_recovery_policy(classified, raw_summary, thresholds=thresholds)
@@ -2519,7 +2524,7 @@ def cmd_policy(args: argparse.Namespace) -> int:
         "classified": classified,
         "policy": policy,
     })
-    return 0
+    return exit_codes.OK
 
 
 def cmd_config_init(args: argparse.Namespace) -> int:
@@ -2529,11 +2534,11 @@ def cmd_config_init(args: argparse.Namespace) -> int:
             f"config file already exists at {dest}; pass --force to overwrite",
             file=sys.stderr,
         )
-        return 2
+        return exit_codes.USER_INPUT
     dest.parent.mkdir(parents=True, exist_ok=True)
     dest.write_text(scaffold_thresholds_toml(), encoding="utf-8")
     _emit_json({"written": str(dest), "overwrote": bool(args.force and dest.exists())})
-    return 0
+    return exit_codes.OK
 
 
 def cmd_config_show(args: argparse.Namespace) -> int:
@@ -2542,14 +2547,14 @@ def cmd_config_show(args: argparse.Namespace) -> int:
         merged = load_thresholds(path=path)
     except ConfigError as exc:
         print(f"config error: {exc}", file=sys.stderr)
-        return 2
+        return exit_codes.USER_INPUT
     effective_path = path if path is not None else user_config_path()
     _emit_json({
         "source_path": str(effective_path),
         "source_exists": effective_path.exists(),
         "effective_thresholds": merged,
     })
-    return 0
+    return exit_codes.OK
 
 
 def cmd_exercise_search(args: argparse.Namespace) -> int:
@@ -2593,7 +2598,7 @@ def cmd_exercise_search(args: argparse.Namespace) -> int:
             f"state DB not found at {db_path}. Run `hai state init` first.",
             file=sys.stderr,
         )
-        return 2
+        return exit_codes.USER_INPUT
 
     conn = open_connection(db_path)
     try:
@@ -2618,7 +2623,7 @@ def cmd_exercise_search(args: argparse.Namespace) -> int:
             for h in hits
         ],
     })
-    return 0
+    return exit_codes.OK
 
 
 # ---------------------------------------------------------------------------
@@ -2774,7 +2779,7 @@ def cmd_daily(args: argparse.Namespace) -> int:
     expected_domains, domains_err = _parse_daily_domains(args.domains)
     if domains_err is not None:
         print(f"hai daily rejected: {domains_err}", file=sys.stderr)
-        return 2
+        return exit_codes.USER_INPUT
 
     as_of = _coerce_date(args.as_of)
     user_id = args.user_id
@@ -2788,7 +2793,7 @@ def cmd_daily(args: argparse.Namespace) -> int:
             f"{db_path}. Run `hai state init` first.",
             file=sys.stderr,
         )
-        return 2
+        return exit_codes.USER_INPUT
 
     report: dict[str, Any] = {
         "as_of_date": as_of.isoformat(),
@@ -2812,7 +2817,7 @@ def cmd_daily(args: argparse.Namespace) -> int:
             report["stages"]["pull"] = {"status": "failed", "error": str(exc)}
             report["overall_status"] = "failed"
             _emit_json(report)
-            return 2
+            return exit_codes.USER_INPUT
         report["stages"]["pull"] = {"status": "ran", "source": source_name}
         report["stages"]["clean"] = {
             "status": "ran" if projected else "no_raw_daily_row",
@@ -2855,7 +2860,7 @@ def cmd_daily(args: argparse.Namespace) -> int:
             report["stages"]["reviews"] = {"status": "skipped"}
             report["overall_status"] = "awaiting_proposals"
             _emit_json(report)
-            return 0
+            return exit_codes.OK
 
         # Stage 5: synthesize — atomic Phase A + Phase B commit
         try:
@@ -2874,7 +2879,7 @@ def cmd_daily(args: argparse.Namespace) -> int:
             }
             report["overall_status"] = "failed"
             _emit_json(report)
-            return 2
+            return exit_codes.USER_INPUT
         report["stages"]["synthesize"] = {
             "status": "ran",
             "daily_plan_id": result.daily_plan_id,
@@ -2901,7 +2906,7 @@ def cmd_daily(args: argparse.Namespace) -> int:
 
     report["overall_status"] = "complete"
     _emit_json(report)
-    return 0
+    return exit_codes.OK
 
 
 def cmd_setup_skills(args: argparse.Namespace) -> int:
@@ -2911,7 +2916,7 @@ def cmd_setup_skills(args: argparse.Namespace) -> int:
     with _skills_source() as skills_source:
         if not skills_source.exists():
             print(f"skills/ not found at {skills_source}", file=sys.stderr)
-            return 2
+            return exit_codes.USER_INPUT
         for skill_dir in skills_source.iterdir():
             if not skill_dir.is_dir():
                 continue
@@ -2924,7 +2929,7 @@ def cmd_setup_skills(args: argparse.Namespace) -> int:
             shutil.copytree(skill_dir, target)
             copied.append(str(target))
     _emit_json({"copied": copied, "dest": str(dest)})
-    return 0
+    return exit_codes.OK
 
 
 # ---------------------------------------------------------------------------
@@ -3065,7 +3070,7 @@ def cmd_init(args: argparse.Namespace) -> int:
     }
 
     _emit_json(report)
-    return 0
+    return exit_codes.OK
 
 
 # ---------------------------------------------------------------------------
@@ -3135,7 +3140,10 @@ def cmd_doctor(args: argparse.Namespace) -> int:
     else:
         sys.stdout.write(render_text(report))
 
-    return 2 if report.overall_status == "fail" else 0
+    # doctor "fail" means a user-fixable state precondition (DB not
+    # initialised, creds missing, etc.) — maps to USER_INPUT per the
+    # exit-code taxonomy ("state precondition the caller controls").
+    return exit_codes.USER_INPUT if report.overall_status == "fail" else exit_codes.OK
 
 
 # ---------------------------------------------------------------------------
@@ -3155,6 +3163,29 @@ def _register_eval_subparser(sub: argparse._SubParsersAction) -> None:
     from health_agent_infra.evals.cli import register_eval_subparser
 
     register_eval_subparser(sub)
+
+
+# ---------------------------------------------------------------------------
+# hai capabilities — emit the agent contract manifest
+# ---------------------------------------------------------------------------
+
+
+def cmd_capabilities(args: argparse.Namespace) -> int:
+    """Emit the agent-CLI-contract manifest as JSON or markdown.
+
+    The manifest is built by walking the very parser the user just
+    invoked, so the output reflects the exact CLI surface this process
+    exposes — no risk of the manifest describing a different build.
+    """
+
+    manifest = build_manifest(build_parser())
+    if getattr(args, "markdown", False):
+        # Text form for operator-facing review; the --json form stays the
+        # canonical machine-readable surface.
+        print(render_markdown(manifest), end="")
+    else:
+        _emit_json(manifest)
+    return exit_codes.OK
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -3187,6 +3218,19 @@ def build_parser() -> argparse.ArgumentParser:
                              "if the DB is absent, the pull still runs but the "
                              "sync row is skipped. Same semantics as `hai writeback`.")
     p_pull.set_defaults(func=cmd_pull)
+    annotate_contract(
+        p_pull,
+        mutation="writes-sync-log",
+        idempotent="yes",
+        json_output="default",
+        exit_codes=("OK", "USER_INPUT", "TRANSIENT"),
+        agent_safe=True,
+        description=(
+            "Acquire Garmin evidence (CSV fixture by default, live via "
+            "--live) for a date and emit cleaned evidence JSON. Writes a "
+            "sync_run_log row; does not touch the main state tables."
+        ),
+    )
 
     p_auth = sub.add_parser("auth", help="Credential management for external sources")
     auth_sub = p_auth.add_subparsers(dest="auth_command", required=True)
@@ -3204,12 +3248,36 @@ def build_parser() -> argparse.ArgumentParser:
                                help="Read the Garmin password from the named "
                                     "environment variable")
     p_auth_garmin.set_defaults(func=cmd_auth_garmin)
+    annotate_contract(
+        p_auth_garmin,
+        mutation="writes-credentials",
+        idempotent="yes",  # replacing stored credentials with same pair is a no-op
+        json_output="default",
+        exit_codes=("OK", "USER_INPUT"),
+        agent_safe=False,  # interactive password prompt
+        description=(
+            "Store Garmin credentials in the OS keyring. Interactive by "
+            "default; operator-only (requires a live password)."
+        ),
+    )
 
     p_auth_status = auth_sub.add_parser(
         "status",
         help="Report whether credentials are configured (presence only, no secrets)",
     )
     p_auth_status.set_defaults(func=cmd_auth_status)
+    annotate_contract(
+        p_auth_status,
+        mutation="read-only",
+        idempotent="n/a",
+        json_output="default",
+        exit_codes=("OK",),
+        agent_safe=True,
+        description=(
+            "Report whether Garmin credentials are configured. Presence "
+            "only — never emits the secret itself."
+        ),
+    )
 
     p_clean = sub.add_parser("clean", help="Normalize pulled evidence + raw summary")
     p_clean.add_argument("--evidence-json", required=True,
@@ -3219,6 +3287,19 @@ def build_parser() -> argparse.ArgumentParser:
                               "If the DB is absent, projection is skipped with a stderr note; "
                               "stdout is unchanged.")
     p_clean.set_defaults(func=cmd_clean)
+    annotate_contract(
+        p_clean,
+        mutation="writes-state",
+        idempotent="yes",
+        json_output="default",
+        exit_codes=("OK", "USER_INPUT"),
+        agent_safe=True,
+        description=(
+            "Normalize pulled evidence into CleanedEvidence + RawSummary "
+            "JSON and project accepted state rows. Best-effort projection "
+            "when --db-path is absent."
+        ),
+    )
 
     p_wb = sub.add_parser(
         "writeback",
@@ -3240,6 +3321,20 @@ def build_parser() -> argparse.ArgumentParser:
                       help="State DB path (default: $HAI_STATE_DB or ~/.local/share/health_agent_infra/state.db). "
                            "If the DB is absent, projection is skipped with a stderr note.")
     p_wb.set_defaults(func=cmd_writeback)
+    annotate_contract(
+        p_wb,
+        mutation="writes-state",
+        idempotent="no",  # append-only recovery recommendation log
+        json_output="default",
+        exit_codes=("OK", "USER_INPUT"),
+        agent_safe=True,
+        description=(
+            "Legacy recovery-only direct writeback path. Validates a "
+            "TrainingRecommendation against the bounded schema and "
+            "appends to the recovery audit log. Non-recovery domains go "
+            "through hai synthesize instead."
+        ),
+    )
 
     p_prop = sub.add_parser(
         "propose",
@@ -3261,6 +3356,19 @@ def build_parser() -> argparse.ArgumentParser:
     p_prop.add_argument("--db-path", default=None,
                         help="State DB path (same semantics as `hai writeback --db-path`)")
     p_prop.set_defaults(func=cmd_propose)
+    annotate_contract(
+        p_prop,
+        mutation="writes-state",
+        idempotent="no",  # append-only proposal_log
+        json_output="default",
+        exit_codes=("OK", "USER_INPUT"),
+        agent_safe=True,
+        description=(
+            "Validate a DomainProposal and append it to proposal_log. "
+            "One of the three determinism boundaries the runtime "
+            "enforces."
+        ),
+    )
 
     p_syn = sub.add_parser(
         "synthesize",
@@ -3291,6 +3399,20 @@ def build_parser() -> argparse.ArgumentParser:
     p_syn.add_argument("--db-path", default=None,
                        help="State DB path (same semantics as `hai writeback --db-path`)")
     p_syn.set_defaults(func=cmd_synthesize)
+    annotate_contract(
+        p_syn,
+        mutation="writes-state",
+        idempotent="yes-with-supersede",
+        json_output="default",
+        exit_codes=("OK", "USER_INPUT", "INTERNAL"),
+        agent_safe=True,
+        description=(
+            "Run synthesis end-to-end inside one atomic SQLite "
+            "transaction: daily_plan + x_rule_firings + "
+            "planned_recommendation + recommendation_log. --supersede "
+            "versions the plan instead of replacing it."
+        ),
+    )
 
     p_explain = sub.add_parser(
         "explain",
@@ -3323,6 +3445,19 @@ def build_parser() -> argparse.ArgumentParser:
     p_explain.add_argument("--db-path", default=None,
                            help="State DB path (same semantics as `hai writeback --db-path`)")
     p_explain.set_defaults(func=cmd_explain)
+    annotate_contract(
+        p_explain,
+        mutation="read-only",
+        idempotent="n/a",
+        json_output="opt-out",  # JSON default; --text suppresses
+        exit_codes=("OK", "USER_INPUT", "NOT_FOUND"),
+        agent_safe=True,
+        description=(
+            "Reconstruct the full audit chain (planned / adapted / "
+            "firings / performed) for a committed plan. Strictly "
+            "read-only — never recomputes runtime state."
+        ),
+    )
 
     # --- hai memory (Phase D) ---
     from health_agent_infra.core.memory.schemas import USER_MEMORY_CATEGORIES
@@ -3385,6 +3520,19 @@ def build_parser() -> argparse.ArgumentParser:
         help="State DB path (same semantics as `hai writeback --db-path`).",
     )
     p_mset.set_defaults(func=cmd_memory_set)
+    annotate_contract(
+        p_mset,
+        mutation="writes-memory",
+        idempotent="no",  # append-only user_memory rows
+        json_output="default",
+        exit_codes=("OK", "USER_INPUT"),
+        agent_safe=True,
+        description=(
+            "Append a user_memory entry (goal / preference / constraint "
+            "/ context). Append-only — replace by archiving the old row "
+            "and setting a new one."
+        ),
+    )
 
     p_mlist = memory_sub.add_parser(
         "list",
@@ -3405,6 +3553,18 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_mlist.add_argument("--db-path", default=None)
     p_mlist.set_defaults(func=cmd_memory_list)
+    annotate_contract(
+        p_mlist,
+        mutation="read-only",
+        idempotent="n/a",
+        json_output="default",
+        exit_codes=("OK", "USER_INPUT"),
+        agent_safe=True,
+        description=(
+            "List user_memory entries active at a given date, grouped "
+            "by category."
+        ),
+    )
 
     p_march = memory_sub.add_parser(
         "archive",
@@ -3417,6 +3577,18 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_march.add_argument("--db-path", default=None)
     p_march.set_defaults(func=cmd_memory_archive)
+    annotate_contract(
+        p_march,
+        mutation="writes-memory",
+        idempotent="yes",  # re-archiving an already-archived row is a no-op
+        json_output="default",
+        exit_codes=("OK", "USER_INPUT"),
+        agent_safe=True,
+        description=(
+            "Mark a user_memory entry archived (soft delete). The row "
+            "itself stays for audit; read surfaces filter it out."
+        ),
+    )
 
     p_review = sub.add_parser("review", help="Review scheduling + outcome persistence")
     review_sub = p_review.add_subparsers(dest="review_command", required=True)
@@ -3427,6 +3599,18 @@ def build_parser() -> argparse.ArgumentParser:
     p_rs.add_argument("--db-path", default=None,
                       help="State DB path (same semantics as `hai writeback --db-path`)")
     p_rs.set_defaults(func=cmd_review_schedule)
+    annotate_contract(
+        p_rs,
+        mutation="writes-state",
+        idempotent="no",
+        json_output="default",
+        exit_codes=("OK", "USER_INPUT"),
+        agent_safe=True,
+        description=(
+            "Persist a pending review_event for a recommendation "
+            "(used to schedule the next-day review question)."
+        ),
+    )
 
     p_rr = review_sub.add_parser("record", help="Record a review outcome")
     p_rr.add_argument("--outcome-json", required=True)
@@ -3470,6 +3654,19 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     p_rr.set_defaults(func=cmd_review_record)
+    annotate_contract(
+        p_rr,
+        mutation="writes-state",
+        idempotent="no",  # append-only review_outcome rows
+        json_output="default",
+        exit_codes=("OK", "USER_INPUT"),
+        agent_safe=True,
+        description=(
+            "Record a review_outcome against a review_event. Carries "
+            "the migration-010 enrichment columns (completed, "
+            "intensity_delta, pre/post_energy, disagreed_firing_ids)."
+        ),
+    )
 
     p_rsum = review_sub.add_parser("summary", help="Summarize outcome history counts")
     p_rsum.add_argument("--base-dir", required=True)
@@ -3478,6 +3675,18 @@ def build_parser() -> argparse.ArgumentParser:
                         help="Restrict counts to a single domain "
                              "(e.g. 'recovery' or 'running'). Omitted = all domains.")
     p_rsum.set_defaults(func=cmd_review_summary)
+    annotate_contract(
+        p_rsum,
+        mutation="read-only",
+        idempotent="n/a",
+        json_output="default",
+        exit_codes=("OK", "USER_INPUT"),
+        agent_safe=True,
+        description=(
+            "Summarize review_outcome counts (followed / not-followed, "
+            "per-domain tallies)."
+        ),
+    )
 
     p_intake = sub.add_parser("intake", help="Typed human-input intake surfaces")
     intake_sub = p_intake.add_subparsers(dest="intake_command", required=True)
@@ -3523,6 +3732,15 @@ def build_parser() -> argparse.ArgumentParser:
     p_ig.add_argument("--db-path", default=None,
                       help="State DB path (same semantics as `hai writeback --db-path`)")
     p_ig.set_defaults(func=cmd_intake_gym)
+    annotate_contract(
+        p_ig,
+        mutation="writes-state",
+        idempotent="no",
+        json_output="default",
+        exit_codes=("OK", "USER_INPUT"),
+        agent_safe=True,
+        description="Record a gym session (sets + exercises) as typed human-input.",
+    )
 
     p_ie = intake_sub.add_parser(
         "exercise",
@@ -3548,6 +3766,15 @@ def build_parser() -> argparse.ArgumentParser:
     p_ie.add_argument("--db-path", default=None,
                       help="State DB path (default: platformdirs user_data_dir)")
     p_ie.set_defaults(func=cmd_intake_exercise)
+    annotate_contract(
+        p_ie,
+        mutation="writes-state",
+        idempotent="yes",  # upserts the taxonomy entry by slug
+        json_output="default",
+        exit_codes=("OK", "USER_INPUT"),
+        agent_safe=True,
+        description="Upsert an exercise taxonomy entry.",
+    )
 
     p_in = intake_sub.add_parser(
         "nutrition",
@@ -3578,6 +3805,15 @@ def build_parser() -> argparse.ArgumentParser:
     p_in.add_argument("--db-path", default=None,
                       help="State DB path (same semantics as other intake cmds)")
     p_in.set_defaults(func=cmd_intake_nutrition)
+    annotate_contract(
+        p_in,
+        mutation="writes-state",
+        idempotent="no",
+        json_output="default",
+        exit_codes=("OK", "USER_INPUT"),
+        agent_safe=True,
+        description="Record a macros-only nutrition intake entry.",
+    )
 
     p_is = intake_sub.add_parser(
         "stress",
@@ -3599,6 +3835,15 @@ def build_parser() -> argparse.ArgumentParser:
                       help="Intake root (stress_manual.jsonl lands here)")
     p_is.add_argument("--db-path", default=None)
     p_is.set_defaults(func=cmd_intake_stress)
+    annotate_contract(
+        p_is,
+        mutation="writes-state",
+        idempotent="no",
+        json_output="default",
+        exit_codes=("OK", "USER_INPUT"),
+        agent_safe=True,
+        description="Record a manual stress observation (used when Garmin stress is absent).",
+    )
 
     p_inote = intake_sub.add_parser(
         "note",
@@ -3619,6 +3864,15 @@ def build_parser() -> argparse.ArgumentParser:
                          help="Intake root (context_notes.jsonl lands here)")
     p_inote.add_argument("--db-path", default=None)
     p_inote.set_defaults(func=cmd_intake_note)
+    annotate_contract(
+        p_inote,
+        mutation="writes-state",
+        idempotent="no",
+        json_output="default",
+        exit_codes=("OK", "USER_INPUT"),
+        agent_safe=True,
+        description="Attach a free-text context note to a day.",
+    )
 
     p_ir = intake_sub.add_parser("readiness",
                                  help="Emit a typed manual-readiness JSON to stdout")
@@ -3633,6 +3887,15 @@ def build_parser() -> argparse.ArgumentParser:
     p_ir.add_argument("--as-of", default=None,
                       help="As-of date for submission_id (ISO-8601, default today UTC)")
     p_ir.set_defaults(func=cmd_intake_readiness)
+    annotate_contract(
+        p_ir,
+        mutation="writes-state",
+        idempotent="no",
+        json_output="default",
+        exit_codes=("OK", "USER_INPUT"),
+        agent_safe=True,
+        description="Record a manual readiness self-report entry.",
+    )
 
     p_state = sub.add_parser("state", help="Local SQLite state store management")
     state_sub = p_state.add_subparsers(dest="state_command", required=True)
@@ -3641,11 +3904,35 @@ def build_parser() -> argparse.ArgumentParser:
     p_si.add_argument("--db-path", default=None,
                       help="Path to state.db (default: $HAI_STATE_DB or ~/.local/share/health_agent_infra/state.db)")
     p_si.set_defaults(func=cmd_state_init)
+    annotate_contract(
+        p_si,
+        mutation="writes-state",
+        idempotent="yes",
+        json_output="default",
+        exit_codes=("OK",),
+        agent_safe=True,
+        description=(
+            "Create the local SQLite state DB and apply all pending "
+            "migrations. Idempotent — safe to call repeatedly."
+        ),
+    )
 
     p_sm = state_sub.add_parser("migrate", help="Apply pending migrations against an existing state DB")
     p_sm.add_argument("--db-path", default=None,
                       help="Path to state.db (default: $HAI_STATE_DB or ~/.local/share/health_agent_infra/state.db)")
     p_sm.set_defaults(func=cmd_state_migrate)
+    annotate_contract(
+        p_sm,
+        mutation="writes-state",
+        idempotent="yes",
+        json_output="default",
+        exit_codes=("OK", "USER_INPUT"),
+        agent_safe=True,
+        description=(
+            "Apply any pending schema migrations to an already-"
+            "initialized state DB."
+        ),
+    )
 
     p_sread = state_sub.add_parser(
         "read",
@@ -3662,6 +3949,15 @@ def build_parser() -> argparse.ArgumentParser:
                          help="Filter to a single user (default: no filter)")
     p_sread.add_argument("--db-path", default=None)
     p_sread.set_defaults(func=cmd_state_read)
+    annotate_contract(
+        p_sread,
+        mutation="read-only",
+        idempotent="n/a",
+        json_output="default",
+        exit_codes=("OK", "USER_INPUT"),
+        agent_safe=True,
+        description="Read a per-domain accepted-state row for a given date.",
+    )
 
     p_ssnap = state_sub.add_parser(
         "snapshot",
@@ -3681,6 +3977,18 @@ def build_parser() -> argparse.ArgumentParser:
                               "+ classified_state + policy_result). When absent, "
                               "the recovery block keeps its v1.0 shape.")
     p_ssnap.set_defaults(func=cmd_state_snapshot)
+    annotate_contract(
+        p_ssnap,
+        mutation="read-only",
+        idempotent="n/a",
+        json_output="default",
+        exit_codes=("OK", "USER_INPUT"),
+        agent_safe=True,
+        description=(
+            "Emit the cross-domain state snapshot the synthesis / skills "
+            "layer consumes for a (for_date, user_id) pair."
+        ),
+    )
 
     p_sr = state_sub.add_parser(
         "reproject",
@@ -3701,6 +4009,18 @@ def build_parser() -> argparse.ArgumentParser:
                            "the base-dir contains none of the expected JSONL audit logs. "
                            "Refuses by default to guard against typo-driven data loss.")
     p_sr.set_defaults(func=cmd_state_reproject)
+    annotate_contract(
+        p_sr,
+        mutation="writes-state",
+        idempotent="yes",
+        json_output="default",
+        exit_codes=("OK", "USER_INPUT"),
+        agent_safe=True,
+        description=(
+            "Rebuild the accepted_*_state_daily tables from the raw "
+            "evidence JSONL. Deterministic projection — safe to re-run."
+        ),
+    )
 
     p_daily = sub.add_parser(
         "daily",
@@ -3749,12 +4069,36 @@ def build_parser() -> argparse.ArgumentParser:
                          help="Skip review-event scheduling after "
                               "synthesis.")
     p_daily.set_defaults(func=cmd_daily)
+    annotate_contract(
+        p_daily,
+        mutation="writes-state",
+        idempotent="yes-with-supersede",
+        json_output="default",
+        exit_codes=("OK", "USER_INPUT"),
+        agent_safe=True,
+        description=(
+            "Morning orchestrator: pull → clean → reproject → propose → "
+            "synthesize → daily_plan in one invocation."
+        ),
+    )
 
     p_setup = sub.add_parser("setup-skills", help="Copy packaged skills/ into ~/.claude/skills/")
     p_setup.add_argument("--dest", default=str(DEFAULT_CLAUDE_SKILLS_DIR))
     p_setup.add_argument("--force", action="store_true",
                          help="Overwrite existing skill directories of the same name")
     p_setup.set_defaults(func=cmd_setup_skills)
+    annotate_contract(
+        p_setup,
+        mutation="writes-skills-dir",
+        idempotent="yes",
+        json_output="default",
+        exit_codes=("OK",),
+        agent_safe=True,
+        description=(
+            "Copy the packaged skills/ tree to ~/.claude/skills/ so "
+            "Claude Code discovers them."
+        ),
+    )
 
     p_init = sub.add_parser(
         "init",
@@ -3779,6 +4123,15 @@ def build_parser() -> argparse.ArgumentParser:
                         help="Overwrite an existing thresholds TOML and "
                              "existing skills directories of the same name.")
     p_init.set_defaults(func=cmd_init)
+    annotate_contract(
+        p_init,
+        mutation="interactive",
+        idempotent="no",
+        json_output="none",
+        exit_codes=("OK", "USER_INPUT"),
+        agent_safe=False,  # interactive wizard
+        description="First-run wizard: state init, config scaffolding, auth setup.",
+    )
 
     p_doctor = sub.add_parser(
         "doctor",
@@ -3806,6 +4159,18 @@ def build_parser() -> argparse.ArgumentParser:
                           help="Emit the structured report dict as JSON "
                                "instead of the human-readable text view.")
     p_doctor.set_defaults(func=cmd_doctor)
+    annotate_contract(
+        p_doctor,
+        mutation="read-only",
+        idempotent="n/a",
+        json_output="opt-in",  # text default, JSON via flag
+        exit_codes=("OK", "USER_INPUT"),
+        agent_safe=True,
+        description=(
+            "Report runtime health: DB present, migrations up to date, "
+            "per-source freshness, today's accepted counts."
+        ),
+    )
 
     p_classify = sub.add_parser(
         "classify",
@@ -3817,6 +4182,15 @@ def build_parser() -> argparse.ArgumentParser:
     p_classify.add_argument("--thresholds-path", default=None,
                             help="Override thresholds TOML path (default: platformdirs user_config_dir)")
     p_classify.set_defaults(func=cmd_classify)
+    annotate_contract(
+        p_classify,
+        mutation="read-only",
+        idempotent="n/a",
+        json_output="default",
+        exit_codes=("OK", "USER_INPUT"),
+        agent_safe=True,
+        description="Debug helper: run the per-domain classifier on a cleaned evidence JSON.",
+    )
 
     p_policy = sub.add_parser(
         "policy",
@@ -3828,6 +4202,15 @@ def build_parser() -> argparse.ArgumentParser:
     p_policy.add_argument("--thresholds-path", default=None,
                           help="Override thresholds TOML path (default: platformdirs user_config_dir)")
     p_policy.set_defaults(func=cmd_policy)
+    annotate_contract(
+        p_policy,
+        mutation="read-only",
+        idempotent="n/a",
+        json_output="default",
+        exit_codes=("OK", "USER_INPUT"),
+        agent_safe=True,
+        description="Debug helper: evaluate R-rules on a cleaned evidence JSON.",
+    )
 
     p_config = sub.add_parser("config", help="Inspect or scaffold runtime thresholds")
     config_sub = p_config.add_subparsers(dest="config_command", required=True)
@@ -3841,6 +4224,15 @@ def build_parser() -> argparse.ArgumentParser:
     p_ci.add_argument("--force", action="store_true",
                       help="Overwrite an existing thresholds.toml")
     p_ci.set_defaults(func=cmd_config_init)
+    annotate_contract(
+        p_ci,
+        mutation="writes-config",
+        idempotent="yes",
+        json_output="default",
+        exit_codes=("OK", "USER_INPUT"),
+        agent_safe=True,
+        description="Scaffold a default thresholds.toml at the user-config path.",
+    )
 
     p_cs = config_sub.add_parser(
         "show",
@@ -3849,6 +4241,15 @@ def build_parser() -> argparse.ArgumentParser:
     p_cs.add_argument("--path", default=None,
                       help="Override source path (default: platformdirs user_config_dir)")
     p_cs.set_defaults(func=cmd_config_show)
+    annotate_contract(
+        p_cs,
+        mutation="read-only",
+        idempotent="n/a",
+        json_output="default",
+        exit_codes=("OK", "USER_INPUT"),
+        agent_safe=True,
+        description="Print the effective merged threshold configuration (defaults + overrides).",
+    )
 
     p_exercise = sub.add_parser(
         "exercise",
@@ -3867,8 +4268,43 @@ def build_parser() -> argparse.ArgumentParser:
     p_esearch.add_argument("--db-path", default=None,
                            help="Path to state DB (default: platformdirs user_data_dir)")
     p_esearch.set_defaults(func=cmd_exercise_search)
+    annotate_contract(
+        p_esearch,
+        mutation="read-only",
+        idempotent="n/a",
+        json_output="default",
+        exit_codes=("OK", "USER_INPUT"),
+        agent_safe=True,
+        description="Rank top exercise-taxonomy matches for a free-text query.",
+    )
 
     _register_eval_subparser(sub)
+
+    p_caps = sub.add_parser(
+        "capabilities",
+        help="Emit the agent-CLI-contract manifest (JSON by default, "
+             "--markdown for the human-readable form)",
+    )
+    p_caps.add_argument(
+        "--markdown", action="store_true",
+        help="Render the manifest as the contract markdown doc on stdout "
+             "instead of JSON. Used by the doc regenerator.",
+    )
+    p_caps.set_defaults(func=cmd_capabilities)
+    annotate_contract(
+        p_caps,
+        mutation="read-only",
+        idempotent="n/a",
+        json_output="opt-out",  # JSON default; --markdown suppresses
+        exit_codes=("OK",),
+        agent_safe=True,
+        description=(
+            "Emit the agent-CLI-contract manifest describing every "
+            "subcommand's mutation class, idempotency, JSON output, and "
+            "exit codes. The authoritative surface the routing skill "
+            "consumes."
+        ),
+    )
 
     return parser
 

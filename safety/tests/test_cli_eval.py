@@ -15,6 +15,7 @@ import pytest
 
 from health_agent_infra.cli import main as cli_main
 from health_agent_infra.evals.runner import SCENARIOS_ROOT  # noqa: F401
+from health_agent_infra.core import exit_codes
 
 
 @pytest.fixture()
@@ -123,7 +124,7 @@ class TestCliDomainRun:
         self, isolated_scenarios_dir, capsys,
     ) -> None:
         rc = cli_main(["eval", "run", "--domain", "recovery"])
-        assert rc == 2
+        assert rc == exit_codes.USER_INPUT
         err = capsys.readouterr().err
         assert "no scenarios found" in err
 

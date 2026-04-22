@@ -25,6 +25,7 @@ from pathlib import Path
 import pytest
 
 from health_agent_infra.cli import main as cli_main
+from health_agent_infra.core import exit_codes
 from health_agent_infra.core.state import (
     build_snapshot,
     initialize_database,
@@ -242,7 +243,7 @@ def test_intake_gym_bulk_mode_rejects_malformed_json(tmp_path: Path):
         "intake", "gym", "--session-json", str(bad),
         "--user-id", USER, "--base-dir", str(base), "--db-path", str(db),
     ])
-    assert rc == 2
+    assert rc == exit_codes.USER_INPUT
     assert not (base / "gym_sessions.jsonl").exists()
 
 

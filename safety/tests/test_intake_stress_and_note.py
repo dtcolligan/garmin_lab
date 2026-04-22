@@ -45,6 +45,7 @@ from pathlib import Path
 import pytest
 
 from health_agent_infra.cli import main as cli_main
+from health_agent_infra.core import exit_codes
 from health_agent_infra.core.state import (
     build_snapshot,
     initialize_database,
@@ -493,7 +494,7 @@ def test_note_empty_text_rejected(tmp_path: Path):
         "--as-of", AS_OF.isoformat(), "--user-id", USER,
         "--base-dir", str(base), "--db-path", str(db),
     ])
-    assert rc == 2
+    assert rc == exit_codes.USER_INPUT
     assert not (base / "context_notes.jsonl").exists()
 
 

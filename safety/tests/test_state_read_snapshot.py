@@ -24,6 +24,7 @@ from pathlib import Path
 import pytest
 
 from health_agent_infra.cli import main as cli_main
+from health_agent_infra.core import exit_codes
 from health_agent_infra.core.state import (
     available_domains,
     build_snapshot,
@@ -581,7 +582,7 @@ def test_cli_state_read_unknown_domain_fails_closed(tmp_path: Path, capsys):
         "--db-path", str(db),
     ])
     err = capsys.readouterr().err
-    assert rc == 2
+    assert rc == exit_codes.USER_INPUT
     assert "unknown domain" in err
 
 
@@ -594,7 +595,7 @@ def test_cli_state_read_missing_db_fails_closed(tmp_path: Path, capsys):
         "--db-path", str(absent),
     ])
     err = capsys.readouterr().err
-    assert rc == 2
+    assert rc == exit_codes.USER_INPUT
     assert "state DB not found" in err
 
 
@@ -632,7 +633,7 @@ def test_cli_state_snapshot_missing_db_fails_closed(tmp_path: Path, capsys):
         "--db-path", str(absent),
     ])
     err = capsys.readouterr().err
-    assert rc == 2
+    assert rc == exit_codes.USER_INPUT
     assert "state DB not found" in err
 
 

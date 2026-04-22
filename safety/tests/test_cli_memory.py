@@ -36,6 +36,7 @@ from health_agent_infra.core.state import (
 )
 from health_agent_infra.core.synthesis import run_synthesis
 from health_agent_infra.core.writeback.proposal import PROPOSAL_SCHEMA_VERSIONS
+from health_agent_infra.core import exit_codes
 
 
 # ---------------------------------------------------------------------------
@@ -147,7 +148,7 @@ def test_memory_set_rejects_empty_value(db_path, capsys):
         "--value", "   ",
         "--db-path", str(db_path),
     ], capsys)
-    assert rc == 2
+    assert rc == exit_codes.USER_INPUT
     assert "invariant=value_non_empty" in err
 
 
@@ -158,7 +159,8 @@ def test_memory_set_rejects_unknown_category(db_path, capsys):
         "--value", "x",
         "--db-path", str(db_path),
     ], capsys)
-    # argparse rejects with rc=2 and error mentioning the choice set.
+    # argparse rejects with rc=2 before our handler runs — this is
+    # argparse's own exit path, outside the exit_codes taxonomy.
     assert rc == 2
     assert "invalid choice" in err or "not in" in err.lower()
 
@@ -169,7 +171,7 @@ def test_memory_archive_unknown_memory_id_exits_2(db_path, capsys):
         "--memory-id", "umem_nope",
         "--db-path", str(db_path),
     ], capsys)
-    assert rc == 2
+    assert rc == exit_codes.USER_INPUT
     assert "no entry" in err.lower()
 
 
