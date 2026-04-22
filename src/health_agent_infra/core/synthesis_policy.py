@@ -122,6 +122,82 @@ X_RULE_PUBLIC_NAMES: dict[str, str] = {
 }
 
 
+# ---------------------------------------------------------------------------
+# Sentence-form explanations for each X-rule (Phase 3 of the
+# agent-operable runtime plan; see reporting/plans/
+# agent_operable_runtime_plan.md §3).
+#
+# The slug in ``X_RULE_PUBLIC_NAMES`` is a stable machine-readable handle;
+# the sentence here is what a skill or agent narrates back to the user.
+# Pattern:
+#
+#   "<trigger in plain terms>, so <action the rule takes>
+#    (because <reason>)."
+#
+# Design choices:
+#   - No raw threshold numbers. Sentences stay bounded — they describe
+#     the qualitative state ("moderate", "elevated", "depleted") that
+#     synthesis already classified, not the tuning knobs. A future
+#     threshold change doesn't invalidate the sentence.
+#   - One line each, ≤ 160 chars, so a CLI consumer or skill can print
+#     them inline without wrapping logic.
+#   - Consistent tense and voice across rules.
+#   - Internal ids are frozen (``X1a``/``X3b``/…); the sentences are
+#     free to evolve. Adding a new rule means appending a row here
+#     *and* a row in ``X_RULE_PUBLIC_NAMES`` — a coverage test
+#     (``test_every_x_rule_has_a_sentence``) asserts the two maps
+#     stay aligned.
+# ---------------------------------------------------------------------------
+X_RULE_DESCRIPTIONS: dict[str, str] = {
+    "X1a": (
+        "Sleep debt is moderate, so hard sessions are softened "
+        "to reduce injury risk while sleep recovers."
+    ),
+    "X1b": (
+        "Sleep debt is elevated, so hard sessions are blocked "
+        "until sleep catches up."
+    ),
+    "X2": (
+        "Fuelling is low (calorie deficit or insufficient protein), "
+        "so hard strength or recovery sessions are softened to "
+        "protect adaptation."
+    ),
+    "X3a": (
+        "Training load is spiking above recent baseline, so hard "
+        "sessions are softened to reduce injury risk."
+    ),
+    "X3b": (
+        "Training load is spiking well above recent baseline, so "
+        "hard sessions are blocked until load settles."
+    ),
+    "X4": (
+        "Yesterday's heavy lower-body strength means today's hard "
+        "run is softened to an easy aerobic effort."
+    ),
+    "X5": (
+        "Yesterday's long run or hard intervals means today's "
+        "lower-body strength is softened to technique or accessory "
+        "work."
+    ),
+    "X6a": (
+        "Body battery is low, so hard sessions are softened to "
+        "match available capacity."
+    ),
+    "X6b": (
+        "Body battery is depleted, so hard sessions are blocked — "
+        "today should be rest or very light."
+    ),
+    "X7": (
+        "Stress is elevated today, so recommendation confidence is "
+        "capped at moderate because the signal is noisier than usual."
+    ),
+    "X9": (
+        "Training is hard today, so the nutrition target bumps "
+        "protein to support adaptation."
+    ),
+}
+
+
 def public_name_for(rule_id: str) -> Optional[str]:
     """Return the human-readable public name for ``rule_id``, or ``None``.
 
@@ -131,6 +207,23 @@ def public_name_for(rule_id: str) -> Optional[str]:
     """
 
     return X_RULE_PUBLIC_NAMES.get(rule_id)
+
+
+def description_for(rule_id: str) -> Optional[str]:
+    """Return the sentence-form explanation for ``rule_id``, or ``None``.
+
+    Counterpart to :func:`public_name_for`. The sentence is what a
+    skill or agent narrates back to the user — more complete than the
+    slug ("sleep-debt-softens-hard") and more stable than the
+    ``trigger_note`` string on individual firings (which encodes the
+    specific signal that fired, not the rule's rationale).
+
+    Unknown / experimental rule ids return ``None`` so historical DB
+    rows written before a new rule lands render under their internal
+    id alone.
+    """
+
+    return X_RULE_DESCRIPTIONS.get(rule_id)
 
 
 @dataclass(frozen=True)
@@ -168,6 +261,7 @@ class XRuleFiring:
         return {
             "rule_id": self.rule_id,
             "public_name": public_name_for(self.rule_id),
+            "human_explanation": description_for(self.rule_id),
             "tier": self.tier,
             "affected_domain": self.affected_domain,
             "trigger_note": self.trigger_note,

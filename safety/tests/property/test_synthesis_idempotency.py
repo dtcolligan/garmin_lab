@@ -54,6 +54,7 @@ _VOLATILE_COLUMNS: frozenset[str] = frozenset({
     "sync_id",
     "started_at",
     "completed_at",
+    "captured_at",
 })
 
 
@@ -101,7 +102,12 @@ def _snapshot_db(conn: sqlite3.Connection) -> dict[str, list[dict]]:
     """
 
     snap: dict[str, list[dict]] = {}
-    for table in ("daily_plan", "recommendation_log", "x_rule_firing"):
+    for table in (
+        "daily_plan",
+        "recommendation_log",
+        "x_rule_firing",
+        "planned_recommendation",
+    ):
         rows = conn.execute(
             f"SELECT * FROM {table} ORDER BY 1"  # noqa: S608 — fixed list
         ).fetchall()

@@ -22,18 +22,23 @@ the ``[synthesis.x_rules]`` section. Defaults live in
 
 ## Rule naming
 
-Every rule has two names. The **internal id** (``X1a``, ``X3b``, ``X9``)
-is the stable handle — it appears in DB rows, JSONL audit records,
-eval-scenario fixtures, and the ``plan.x_rules_fired`` array. The
-**public name** is a readable slug that shows up in ``hai explain``
-output, agent-facing JSON (``firing["public_name"]``), and the tables
-below. Renaming an internal id would break audit continuity; the public
-name is free to evolve.
+Every rule has three surfaces. The **internal id** (``X1a``, ``X3b``,
+``X9``) is the stable handle — it appears in DB rows, JSONL audit
+records, eval-scenario fixtures, and the ``plan.x_rules_fired``
+array. The **public name** is a machine-readable slug that shows up in
+``hai explain`` output, agent-facing JSON (``firing["public_name"]``),
+and the tables below. The **human explanation** (see §"Human
+explanations" below) is a one-sentence description used when an agent
+or skill narrates the firing back to the user, surfaced as
+``firing["human_explanation"]`` on the explain bundle and in the
+``--text`` render. Renaming an internal id would break audit
+continuity; the public name and human explanation are free to evolve.
 
-The mapping lives in ``X_RULE_PUBLIC_NAMES`` in
+The mappings live in ``X_RULE_PUBLIC_NAMES`` and
+``X_RULE_DESCRIPTIONS`` in
 ``src/health_agent_infra/core/synthesis_policy.py``. Adding a rule
-means appending a row there and adding the **Public name** column entry
-in the relevant table here so the two never drift apart. Slug pattern:
+means appending a row in both maps and adding the relevant column
+entries below so code and docs never drift apart. Slug pattern:
 ``<trigger>-<tier_verb>-<target>`` — the tier verb mirrors the tier
 taxonomy (``softens`` / ``blocks`` / ``caps-confidence`` / ``bumps``).
 
@@ -57,6 +62,29 @@ taxonomy (``softens`` / ``blocks`` / ``caps-confidence`` / ``bumps``).
 | ID | Public name | Trigger | Target | Tier | Mutation |
 |---|---|---|---|---|---|
 | X9 | training-intensity-bumps-protein | Any training-domain (recovery / running / strength) draft carries a hard baseline action AND a nutrition draft exists | nutrition | adjust | action_detail appended with protein-target multiplier + ``reason_token=x9_training_intensity_bump`` (action unchanged) |
+
+## Human explanations
+
+Each rule has a one-sentence description surfaced by ``hai explain``
+(JSON field ``firing["human_explanation"]`` and the text-render
+``explanation:`` line). Sentences never name raw threshold numbers —
+they describe the *qualitative state* synthesis already classified
+("moderate", "elevated", "depleted"), so a future threshold change
+doesn't invalidate the sentence.
+
+| ID | Human explanation |
+|---|---|
+| X1a | Sleep debt is moderate, so hard sessions are softened to reduce injury risk while sleep recovers. |
+| X1b | Sleep debt is elevated, so hard sessions are blocked until sleep catches up. |
+| X2 | Fuelling is low (calorie deficit or insufficient protein), so hard strength or recovery sessions are softened to protect adaptation. |
+| X3a | Training load is spiking above recent baseline, so hard sessions are softened to reduce injury risk. |
+| X3b | Training load is spiking well above recent baseline, so hard sessions are blocked until load settles. |
+| X4 | Yesterday's heavy lower-body strength means today's hard run is softened to an easy aerobic effort. |
+| X5 | Yesterday's long run or hard intervals means today's lower-body strength is softened to technique or accessory work. |
+| X6a | Body battery is low, so hard sessions are softened to match available capacity. |
+| X6b | Body battery is depleted, so hard sessions are blocked — today should be rest or very light. |
+| X7 | Stress is elevated today, so recommendation confidence is capped at moderate because the signal is noisier than usual. |
+| X9 | Training is hard today, so the nutrition target bumps protein to support adaptation. |
 
 ## Tier precedence
 

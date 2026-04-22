@@ -30,7 +30,10 @@ from datetime import date
 from typing import Any, Optional
 
 from health_agent_infra.core.schemas import canonical_daily_plan_id
-from health_agent_infra.core.synthesis_policy import public_name_for
+from health_agent_infra.core.synthesis_policy import (
+    description_for,
+    public_name_for,
+)
 
 
 class ExplainNotFoundError(LookupError):
@@ -72,6 +75,7 @@ class ExplainXRuleFiring:
     orphan: bool
     fired_at: str
     public_name: Optional[str] = None
+    human_explanation: Optional[str] = None
 
 
 @dataclass(frozen=True)
@@ -91,6 +95,32 @@ class ExplainRecommendation:
     review_question: Optional[str]
     supersedes: Optional[str]
     superseded_by: Optional[str]
+
+
+@dataclass(frozen=True)
+class ExplainPlannedRecommendation:
+    """Pre-X-rule aggregate recommendation shape for one domain.
+
+    Sourced from the ``planned_recommendation`` table (migration 011).
+    Mirrors the essential fields of ``ExplainRecommendation`` so the
+    three-state audit view (planned / adapted / performed) reads
+    naturally: pair each planned row with the adapted row on the same
+    ``domain`` + ``daily_plan_id``, and attach any performed outcomes
+    from the adapted row's review chain.
+
+    Legacy plans from before migration 011 have no paired planned rows;
+    the bundle's ``planned_recommendations`` list is empty in that case
+    and the view degrades to two-state (adapted + performed).
+    """
+
+    planned_id: str
+    proposal_id: str
+    domain: str
+    action: str
+    action_detail: Optional[Any]
+    confidence: str
+    schema_version: str
+    captured_at: str
 
 
 @dataclass(frozen=True)
@@ -158,6 +188,9 @@ class ExplainBundle:
     user_memory: ExplainUserMemory = field(
         default_factory=lambda: ExplainUserMemory(as_of=None)
     )
+    planned_recommendations: list[ExplainPlannedRecommendation] = field(
+        default_factory=list
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -218,6 +251,9 @@ def load_bundle_by_daily_plan_id(
         user_id=plan.user_id,
         for_date=plan.for_date,
     )
+    planned = _load_planned_recommendations_for_plan(
+        conn, daily_plan_id=daily_plan_id,
+    )
 
     return ExplainBundle(
         plan=plan,
@@ -227,6 +263,7 @@ def load_bundle_by_daily_plan_id(
         recommendations=recommendations,
         reviews=reviews,
         user_memory=user_memory,
+        planned_recommendations=planned,
     )
 
 
@@ -320,6 +357,7 @@ def _load_firings_for_plan(
             orphan=bool(row["orphan"]),
             fired_at=row["fired_at"],
             public_name=public_name_for(row["x_rule_id"]),
+            human_explanation=description_for(row["x_rule_id"]),
         )
         if firing.tier in _PHASE_B_TIERS:
             phase_b.append(firing)
@@ -426,6 +464,48 @@ def _load_reviews_for_recommendations(
         )
         for row in event_rows
     ]
+
+
+def _load_planned_recommendations_for_plan(
+    conn: sqlite3.Connection, *, daily_plan_id: str,
+) -> list[ExplainPlannedRecommendation]:
+    """Load the planned-aggregate rows (migration 011) for this plan.
+
+    Degrades to ``[]`` when the ``planned_recommendation`` table is
+    absent (DB predates migration 011) — mirroring the user-memory
+    loader's pattern so the explain surface keeps working on older DBs.
+    An empty list is also the correct answer for legacy plans synthesised
+    before 011 landed: no planned rows were written for them, so the
+    three-state view degrades cleanly to two-state (adapted + performed).
+    """
+
+    try:
+        rows = conn.execute(
+            "SELECT planned_id, proposal_id, domain, action, "
+            "  action_detail_json, confidence, schema_version, captured_at "
+            "FROM planned_recommendation "
+            "WHERE daily_plan_id = ? "
+            "ORDER BY domain, planned_id",
+            (daily_plan_id,),
+        ).fetchall()
+    except sqlite3.OperationalError:
+        return []
+
+    out: list[ExplainPlannedRecommendation] = []
+    for row in rows:
+        out.append(
+            ExplainPlannedRecommendation(
+                planned_id=row["planned_id"],
+                proposal_id=row["proposal_id"],
+                domain=row["domain"],
+                action=row["action"],
+                action_detail=_loads(row["action_detail_json"]),
+                confidence=row["confidence"],
+                schema_version=row["schema_version"],
+                captured_at=row["captured_at"],
+            )
+        )
+    return out
 
 
 def _load_user_memory_for_plan(

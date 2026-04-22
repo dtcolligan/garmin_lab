@@ -19,6 +19,7 @@ from pathlib import Path
 import pytest
 
 from health_agent_infra.cli import main as cli_main
+from health_agent_infra.core import exit_codes
 from health_agent_infra.core.state import (
     apply_pending_migrations,
     current_schema_version,
@@ -112,6 +113,7 @@ def test_schema_migrations_has_one_row_per_applied_migration(tmp_path: Path):
         (8, "008_sync_run_log.sql"),
         (9, "009_recommendation_log_fk.sql"),
         (10, "010_review_outcome_enrichment.sql"),
+        (11, "011_planned_recommendation.sql"),
     ]
 
 
@@ -127,7 +129,7 @@ def test_schema_migrations_not_duplicated_on_repeat_init(tmp_path: Path):
     finally:
         conn.close()
 
-    assert count == 10
+    assert count == 11
 
 
 def test_current_schema_version_zero_on_empty_db(tmp_path: Path):
@@ -145,7 +147,7 @@ def test_current_schema_version_matches_head_after_init(tmp_path: Path):
 
     conn = open_connection(db_path)
     try:
-        assert current_schema_version(conn) == 10
+        assert current_schema_version(conn) == 11
     finally:
         conn.close()
 
@@ -284,15 +286,15 @@ def test_cli_state_migrate_on_head_db_reports_empty_applied(tmp_path: Path, caps
 
     import json
     payload = json.loads(capsys.readouterr().out)
-    assert payload["schema_version_before"] == 10
-    assert payload["schema_version_after"] == 10
+    assert payload["schema_version_before"] == 11
+    assert payload["schema_version_after"] == 11
     assert payload["applied"] == []
 
 
 def test_cli_state_migrate_fails_cleanly_when_db_missing(tmp_path: Path, capsys):
     db_path = tmp_path / "absent.db"
     rc = cli_main(["state", "migrate", "--db-path", str(db_path)])
-    assert rc == 2
+    assert rc == exit_codes.USER_INPUT
     err = capsys.readouterr().err
     assert "state DB not found" in err
 
@@ -356,7 +358,7 @@ def test_broken_migration_rolls_back_ddl_and_bookkeeping(tmp_path: Path):
         assert len(rows) == 1
 
         # Version is still at head (pre-broken migration), not 99.
-        assert current_schema_version(conn) == 10
+        assert current_schema_version(conn) == 11
     finally:
         conn.close()
 

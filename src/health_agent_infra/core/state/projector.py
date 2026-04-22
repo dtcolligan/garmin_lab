@@ -1715,6 +1715,67 @@ def project_bounded_recommendation(
         conn.commit()
 
 
+PLANNED_RECOMMENDATION_SCHEMA_VERSION = "planned_recommendation.v1"
+
+
+def project_planned_recommendation(
+    conn: sqlite3.Connection,
+    planned: dict,
+    *,
+    source: str = "claude_agent_v1",
+    ingest_actor: str = "claude_agent_v1",
+    agent_version: Optional[str] = None,
+    commit_after: bool = True,
+) -> None:
+    """Insert a pre-X-rule draft row into ``planned_recommendation``.
+
+    Migration 011 introduced the aggregate "original plan" ledger — one row
+    per (daily_plan_id, domain) capturing the recommendation shape **before**
+    Phase A / Phase B mutations ran. ``run_synthesis`` calls this inside
+    its atomic transaction, once per proposal, using a mechanical draft of
+    the original (unmutated) proposal.
+
+    Expected dict keys: ``planned_id``, ``daily_plan_id``, ``proposal_id``,
+    ``user_id``, ``for_date``, ``domain``, ``action``, ``confidence``.
+    Optional: ``action_detail`` (stored JSON-encoded), ``captured_at``
+    (defaults to now).
+
+    Not idempotent — ``delete_canonical_plan_cascade`` removes prior rows
+    for the canonical plan before a re-synthesize, so a second call with
+    the same ``planned_id`` is a programming error.
+    """
+
+    captured_at = planned.get("captured_at") or _now_iso()
+    action_detail = planned.get("action_detail")
+    conn.execute(
+        """
+        INSERT INTO planned_recommendation (
+            planned_id, daily_plan_id, proposal_id, user_id, for_date,
+            domain, action, confidence, action_detail_json,
+            schema_version, source, ingest_actor, agent_version, captured_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            planned["planned_id"],
+            planned["daily_plan_id"],
+            planned["proposal_id"],
+            planned["user_id"],
+            planned["for_date"],
+            planned["domain"],
+            planned["action"],
+            planned["confidence"],
+            json.dumps(action_detail, sort_keys=True) if action_detail is not None else None,
+            planned.get("schema_version", PLANNED_RECOMMENDATION_SCHEMA_VERSION),
+            source,
+            ingest_actor,
+            agent_version,
+            captured_at,
+        ),
+    )
+    if commit_after:
+        conn.commit()
+
+
 def delete_canonical_plan_cascade(
     conn: sqlite3.Connection,
     *,
@@ -1725,10 +1786,13 @@ def delete_canonical_plan_cascade(
 
     Order matters under foreign-key enforcement:
       1. ``x_rule_firing`` → references ``daily_plan`` (FK)
-      2. ``recommendation_log`` → no FK to ``daily_plan`` but carries the
+      2. ``planned_recommendation`` → references both ``daily_plan`` and
+         ``proposal_log`` (FK); must be deleted before either parent row
+         is altered
+      3. ``recommendation_log`` → no FK to ``daily_plan`` but carries the
          id in ``payload_json``; deleted by explicit join
-      3. ``daily_plan``
-      4. Reset ``proposal_log.daily_plan_id`` on any rows that pointed here
+      4. ``daily_plan``
+      5. Reset ``proposal_log.daily_plan_id`` on any rows that pointed here
 
     Callers compose this inside the synthesis BEGIN/COMMIT so either
     the whole replacement lands or nothing changes.
@@ -1759,6 +1823,14 @@ def delete_canonical_plan_cascade(
 
     conn.execute(
         "DELETE FROM x_rule_firing WHERE daily_plan_id = ?",
+        (daily_plan_id,),
+    )
+    # Migration 011 — planned_recommendation has FKs to both daily_plan
+    # and proposal_log. Delete before the daily_plan row so the FK
+    # doesn't trip, and before the proposal_log unlink below for the
+    # same reason on any future deletion path.
+    conn.execute(
+        "DELETE FROM planned_recommendation WHERE daily_plan_id = ?",
         (daily_plan_id,),
     )
     conn.execute(

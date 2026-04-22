@@ -60,6 +60,7 @@ from health_agent_infra.core.state.projector import (
     mark_plan_superseded,
     project_bounded_recommendation,
     project_daily_plan,
+    project_planned_recommendation,
     project_x_rule_firing,
     read_proposals_for_plan_key,
 )
@@ -359,6 +360,36 @@ def run_synthesis(
         daily_plan_id = canonical_id
         plan_version_suffix = ""
 
+    # Phase 1 (agent-operable runtime plan §1) — capture the
+    # pre-X-rule aggregate BEFORE apply_phase_a mutates anything. Each
+    # planned_recommendation row mirrors the draft we'd have committed if
+    # no X-rule had fired. Written inside the atomic transaction below
+    # so the planned/adapted pair is always consistent.
+    planned_rows: list[dict[str, Any]] = []
+    for proposal in proposals:
+        planned_draft = _mechanical_draft(
+            proposal,
+            daily_plan_id=daily_plan_id,
+            issued_at=now,
+            agent_version=agent_version,
+            plan_version_suffix=plan_version_suffix,
+        )
+        planned_rows.append({
+            "planned_id": (
+                f"planned_{proposal['for_date']}_{proposal['user_id']}_"
+                f"{proposal['domain']}_01{plan_version_suffix}"
+            ),
+            "daily_plan_id": daily_plan_id,
+            "proposal_id": proposal["proposal_id"],
+            "user_id": proposal["user_id"],
+            "for_date": proposal["for_date"],
+            "domain": proposal["domain"],
+            "action": planned_draft["action"],
+            "confidence": planned_draft["confidence"],
+            "action_detail": planned_draft.get("action_detail"),
+            "captured_at": now.isoformat(),
+        })
+
     # Draft construction + skill overlay
     drafts: list[dict[str, Any]] = []
     for proposal in proposals:
@@ -463,6 +494,20 @@ def run_synthesis(
                 conn,
                 proposal_id=proposal_id,
                 daily_plan_id=daily_plan_id,
+                commit_after=False,
+            )
+
+        # Planned-recommendation ledger rows: written last so both FK
+        # parents are populated — daily_plan by project_daily_plan above,
+        # proposal_log.daily_plan_id by link_proposal_to_plan immediately
+        # before this. The planned-row set is derived from the ORIGINAL
+        # (pre-mutation) proposals, so rollback semantics hold: if any
+        # prior insert fails the planned rows never land.
+        for planned_row in planned_rows:
+            project_planned_recommendation(
+                conn,
+                planned_row,
+                agent_version=agent_version,
                 commit_after=False,
             )
 

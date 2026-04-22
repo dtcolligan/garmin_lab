@@ -21,6 +21,7 @@ from typing import Any
 from health_agent_infra.core.explain.queries import (
     ExplainBundle,
     ExplainPlan,
+    ExplainPlannedRecommendation,
     ExplainProposal,
     ExplainRecommendation,
     ExplainReview,
@@ -47,6 +48,10 @@ def bundle_to_dict(bundle: ExplainBundle) -> dict[str, Any]:
     return {
         "plan": _plan_to_dict(bundle.plan),
         "proposals": [_proposal_to_dict(p) for p in bundle.proposals],
+        "planned_recommendations": [
+            _planned_recommendation_to_dict(p)
+            for p in bundle.planned_recommendations
+        ],
         "x_rule_firings": {
             "phase_a": [_firing_to_dict(f) for f in bundle.phase_a_firings],
             "phase_b": [_firing_to_dict(f) for f in bundle.phase_b_firings],
@@ -83,6 +88,12 @@ def _firing_to_dict(firing: ExplainXRuleFiring) -> dict[str, Any]:
 
 def _recommendation_to_dict(rec: ExplainRecommendation) -> dict[str, Any]:
     return asdict(rec)
+
+
+def _planned_recommendation_to_dict(
+    planned: ExplainPlannedRecommendation,
+) -> dict[str, Any]:
+    return asdict(planned)
 
 
 def _review_to_dict(review: ExplainReview) -> dict[str, Any]:
@@ -138,6 +149,14 @@ def render_bundle_text(bundle: ExplainBundle) -> str:
     lines.append("")
 
     lines.append(_section("Proposals", bundle.proposals, _format_proposal))
+    lines.append("")
+    lines.append(
+        _section(
+            "Planned recommendations (pre-X-rule aggregate)",
+            bundle.planned_recommendations,
+            _format_planned_recommendation,
+        )
+    )
     lines.append("")
     lines.append(
         _section(
@@ -205,15 +224,29 @@ def _format_firing(f: ExplainXRuleFiring) -> str:
     )
     if f.orphan:
         header += "  [orphan]"
-    parts = [
-        header,
-        f"    trigger    : {f.trigger_note}",
-    ]
+    parts = [header]
+    if f.human_explanation:
+        parts.append(f"    explanation: {f.human_explanation}")
+    parts.append(f"    trigger    : {f.trigger_note}")
     if f.mutation not in (None, {}, []):
         parts.append(f"    mutation   : {_compact_json(f.mutation)}")
     if f.source_signals:
         parts.append(f"    signals    : {_compact_json(f.source_signals)}")
     parts.append(f"    fired_at   : {f.fired_at}")
+    return "\n".join(parts)
+
+
+def _format_planned_recommendation(
+    p: ExplainPlannedRecommendation,
+) -> str:
+    parts = [
+        f"- [{p.domain}] {p.planned_id}",
+        f"    action     : {p.action}",
+        f"    confidence : {p.confidence}",
+        f"    proposal_id: {p.proposal_id}",
+    ]
+    if p.action_detail not in (None, {}, []):
+        parts.append(f"    action_detail: {_compact_json(p.action_detail)}")
     return "\n".join(parts)
 
 
