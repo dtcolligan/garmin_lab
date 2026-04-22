@@ -7,10 +7,11 @@ The package ships two things the agent consumes:
 
 1. **A CLI called ``hai``** — deterministic subcommands on the
    user's PATH.
-2. **Twelve markdown skills** under ``skills/`` — six per-domain
-   readiness skills, a synthesis skill, plus cross-cutting
-   (strength-intake, merge-human-inputs, writeback-protocol,
-   reporting, safety).
+2. **Fourteen markdown skills** under ``skills/`` — six per-domain
+   readiness skills, a synthesis skill, an intent-router skill
+   (NL → CLI workflow mapping; consumes ``hai capabilities --json``),
+   an expert-explainer skill, plus cross-cutting (strength-intake,
+   merge-human-inputs, writeback-protocol, reporting, safety).
 
 The agent reads skills, makes judgment calls, and invokes CLI
 subcommands to move structured state. The CLI validates the
@@ -34,6 +35,7 @@ hai --help
 ls ~/.claude/skills/
 # recovery-readiness  running-readiness  sleep-quality  stress-regulation
 # strength-readiness  nutrition-alignment  daily-plan-synthesis
+# intent-router  expert-explainer
 # strength-intake  merge-human-inputs  writeback-protocol  reporting  safety
 ```
 

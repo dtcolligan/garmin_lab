@@ -162,7 +162,7 @@ src/health_agent_infra/
 ├── skills/
 │   ├── recovery-readiness/  running-readiness/  sleep-quality/
 │   ├── stress-regulation/  strength-readiness/  nutrition-alignment/
-│   ├── daily-plan-synthesis/  expert-explainer/
+│   ├── daily-plan-synthesis/  intent-router/  expert-explainer/
 │   └── strength-intake/  merge-human-inputs/  writeback-protocol/
 │       reporting/  safety/
 ├── evals/                          # packaged eval runner + scenarios

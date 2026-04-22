@@ -70,7 +70,11 @@ skill harness work inherits the shape once it is stable.
    policy-forced branch: baseline proceed, mild zone-2 downgrade,
    impaired mobility-only, impaired rest day, R6 escalation,
    R1 insufficient-coverage defer, R5 sparse-coverage confidence
-   cap.
+   cap. Six of the seven carry a committed
+   `hand_authored_reference` transcript (h01, h02, h03, h04, h05,
+   h07) so the scorer exercises every branch; h06 is deliberately
+   left un-transcripted so the missing-transcript failure path
+   stays exercised by `test_missing_transcript_scenario_is_not_silent`.
 
 ## What remains open
 

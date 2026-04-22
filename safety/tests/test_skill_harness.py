@@ -117,9 +117,13 @@ def test_missing_transcript_scenario_is_not_silent(harness) -> None:
         transcript = harness.load_latest_transcript(scenario["scenario_id"])
         if transcript is None:
             scenarios_without_transcripts.append(scenario["scenario_id"])
-    # The pilot ships with transcripts for exactly h01, h05, h07; any
-    # other scenario must currently be in the missing set. The harness's
-    # CLI renders these as `transcript=missing`, correctness fail.
+    # The pilot ships reference transcripts for 6 of the 7 recovery
+    # scenarios (h01, h02, h03, h04, h05, h07). h06 (insufficient-
+    # coverage defer) is deliberately left un-transcripted so the
+    # missing-transcript failure path stays exercised — the harness's
+    # CLI renders these as `transcript=missing`, correctness fail. If
+    # h06 gains a transcript later, substitute a different always-
+    # missing scenario so this guardrail doesn't silently disappear.
     assert scenarios_without_transcripts, (
         "expected at least one scenario without a committed transcript "
         "to exercise the missing-transcript path"
