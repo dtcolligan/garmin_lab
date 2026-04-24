@@ -289,7 +289,62 @@ def test_atomic_rollback_leaves_all_synthesis_tables_unchanged(db):
 
 
 # ---------------------------------------------------------------------------
-# 5. All six domains pass valid recommendation validation
+# 5. Defensive guard — duplicate canonical-leaf proposals
+# ---------------------------------------------------------------------------
+
+def test_duplicate_canonical_leaf_proposals_raises_before_commit(db):
+    """Defense in depth: even if the migration 018 partial unique index were
+    disabled, the synthesis-side defensive guard must still refuse to
+    proceed when more than one canonical leaf exists per chain key.
+
+    Migration 018 makes the corruption impossible to create through normal
+    SQL paths. To exercise the synthesis guard in isolation we drop the
+    partial index inside this test, push two raw rows that look like
+    canonical leaves, then assert synthesis rejects with SynthesisError
+    BEFORE any commit. Production callers get both layers; this test
+    pins the synthesis-side guard so a future migration removal doesn't
+    silently leave the synthesis path unguarded.
+    """
+
+    db.execute("DROP INDEX IF EXISTS idx_proposal_log_canonical_leaf_unique")
+    db.commit()
+
+    p_a = _make_proposal("recovery", proposal_id="prop_a")
+    p_b = _make_proposal("recovery", proposal_id="prop_b")
+
+    for p in (p_a, p_b):
+        db.execute(
+            """
+            INSERT INTO proposal_log (
+                proposal_id, daily_plan_id, user_id, domain, for_date,
+                schema_version, action, confidence, payload_json,
+                source, ingest_actor, agent_version,
+                produced_at, validated_at, projected_at,
+                revision, superseded_by_proposal_id, superseded_at
+            ) VALUES (?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL)
+            """,
+            (
+                p["proposal_id"], p["user_id"], p["domain"], p["for_date"],
+                p["schema_version"], p["action"], p["confidence"],
+                json.dumps(p, sort_keys=True),
+                "test", "test", "test_agent",
+                "2026-04-22T10:00:00+00:00", "2026-04-22T10:00:00+00:00",
+                "2026-04-22T10:00:00+00:00", 1,
+            ),
+        )
+    db.commit()
+
+    pre = _table_counts(db)
+    with pytest.raises(SynthesisError) as exc_info:
+        run_synthesis(
+            db, for_date=FOR_DATE, user_id=USER, snapshot=_quiet_snapshot(),
+        )
+    assert "multiple active proposals" in str(exc_info.value).lower()
+    assert _table_counts(db) == pre
+
+
+# ---------------------------------------------------------------------------
+# 6. All six domains pass valid recommendation validation
 # ---------------------------------------------------------------------------
 
 def test_all_six_domains_synthesize_cleanly_with_valid_proposals(db):
@@ -607,3 +662,104 @@ def test_propose_rejects_banned_token_in_nested_action_detail():
     assert exc_info.value.invariant == "no_banned_tokens"
 
 
+# ---------------------------------------------------------------------------
+# Codex 2026-04-24 review pushback: DB-level uniqueness on canonical leaves
+# ---------------------------------------------------------------------------
+
+def test_db_partial_unique_index_rejects_second_canonical_leaf(db):
+    """Migration 018 enforces uniqueness at the SQLite layer. A raw SQL
+    insert that tries to push a second canonical leaf for the same chain
+    key must fail on the partial index, not silently corrupt the chain."""
+
+    p1 = _make_proposal("recovery", proposal_id="prop_one")
+    p2 = _make_proposal("recovery", proposal_id="prop_two")
+
+    # First insert lands fine.
+    db.execute(
+        """
+        INSERT INTO proposal_log (
+            proposal_id, daily_plan_id, user_id, domain, for_date,
+            schema_version, action, confidence, payload_json,
+            source, ingest_actor, agent_version,
+            produced_at, validated_at, projected_at,
+            revision, superseded_by_proposal_id, superseded_at
+        ) VALUES (?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL)
+        """,
+        (
+            p1["proposal_id"], p1["user_id"], p1["domain"], p1["for_date"],
+            p1["schema_version"], p1["action"], p1["confidence"],
+            json.dumps(p1, sort_keys=True),
+            "test", "test", "test_agent",
+            "2026-04-22T10:00:00+00:00", "2026-04-22T10:00:00+00:00",
+            "2026-04-22T10:00:00+00:00", 1,
+        ),
+    )
+
+    # Second insert (also superseded_by IS NULL) must trip the partial index.
+    with pytest.raises(sqlite3.IntegrityError) as exc_info:
+        db.execute(
+            """
+            INSERT INTO proposal_log (
+                proposal_id, daily_plan_id, user_id, domain, for_date,
+                schema_version, action, confidence, payload_json,
+                source, ingest_actor, agent_version,
+                produced_at, validated_at, projected_at,
+                revision, superseded_by_proposal_id, superseded_at
+            ) VALUES (?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL)
+            """,
+            (
+                p2["proposal_id"], p2["user_id"], p2["domain"], p2["for_date"],
+                p2["schema_version"], p2["action"], p2["confidence"],
+                json.dumps(p2, sort_keys=True),
+                "test", "test", "test_agent",
+                "2026-04-22T10:00:01+00:00", "2026-04-22T10:00:01+00:00",
+                "2026-04-22T10:00:01+00:00", 2,
+            ),
+        )
+    assert "idx_proposal_log_canonical_leaf_unique" in str(exc_info.value).lower() \
+        or "unique constraint failed" in str(exc_info.value).lower()
+
+
+def test_db_partial_unique_index_allows_superseded_revisions(db):
+    """The partial index excludes rows where superseded_by_proposal_id IS
+    NOT NULL — superseded revisions must be free to accumulate per chain
+    key. That's the D1 audit trail."""
+
+    # Insert revision 2 first (no FK dependency) so the rev-1 forward link
+    # has a valid target. Real flow inserts rev 1 first then UPDATEs the
+    # forward pointer; tests can use either order.
+    db.execute(
+        """
+        INSERT INTO proposal_log (
+            proposal_id, daily_plan_id, user_id, domain, for_date,
+            schema_version, action, confidence, payload_json,
+            source, ingest_actor, agent_version,
+            produced_at, validated_at, projected_at,
+            revision, superseded_by_proposal_id, superseded_at
+        ) VALUES ('prop_new', NULL, 'u_safety', 'recovery', '2026-04-22',
+                  'recovery_proposal.v1', 'proceed_with_planned_session', 'high',
+                  '{}', 'test', 'test', 'test_agent',
+                  '2026-04-22T11:00:00+00:00', '2026-04-22T11:00:00+00:00',
+                  '2026-04-22T11:00:00+00:00', 2, NULL, NULL)
+        """
+    )
+    db.execute(
+        """
+        INSERT INTO proposal_log (
+            proposal_id, daily_plan_id, user_id, domain, for_date,
+            schema_version, action, confidence, payload_json,
+            source, ingest_actor, agent_version,
+            produced_at, validated_at, projected_at,
+            revision, superseded_by_proposal_id, superseded_at
+        ) VALUES ('prop_old', NULL, 'u_safety', 'recovery', '2026-04-22',
+                  'recovery_proposal.v1', 'proceed_with_planned_session', 'high',
+                  '{}', 'test', 'test', 'test_agent',
+                  '2026-04-22T10:00:00+00:00', '2026-04-22T10:00:00+00:00',
+                  '2026-04-22T10:00:00+00:00', 1, 'prop_new', '2026-04-22T11:00:00+00:00')
+        """
+    )
+    rows = db.execute(
+        "SELECT proposal_id FROM proposal_log "
+        "WHERE for_date = '2026-04-22' AND user_id = 'u_safety'"
+    ).fetchall()
+    assert len(rows) == 2

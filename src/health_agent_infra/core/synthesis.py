@@ -408,6 +408,29 @@ def run_synthesis(
             f"user_id={user_id!r}). Call `hai propose` first."
         )
 
+    # Defensive guard (Phase A safety closure): under D1 revision
+    # semantics, ``read_proposals_for_plan_key`` already returns canonical
+    # leaves only — exactly one per (for_date, user_id, domain) chain key.
+    # If two ever land here the deterministic recommendation_id generator
+    # at ``_mechanical_draft`` would PK-collide on ``recommendation_log``
+    # mid-transaction. Catching it before the transaction starts keeps
+    # the rollback story clean (no partial commit possible) and surfaces
+    # any future regression in the canonical-leaf walker as a SynthesisError
+    # at the synthesis seam, not as a silent overwrite.
+    seen_chain_keys: dict[tuple[str, str, str], str] = {}
+    for p in proposals:
+        key = (p["for_date"], p["user_id"], p["domain"])
+        if key in seen_chain_keys:
+            raise SynthesisError(
+                f"multiple active proposals for chain key {key}: "
+                f"{seen_chain_keys[key]!r} and {p['proposal_id']!r}. "
+                f"Expected exactly one canonical leaf per (for_date, "
+                f"user_id, domain). This is a runtime invariant; either "
+                f"the canonical-leaf walker regressed or proposals were "
+                f"inserted out-of-band. Refusing to synthesize."
+            )
+        seen_chain_keys[key] = p["proposal_id"]
+
     # Phase A
     phase_a_firings = evaluate_phase_a(snapshot, proposals, thresholds)
 

@@ -1834,15 +1834,24 @@ def _insert_proposal_row(
     agent_version: Optional[str],
     produced_at: Optional[datetime],
     daily_plan_id: Optional[str],
+    initial_superseded_by: Optional[str] = None,
 ) -> None:
     """Single INSERT into proposal_log for a proposal at given revision.
 
     Does not commit; caller owns transaction boundary. The revision
     chain bookkeeping (superseded_by pointer updates) is done by the
     caller where relevant.
+
+    ``initial_superseded_by`` lets the revision flow seed the row with
+    a self-pointer so the migration 018 partial unique index doesn't
+    transiently see two canonical leaves during a multi-step revision
+    update. Defaults to None for fresh-chain inserts (revision=1).
     """
     produced_iso = (
         produced_at.isoformat() if produced_at is not None else _now_iso()
+    )
+    superseded_at_initial = (
+        _now_iso() if initial_superseded_by is not None else None
     )
     conn.execute(
         """
@@ -1852,7 +1861,7 @@ def _insert_proposal_row(
             source, ingest_actor, agent_version,
             produced_at, validated_at, projected_at,
             revision, superseded_by_proposal_id, superseded_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             proposal["proposal_id"],
@@ -1871,6 +1880,8 @@ def _insert_proposal_row(
             _now_iso(),
             _now_iso(),
             revision,
+            initial_superseded_by,
+            superseded_at_initial,
         ),
     )
 
@@ -1955,8 +1966,23 @@ def project_proposal(
             conn.commit()
         return False
 
-    # Real revision: assign the new proposal_id, insert new leaf, link
-    # old leaf forward. Both writes are in the caller's tx.
+    # Real revision: assign the new proposal_id, link the chain forward,
+    # then mark the new row as canonical leaf. The three-step ordering
+    # below preserves migration 018's partial unique index invariant
+    # (at most one canonical leaf per chain key) at every point in the
+    # transaction:
+    #
+    #   1. INSERT new row with ``superseded_by = new_proposal_id`` (self-
+    #      reference) — the row is committed but NOT a canonical leaf
+    #      because superseded_by IS NOT NULL. Index ignores it.
+    #   2. UPDATE old leaf's ``superseded_by`` to point at the new row.
+    #      Old row stops being a canonical leaf (NOT NULL). Index OK
+    #      with zero canonical leaves at this moment.
+    #   3. UPDATE new row's ``superseded_by`` back to NULL. Now it IS the
+    #      canonical leaf. Index OK with exactly one.
+    #
+    # An INSERT-then-UPDATE order without the self-pointer would trip
+    # the partial index in step 1 (two NULL rows momentarily exist).
     new_revision = leaf["revision"] + 1
     new_proposal_id = (
         f"prop_{for_date}_{user_id}_{domain}_{new_revision:02d}"
@@ -1972,12 +1998,19 @@ def project_proposal(
         agent_version=agent_version,
         produced_at=produced_at,
         daily_plan_id=daily_plan_id,
+        initial_superseded_by=new_proposal_id,
     )
     conn.execute(
         "UPDATE proposal_log SET "
         "superseded_by_proposal_id = ?, superseded_at = ? "
         "WHERE proposal_id = ?",
         (new_proposal_id, _now_iso(), leaf["proposal_id"]),
+    )
+    conn.execute(
+        "UPDATE proposal_log SET "
+        "superseded_by_proposal_id = NULL, superseded_at = NULL "
+        "WHERE proposal_id = ?",
+        (new_proposal_id,),
     )
     if commit_after:
         conn.commit()
