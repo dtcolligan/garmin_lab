@@ -120,7 +120,11 @@ guards each regression.
 | D2 `hai intake readiness` persistence | `safety/tests/test_intake_readiness.py` persistence-round-trip tests |
 | D4 running cold-start relaxation | `safety/tests/test_running_cold_start_policy.py::test_cold_start_green_recovery_with_planned_session_lifts_defer` |
 | Defer review-question per-domain | `safety/tests/test_defer_review_question_per_domain.py` parametrised suite |
-| #16 intervals.icu /activities endpoint wired through pull→clean→snapshot | `safety/tests/e2e/test_running_activity_journey.py::test_window_of_activities_unblocks_coverage_gate` + `safety/tests/test_state_clean_projection.py::test_cli_clean_enriches_daily_rollup_from_activity_hr_zones` |
+| #16 intervals.icu /activities endpoint wired through pull→clean→snapshot | adapter suite `safety/tests/test_pull_intervals_icu.py::test_adapter_surfaces_activities_from_client` + 3 others — verified 2026-04-24: replacing `activities = self._fetch_activities_safe(...)` with `activities = []` fires 4 adapter tests |
+| Phase A synthesis safety closure (Codex P1 #1) | `safety/tests/test_synthesis_safety_closure.py` — verified 2026-04-24: removing the `validate_recommendation_dict(rec)` loop in `run_synthesis` fires 7 tests (banned tokens in proposal rationale / action_detail / uncertainty / skill overlay rationale / uncertainty / review_question + atomic rollback) |
+| Phase B proposal JSONL recovery (Codex P1 #2) | `safety/tests/test_reproject_proposal_recovery.py` — verified 2026-04-24: forcing `has_proposals_group = False` fires all 11 tests |
+| Phase C canonical-leaf uniqueness (Codex P2 #3) | `safety/tests/test_synthesis_safety_closure.py::test_db_partial_unique_index_rejects_second_canonical_leaf` — verified 2026-04-24: removing migration 018 file fires the DB-level IntegrityError test |
+| Phase D privacy hardening (Codex §7) | `safety/tests/test_privacy_hardening.py::test_initialize_database_locks_perms_on_creation` + `test_initialize_database_relocks_perms_on_subsequent_init` — verified 2026-04-24: commenting out `secure_state_db(db_path)` fires both (DB file at 0o644 vs expected 0o600) |
 
 Update this table whenever a major fix lands — the value comes from
 periodically proving each contract is genuinely tested.
