@@ -1,8 +1,9 @@
-# v0.1.4 — Release Notes
+# v0.1.5 — Release Notes
 
-**Status:** ready for PyPI dogfood (every code/doc gate closed; only manual TestPyPI walk remains)
-**Schema head:** 17 (was 16 in v0.1.3.devN)
-**Test suite:** 1,824 passing, 4 skipped, 0 failing (was 1,489 at v0.1.2)
+**Status:** code-complete; TestPyPI dogfood + Codex round-2 audit + Codex r2 pushback fixes all closed; one Codex round-3 gate + real-PyPI push remain.
+**Package version:** `0.1.5` (internally planned as v0.1.4; PyPI 0.1.4 was shipped earlier from commit `81997aa` before this work landed and is immutable, so this release ships as `0.1.5`)
+**Schema head:** 18 (was 16 in v0.1.3.devN)
+**Test suite:** 1,841 passing, 4 skipped, 0 failing (was 1,489 at v0.1.2)
 
 The v0.1.4 release was originally scoped around four design docs (D1–D4) covering re-author semantics, intake write paths, user-facing narration, and cold-start coverage. During the 2026-04-24 dogfood it surfaced three more thesis-critical gaps that blocked release: the wearable wasn't actually feeding running data to the agent, the agent's onboarding was high-friction, and a Codex strategic review revealed the canonical synthesis path had been silently bypassing safety validation since the D2 retirement of `hai writeback`. v0.1.4 closes all of them.
 
@@ -133,7 +134,8 @@ Per Codex strategic-report sequencing, the following are intentional v0.1.4 non-
 
 - v0.1.2: 1,489 tests
 - v0.1.4 entering 2026-04-24: 1,710 tests (D1–D4 + WS-A through WS-E)
-- v0.1.4 shipping: **1,824 tests** (+ activity pull, intake gaps, Phase A, Phase B, Phase D)
+- v0.1.4 mid-session: 1,824 tests (+ activity pull, intake gaps, Phase A, Phase B, Phase D)
+- v0.1.5 shipping (post Codex r2 absorptions): **1,841 tests** (+ banned-token whole-word regression guards, days_ago anchor, propose contract-shape)
 - All passing, 4 deliberately skipped (Windows-only privacy tests on POSIX), 0 failing
 
 New test files:
@@ -160,18 +162,20 @@ New test files:
 - [x] Proposal JSONL replay verified
 - [x] File permissions hardened on every user-data write site
 - [x] Privacy doc + fixture README shipped
-- [x] Test suite green (1,824 passing)
+- [x] Test suite green (1,841 passing)
 - [x] `agent_cli_contract.md` regenerated
-- [ ] **Manual:** TestPyPI dogfood on a fresh user profile (Phase 1 of `release_qa.md`)
-- [ ] **Manual:** Phase 2 spot-check regression catches (revert each landmark fix locally; confirm CI fails)
-- [ ] **Manual:** Final PyPI push (Phase 4 of `release_qa.md`)
+- [x] Phase 2 regression spot-checks (revert each landmark fix locally, confirm CI fails; results in `release_qa.md` Phase-2 table)
+- [x] TestPyPI upload + fresh-pipx dogfood — `0.1.5` installs cleanly, 18 migrations apply, 37 commands in capabilities manifest, `hai doctor` 8/8 green, gaps stage emits
+- [x] Codex round-2 audit completed 2026-04-24; three pushback items (whole-word banned-token matcher, days_ago plan-date anchor, hai propose output/contract alignment) absorbed in follow-up commits
+- [ ] **Manual:** Codex round-3 audit (confirms r2 pushbacks cleanly closed)
+- [ ] **Manual:** Real PyPI push (Phase 4 of `release_qa.md`)
 
-When the three manual gates close, tag `v0.1.4` and push to PyPI.
+When the two remaining gates close, tag `v0.1.5` and `twine upload dist/*` to real PyPI.
 
 ---
 
 ## Strategic positioning
 
-v0.1.4 establishes the project's identity as **open-source infrastructure for data-sovereign personal health agents**, not a health app or chatbot. The runtime is the product; agents are the consumers; users own their data and recommendations.
+v0.1.5 establishes the project's identity as **open-source infrastructure for data-sovereign personal health agents**, not a health app or chatbot. The runtime is the product; agents are the consumers; users own their data and recommendations.
 
-The next release (v0.1.5) earns the right to expand intelligence: formal contracts, agent ecosystem docs, goal-aware planning, weekly review. v0.1.4 earns the right to ship to PyPI by closing the safety, recovery, privacy, and core-thesis (wearable→agent) gaps that would have made the project's stated success criteria silently false.
+The next release (v0.1.6) earns the right to expand intelligence: formal contracts, agent ecosystem docs, goal-aware planning, weekly review. v0.1.5 earns the right to ship to PyPI by closing the safety, recovery, privacy, and core-thesis (wearable→agent) gaps that would have made the project's stated success criteria silently false on the earlier 0.1.4 release.
