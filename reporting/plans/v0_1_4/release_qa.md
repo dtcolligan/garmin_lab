@@ -1,15 +1,19 @@
-# v0.1.4 release QA ritual
+# v0.1.5 release QA ritual
 
 - Author: Claude (Opus 4.7) with Dom Colligan
-- Last updated: 2026-04-24
-- Status: **active** — follow this before every v0.1.4 PyPI push.
-- Tracks: v0.1.4 §Release criteria (5, 6, 7, 8).
+- Last updated: 2026-04-24 (post-Codex r3)
+- Status: **active** — follow this before the v0.1.5 PyPI push.
+- Tracks: v0.1.5 §Release criteria.
+- Note on versioning: internal planning was scoped as v0.1.4, but
+  real PyPI already has an immutable v0.1.4 from commit `81997aa`
+  (pre-session state). This work ships as `0.1.5`; the `v0_1_4`
+  planning path is retained as a historical reference.
 
 ---
 
 ## When to run this ritual
 
-- Before tagging `v0.1.4.rc*` / `v0.1.4`.
+- Before tagging `v0.1.5.rc*` / `v0.1.5`.
 - Before re-uploading to TestPyPI after a breaking change to any
   public surface (CLI flags, SKILL.md allowed-tools, migration
   sequence, contract manifest shape).
@@ -65,14 +69,24 @@ copy-paste bugs.
    exercise credential / keyring / platformdirs paths against a
    truly empty home directory.
 
-3. **Install from TestPyPI.** Inside the fresh profile:
+3. **Install from TestPyPI.** Inside the fresh profile. Because real
+   PyPI already has an immutable `0.1.4`, pipx's `--extra-index-url`
+   fall-through will prefer that copy unless the version is pinned
+   explicitly — pin via `"health-agent-infra==0.1.5"` (or current
+   target), and use `--pip-args="--no-cache-dir"` to defeat any
+   per-version cache:
 
    ```bash
    pipx install --index-url https://test.pypi.org/simple/ \
-                --pip-args="--extra-index-url https://pypi.org/simple/" \
-                health-agent-infra
-   hai --version   # confirm 0.1.4rcN or 0.1.4
+                --pip-args="--extra-index-url https://pypi.org/simple/ --no-cache-dir" \
+                --suffix=_tp \
+                "health-agent-infra==0.1.5"
+   hai_tp --version   # confirm 0.1.5
    ```
+
+   The `--suffix=_tp` keeps the TestPyPI install isolated from the
+   operator's real `hai` install (pipx would otherwise refuse to
+   install a second copy of the same package).
 
 4. **Run the README quickstart.** Copy-paste (don't retype) the
    `hai init` / `hai auth` / `hai pull` / `hai daily` / `hai today`
@@ -138,11 +152,12 @@ periodically proving each contract is genuinely tested.
    source is uncredentialed. Nothing should be `fail` on a
    properly-initialised profile.
 
-2. **`hai capabilities --json`** → every command has `agent_safe`
-   set; every flag has a non-empty `help`; every high-traffic
-   command (`hai today`, `hai daily`, `hai synthesize`,
-   `hai propose`, `hai review record`) carries `output_schema` +
-   `preconditions`.
+2. **`hai capabilities`** (JSON is the default; the CLI rejects
+   `--json` explicitly, use `--markdown` only for the doc
+   regenerator) → every command has `agent_safe` set; every flag
+   has a non-empty `help`; every high-traffic command (`hai today`,
+   `hai daily`, `hai synthesize`, `hai propose`, `hai review
+   record`) carries `output_schema` + `preconditions`.
 
 3. **Skill integrity:**
 
@@ -160,7 +175,9 @@ periodically proving each contract is genuinely tested.
 
 Only after Phases 0–3 are green:
 
-1. Create the release tag: `git tag v0.1.4 && git push origin v0.1.4`.
+1. Create the release tag: `git tag v0.1.5 && git push origin v0.1.5`.
+   (The v0.1.4 tag is already present from commit `81997aa` and is
+   locked to that state on PyPI.)
 2. Build + upload to real PyPI:
 
    ```bash
@@ -169,30 +186,34 @@ Only after Phases 0–3 are green:
    python3 -m twine upload dist/*
    ```
 
-3. `pipx install health-agent-infra` on a second fresh profile;
-   rerun the Phase-1 quickstart against real PyPI. This is a
-   shorter sanity pass — the full ritual already happened on
-   TestPyPI.
+3. `pipx install --pip-args="--no-cache-dir" "health-agent-infra==0.1.5"`
+   on a second fresh profile; rerun the Phase-1 quickstart against
+   real PyPI. This is a shorter sanity pass — the full ritual
+   already happened on TestPyPI. Version pin required because real
+   PyPI still serves the older 0.1.4 and pip's default resolution
+   may prefer a cached older wheel.
 
 4. Release notes — copy the acceptance-criteria summary into the
    GitHub Release notes, link each closed item to its PR(s).
 
 ---
 
-## Release-criteria checklist (v0.1.4 README §Release criteria)
+## Release-criteria checklist (v0.1.5 §Release criteria)
 
 Tick off the eight bullets before pushing:
 
-- [ ] All 18 numbered acceptance items complete (see
+- [x] All 18 numbered acceptance items complete (see
       `acceptance_criteria.md`).
-- [ ] All four D-docs (D1/D2/D3/D4) ratified and merged.
-- [ ] Each workstream's artifact list complete (A correctness, B
+- [x] All four D-docs (D1/D2/D3/D4) ratified and merged.
+- [x] Each workstream's artifact list complete (A correctness, B
       user surface, C contract, D cold-start, E test categories).
-- [ ] CI green on main with e2e / contract / snapshot categories
+- [x] CI green on main with e2e / contract / snapshot categories
       present under `safety/tests/`.
-- [ ] Dogfood day completed (Phase 1 above) — zero new P0 issues.
-- [ ] Spot-check regression catch (Phase 2 above) — each reverted
-      fix surfaces a specific named test failure.
+- [x] Dogfood day completed (Phase 1 above) — zero new P0 issues.
+- [x] Spot-check regression catch (Phase 2 above) — each reverted
+      fix surfaces a specific named test failure (verified 2026-04-24
+      for all 5 v0.1.4/v0.1.5 landmark fixes; see landmark-fixes
+      table above).
 - [ ] `hai doctor` reports `overall_status=ok` on a fresh
       credentialed install.
 - [ ] README reader test — a reader running `hai init` +

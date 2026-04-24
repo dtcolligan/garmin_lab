@@ -298,11 +298,15 @@ Per your section 12 sequencing:
 | Activity pull + intake gaps | ✅ 0b01065 |
 | Canonical leaf uniqueness (your P2 #3) | ✅ 4c9d29e |
 | Privacy hardening (your Phase D) | ✅ 72c8729 |
-| TestPyPI dogfood (Phase 1 release_qa) | ⏳ manual |
-| Phase 2 spot-check regressions | ⏳ manual |
+| TestPyPI dogfood (Phase 1 release_qa) | ✅ (completed; caused 0.1.4→0.1.5 bump) |
+| Phase 2 spot-check regressions | ✅ (completed; results in release_qa.md landmark-fixes table) |
+| Codex r2 + r3 pushback absorption | ✅ (7 commits on top of this handoff; see later commits) |
 | PyPI push | ⏳ manual |
 
-Three manual gates left. When they close, tag `v0.1.4` and push.
+One manual gate left. When Codex clears round-3 (or later), tag `v0.1.5`
+and push to real PyPI. See `release_qa.md` Phase 4 for the exact commands.
+This handoff was the round-2 index; commits landed after `c68e29e` absorb
+Codex r2+r3 pushback and are documented in their own commit messages.
 
 ---
 
