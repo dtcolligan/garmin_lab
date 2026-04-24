@@ -50,6 +50,10 @@ from pathlib import Path
 from typing import Any, Optional
 
 from health_agent_infra.core.config import load_thresholds
+from health_agent_infra.core.validate import (
+    RecommendationValidationError,
+    validate_recommendation_dict,
+)
 from health_agent_infra.core.schemas import (
     RECOMMENDATION_SCHEMA_VERSION,
     canonical_daily_plan_id,
@@ -469,6 +473,31 @@ def run_synthesis(
     for draft in drafts:
         mutated, _fired_b = apply_phase_b(draft, phase_b_firings)
         final_recommendations.append(mutated)
+
+    # Phase A safety closure (v0.1.4): every final recommendation must pass
+    # the runtime's banned-token + shape validator before any partial commit
+    # can persist. The legacy ``hai writeback`` path enforced this at its
+    # CLI seam; D2 retired writeback in v0.1.4 and the canonical synthesis
+    # path inherited the responsibility. Failing here raises a
+    # ``SynthesisError`` BEFORE ``BEGIN EXCLUSIVE``, so no daily_plan,
+    # recommendation_log, x_rule_firing, or proposal_log.daily_plan_id
+    # mutation can land — atomic rollback by construction.
+    #
+    # Coverage (per the Phase A brief):
+    #   - proposal-derived rationale (carried into final via _mechanical_draft)
+    #   - skill overlay rationale (applied via _overlay_skill_drafts above)
+    #   - skill overlay uncertainty (same path)
+    #   - action_detail (proposal + Phase B mutations)
+    #   - follow_up.review_question (curated template OR skill overlay)
+    for rec in final_recommendations:
+        try:
+            validate_recommendation_dict(rec)
+        except RecommendationValidationError as exc:
+            raise SynthesisError(
+                f"recommendation {rec.get('recommendation_id')!r} for domain "
+                f"{rec.get('domain')!r} failed safety validation "
+                f"(invariant={exc.invariant}): {exc}"
+            ) from exc
 
     proposal_ids = [p["proposal_id"] for p in proposals]
     recommendation_ids = [r["recommendation_id"] for r in final_recommendations]
