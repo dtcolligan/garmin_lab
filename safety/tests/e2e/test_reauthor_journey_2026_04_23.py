@@ -202,6 +202,58 @@ def test_propose_without_replace_rejects_on_existing(e2e_env: E2EEnv) -> None:
     assert "existing canonical proposal" in result["stderr"] or "--replace" in result["stderr"]
 
 
+def test_propose_stdout_shape_matches_agent_contract(e2e_env: E2EEnv) -> None:
+    """Codex r2 pushback: the agent contract documents
+    ``for_date`` / ``user_id`` / ``revision`` / ``superseded_by_proposal_id``
+    on `hai propose`'s stdout, but the pre-fix output only carried
+    ``proposal_id`` / ``domain`` / ``writeback_path`` / ``idempotency_key``
+    / ``performed_at``. Post-fix the output is the union of both — this
+    test pins that contract.
+
+    On a fresh-chain insert (no --replace), revision=1 and
+    superseded_by_proposal_id=None.
+    """
+
+    proposal = {
+        "schema_version": "recovery_proposal.v1",
+        "proposal_id": f"prop_{AS_OF}_{USER_ID}_recovery_01",
+        "user_id": USER_ID,
+        "for_date": AS_OF,
+        "domain": "recovery",
+        "action": "proceed_with_planned_session",
+        "action_detail": None,
+        "confidence": "high",
+        "bounded": True,
+        "rationale": ["baseline"],
+        "uncertainty": [],
+        "policy_decisions": [
+            {"rule_id": "require_min_coverage", "decision": "allow", "note": "ok"},
+        ],
+    }
+    path = e2e_env.tmp_root / "prop.json"
+    path.write_text(json.dumps(proposal))
+    result = e2e_env.run_hai(
+        "propose", "--domain", "recovery",
+        "--proposal-json", str(path),
+        "--base-dir", str(e2e_env.base_dir),
+    )
+    payload = result["stdout_json"]
+    # Contract-claimed keys — these must be present.
+    for key in (
+        "proposal_id", "domain", "for_date", "user_id",
+        "revision", "superseded_by_proposal_id",
+    ):
+        assert key in payload, f"hai propose output missing contract key: {key!r}"
+    # Useful legacy keys — kept for backwards compatibility.
+    for key in ("writeback_path", "idempotency_key", "performed_at"):
+        assert key in payload, f"hai propose output missing audit key: {key!r}"
+    # Fresh-chain values.
+    assert payload["revision"] == 1
+    assert payload["superseded_by_proposal_id"] is None
+    assert payload["for_date"] == AS_OF
+    assert payload["user_id"] == USER_ID
+
+
 def test_explain_for_date_returns_canonical_leaf(e2e_env: E2EEnv) -> None:
     """Per D1, `hai explain --for-date` default resolves the leaf of the
     supersede chain via ``superseded_by_plan_id IS NULL``, not the chain

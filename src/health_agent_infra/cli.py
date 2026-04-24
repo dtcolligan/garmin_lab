@@ -970,8 +970,72 @@ def cmd_propose(args: argparse.Namespace) -> int:
 
     _dual_write_project(args.db_path, _project, "proposal")
 
-    _emit_json(record.to_dict())
+    # Post-write DB read for projection metadata (revision,
+    # superseded_by_proposal_id). Codex r2 review pushback: the agent
+    # contract documents these fields on the stdout payload; best-effort
+    # lookup here keeps the documented output and the real projection in
+    # lockstep without introducing a second round-trip for the
+    # DB-absent path (which falls back to revision=1, superseded_by=None).
+    projection_meta = _read_proposal_projection_meta(
+        args.db_path, proposal_id=data["proposal_id"],
+    )
+    payload = record.to_dict()
+    payload["for_date"] = data["for_date"]
+    payload["user_id"] = data["user_id"]
+    payload["revision"] = projection_meta.get("revision")
+    payload["superseded_by_proposal_id"] = projection_meta.get(
+        "superseded_by_proposal_id",
+    )
+    _emit_json(payload)
     return exit_codes.OK
+
+
+def _read_proposal_projection_meta(
+    db_path_arg, *, proposal_id: str,
+) -> dict[str, Any]:
+    """Return ``{revision, superseded_by_proposal_id}`` for a freshly
+    written proposal, or an empty dict when the DB is absent.
+
+    Best-effort: DB-absent + projection failures return ``{}`` so the
+    ``hai propose`` command still emits a well-formed stdout payload
+    (the revision/superseded-by keys drop to None). The DB is the
+    source of truth when present; the JSONL audit has the proposal_id
+    but not the post-projection metadata.
+
+    Under D1's revision semantics, the ``--replace`` path auto-generates
+    a new proposal_id (``prop_..._<rev:02d>``), so the id we were
+    passed in ``data`` may no longer be the live row's id. The lookup
+    uses ``canonical leaf for (for_date, user_id, domain)`` semantics
+    to avoid a footgun on that path.
+    """
+
+    from health_agent_infra.core.state import open_connection, resolve_db_path
+
+    db_path = resolve_db_path(db_path_arg)
+    if not db_path.exists():
+        return {}
+    try:
+        conn = open_connection(db_path)
+    except Exception:
+        return {}
+    try:
+        # First try direct lookup on the caller-provided id (fresh-chain
+        # path where the id didn't mutate).
+        row = conn.execute(
+            "SELECT revision, superseded_by_proposal_id FROM proposal_log "
+            "WHERE proposal_id = ?",
+            (proposal_id,),
+        ).fetchone()
+        if row is not None:
+            return {
+                "revision": row["revision"],
+                "superseded_by_proposal_id": row["superseded_by_proposal_id"],
+            }
+        return {}
+    except Exception:
+        return {}
+    finally:
+        conn.close()
 
 
 # ---------------------------------------------------------------------------
