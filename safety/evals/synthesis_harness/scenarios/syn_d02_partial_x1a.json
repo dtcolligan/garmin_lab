@@ -1,0 +1,44 @@
+{
+  "scenario_id": "syn_d02_partial_x1a",
+  "description": "Partial day — sleep_debt=moderate triggers X1a (soften hard recovery session). Synthesis must cite X1a in the recovery rationale.",
+  "bundle": {
+    "snapshot": {
+      "recovery": {
+        "classified_state": {
+          "sleep_debt_band": "moderate",
+          "resting_hr_band": "baseline",
+          "hrv_band": "baseline",
+          "training_load_band": "moderate",
+          "soreness_band": "low",
+          "coverage_band": "full",
+          "recovery_status": "mildly_impaired"
+        }
+      },
+      "sleep": {
+        "classified_state": {
+          "sleep_debt_band": "moderate",
+          "sleep_quality_band": "fair",
+          "coverage_band": "full",
+          "sleep_status": "compromised"
+        }
+      }
+    },
+    "proposals": [
+      {"domain": "recovery", "action": "proceed_with_planned_session", "draft_action": "downgrade_hard_session_to_zone_2"}
+    ],
+    "phase_a_firings": [
+      {
+        "rule_id": "X1a",
+        "tier": "soften",
+        "affected_domain": "recovery",
+        "recommended_mutation": {"action": "downgrade_hard_session_to_zone_2"},
+        "source_signals": {"sleep_debt_band": "moderate"}
+      }
+    ]
+  },
+  "expected": {
+    "firing_summaries": {
+      "X1a": "soften applied to recovery"
+    }
+  }
+}

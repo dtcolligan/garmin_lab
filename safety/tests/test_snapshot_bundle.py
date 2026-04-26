@@ -82,7 +82,7 @@ def test_snapshot_v1_0_recovery_block_has_three_keys(tmp_path: Path, capsys):
     ])
     assert rc == 0
     payload = json.loads(capsys.readouterr().out)
-    assert set(payload["recovery"].keys()) == {"today", "history", "missingness", "cold_start", "history_days"}
+    assert set(payload["recovery"].keys()) == {"today", "history", "missingness", "cold_start", "history_days", "review_summary", "data_quality"}
 
 
 def test_snapshot_v1_0_running_block_unchanged(tmp_path: Path, capsys):
@@ -101,6 +101,7 @@ def test_snapshot_v1_0_running_block_unchanged(tmp_path: Path, capsys):
     assert set(payload["running"].keys()) == {
         "today", "history", "missingness", "cold_start", "history_days",
         "activities_today", "activities_history",
+        "review_summary", "data_quality",
     }
     assert payload["running"]["activities_today"] == []
     assert payload["running"]["activities_history"] == []
@@ -278,6 +279,7 @@ def test_snapshot_nutrition_block_expands_with_evidence_json(
     expected = {
         "today", "history", "missingness", "cold_start", "history_days",
         "signals", "classified_state", "policy_result",
+        "review_summary", "data_quality",
     }
     assert set(payload["nutrition"].keys()) == expected
 
@@ -370,6 +372,7 @@ def test_snapshot_running_block_adds_signals_classified_policy_under_evidence_js
         "today", "history", "missingness", "cold_start", "history_days",
         "activities_today", "activities_history",
         "signals", "classified_state", "policy_result",
+        "review_summary", "data_quality",
     }
 
 
@@ -389,6 +392,7 @@ def test_snapshot_running_block_unchanged_without_evidence_json(
     assert set(payload["running"].keys()) == {
         "today", "history", "missingness", "cold_start", "history_days",
         "activities_today", "activities_history",
+        "review_summary", "data_quality",
     }
 
 
@@ -559,6 +563,7 @@ def test_snapshot_running_expansion_does_not_modify_recovery_block_keys(
     assert set(payload["recovery"].keys()) == {
         "today", "history", "missingness", "cold_start", "history_days",
         "evidence", "raw_summary", "classified_state", "policy_result",
+        "review_summary", "data_quality",
     }
 
 
@@ -612,7 +617,7 @@ def test_snapshot_sleep_block_v1_0_keys_without_evidence_json(
         "--db-path", str(db),
     ])
     payload = json.loads(capsys.readouterr().out)
-    assert set(payload["sleep"].keys()) == {"today", "history", "missingness", "cold_start", "history_days"}
+    assert set(payload["sleep"].keys()) == {"today", "history", "missingness", "cold_start", "history_days", "review_summary", "data_quality"}
 
 
 def test_snapshot_stress_block_v1_0_keys_without_evidence_json(
@@ -632,6 +637,7 @@ def test_snapshot_stress_block_v1_0_keys_without_evidence_json(
     assert set(payload["stress"].keys()) == {
         "today", "history", "missingness", "cold_start", "history_days",
         "today_garmin", "today_manual", "today_body_battery",
+        "review_summary", "data_quality",
     }
 
 
@@ -653,6 +659,7 @@ def test_snapshot_sleep_block_adds_signals_classified_policy_with_evidence_json(
     assert set(payload["sleep"].keys()) == {
         "today", "history", "missingness", "cold_start", "history_days",
         "signals", "classified_state", "policy_result",
+        "review_summary", "data_quality",
     }
 
 
@@ -675,6 +682,7 @@ def test_snapshot_stress_block_adds_signals_classified_policy_with_evidence_json
         "today", "history", "missingness", "cold_start", "history_days",
         "today_garmin", "today_manual", "today_body_battery",
         "signals", "classified_state", "policy_result",
+        "review_summary", "data_quality",
     }
 
 
@@ -837,4 +845,5 @@ def test_snapshot_sleep_stress_expansion_does_not_modify_recovery_keys(
     assert set(payload["recovery"].keys()) == {
         "today", "history", "missingness", "cold_start", "history_days",
         "evidence", "raw_summary", "classified_state", "policy_result",
+        "review_summary", "data_quality",
     }

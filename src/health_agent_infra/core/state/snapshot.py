@@ -849,8 +849,99 @@ def build_snapshot(
         nutrition_block["classified_state"] = _nutrition_classified_to_dict(nutrition_classified)
         nutrition_block["policy_result"] = _policy_to_dict(nutrition_policy)
 
+    # v0.1.8 W48 — attach the code-owned review summary to each domain
+    # block. Visibility-only: skills can narrate the tokens but MUST NOT
+    # mutate actions or thresholds based on them. The summary is computed
+    # against the persisted recommendation_log + review_event +
+    # review_outcome chain — no skill-side arithmetic.
+    from health_agent_infra.core.review.summary import (
+        build_review_summary as _build_review_summary,
+    )
+
+    for _domain_name, _domain_block in (
+        ("recovery", recovery_block),
+        ("running", running_block),
+        ("sleep", sleep_block),
+        ("stress", stress_block),
+        ("strength", strength_block),
+        ("nutrition", nutrition_block),
+    ):
+        _domain_block["review_summary"] = _build_review_summary(
+            conn,
+            as_of_date=as_of_date,
+            user_id=user_id,
+            domain=_domain_name,
+        )
+
+    # v0.1.8 W51 — attach a data_quality block to each domain. Uses the
+    # signals already on the block (cold_start, missingness,
+    # classified_state.coverage_band) so we don't recompute. Pre-021
+    # callers see this same shape because the block reads from
+    # in-memory snapshot state rather than querying data_quality_daily.
+    for _domain_name, _domain_block in (
+        ("recovery", recovery_block),
+        ("running", running_block),
+        ("sleep", sleep_block),
+        ("stress", stress_block),
+        ("strength", strength_block),
+        ("nutrition", nutrition_block),
+    ):
+        _classified = _domain_block.get("classified_state") or {}
+        _coverage = (
+            _classified.get("coverage_band")
+            if isinstance(_classified, dict)
+            else None
+        )
+        _missing = _domain_block.get("missingness")
+        _cold = bool(_domain_block.get("cold_start", False))
+        _domain_block["data_quality"] = {
+            "coverage_band": _coverage,
+            "missingness": _missing,
+            "source_unavailable": bool(
+                _missing and "unavailable_at_source" in _missing
+            ),
+            "user_input_pending": bool(
+                _missing and "pending_user_input" in _missing
+            ),
+            "cold_start_window_state": (
+                "in_window" if _cold else "post_cold_start"
+            ),
+        }
+
+    # v0.1.8 W49 — top-level ``intent`` block carrying every intent_item
+    # row whose status='active' and whose [scope_start, scope_end]
+    # interval covers ``as_of_date``. Empty list when migration 019
+    # hasn't run yet, so pre-019 callers (and any DB initialised before
+    # this release lands) keep a stable shape.
+    try:
+        from health_agent_infra.core.intent import list_active_intent
+
+        intent_records = list_active_intent(
+            conn, user_id=user_id, as_of_date=as_of_date,
+        )
+        intent_block = [r.to_row() for r in intent_records]
+    except sqlite3.OperationalError:
+        intent_block = []
+
+    # v0.1.8 W50 — top-level ``target`` block carrying every active
+    # target row whose effective window covers ``as_of_date``.
+    try:
+        from health_agent_infra.core.target import list_active_target
+
+        target_records = list_active_target(
+            conn, user_id=user_id, as_of_date=as_of_date,
+        )
+        target_block = [r.to_row() for r in target_records]
+    except sqlite3.OperationalError:
+        target_block = []
+
     return {
-        "schema_version": "state_snapshot.v1",
+        # v0.1.8 — bumped from "state_snapshot.v1" to "state_snapshot.v2"
+        # for the additive review_summary / data_quality / intent /
+        # target fields. v1 consumers ignore the new fields gracefully
+        # (no v1 field is removed or changed in shape); see
+        # ``reporting/docs/agent_integration.md`` for the transition note.
+        "schema_version": "state_snapshot.v2",
         "as_of_date": as_of_date.isoformat(),
         "user_id": user_id,
         "lookback_days": lookback_days,
@@ -878,6 +969,10 @@ def build_snapshot(
         },
         "user_memory": user_memory_block,
         "sources": sources_block,
+        # v0.1.8 W49 — active intent rows for the as_of_date.
+        "intent": intent_block,
+        # v0.1.8 W50 — active target rows for the as_of_date.
+        "target": target_block,
     }
 
 

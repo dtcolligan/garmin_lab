@@ -1,0 +1,56 @@
+{
+  "scenario_id": "run_h04_recovery_coupling_holds",
+  "domain": "running",
+  "description": "Cross-domain coupling: recovery is impaired (sleep_debt=high, hrv low). Running readiness should land in 'hold' or 'conditional' and steer the action toward cross-train / easy-aerobic rather than a hard run.",
+  "input": {
+    "user_id": "u_eval",
+    "for_date": "2026-04-17",
+    "raw_summary": {
+      "as_of_date": "2026-04-17",
+      "user_id": "u_eval",
+      "training_load_baseline": 400.0,
+      "training_load_ratio_vs_baseline": 1.0,
+      "trailing_7d_training_load": 400.0,
+      "acwr_ratio": 1.0,
+      "training_readiness_pct": 50
+    },
+    "running_today": {
+      "as_of_date": "2026-04-17",
+      "total_distance_m": 0.0,
+      "total_duration_s": 0,
+      "moderate_intensity_min": 0,
+      "vigorous_intensity_min": 0
+    },
+    "running_history": [
+      {"as_of_date": "2026-04-16", "total_distance_m": 5000.0, "vigorous_intensity_min": 0, "total_duration_s": 1500},
+      {"as_of_date": "2026-04-15", "total_distance_m": 8000.0, "vigorous_intensity_min": 5, "total_duration_s": 2300},
+      {"as_of_date": "2026-04-14", "total_distance_m": 6000.0, "vigorous_intensity_min": 0, "total_duration_s": 1700},
+      {"as_of_date": "2026-04-13", "total_distance_m": 6000.0, "vigorous_intensity_min": 0, "total_duration_s": 1700},
+      {"as_of_date": "2026-04-12", "total_distance_m": 12000.0, "vigorous_intensity_min": 0, "total_duration_s": 3600},
+      {"as_of_date": "2026-04-11", "total_distance_m": 0.0, "vigorous_intensity_min": 0, "total_duration_s": 0}
+    ],
+    "recovery_classified": {
+      "sleep_debt_band": "elevated",
+      "hrv_band": "low",
+      "resting_hr_band": "elevated",
+      "training_load_band": "moderate",
+      "soreness_band": "moderate",
+      "coverage_band": "full",
+      "recovery_status": "impaired",
+      "readiness_score": 40,
+      "uncertainty": []
+    },
+    "recovery_today": {
+      "training_readiness_level": "Low",
+      "training_readiness_component_mean_pct": 35
+    }
+  },
+  "expected": {
+    "action": "cross_train_instead",
+    "confidence_at_or_below": "moderate",
+    "policy_decisions_preserved": true,
+    "rationale_must_reference_bands": [
+      "recovery_adjacent"
+    ]
+  }
+}

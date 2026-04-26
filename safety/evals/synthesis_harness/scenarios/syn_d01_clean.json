@@ -1,0 +1,36 @@
+{
+  "scenario_id": "syn_d01_clean",
+  "description": "Clean day — no Phase A firings, all proposals proceed_with_planned_*, synthesis just narrates.",
+  "bundle": {
+    "snapshot": {
+      "recovery": {
+        "classified_state": {
+          "sleep_debt_band": "low",
+          "resting_hr_band": "baseline",
+          "hrv_band": "baseline",
+          "training_load_band": "moderate",
+          "soreness_band": "low",
+          "coverage_band": "full",
+          "recovery_status": "recovered"
+        }
+      },
+      "running": {
+        "classified_state": {
+          "weekly_mileage_trend_band": "steady",
+          "hard_session_load_band": "moderate",
+          "freshness_band": "fresh",
+          "coverage_band": "full",
+          "running_readiness_status": "ready"
+        }
+      }
+    },
+    "proposals": [
+      {"domain": "recovery", "action": "proceed_with_planned_session", "draft_action": "proceed_with_planned_session"},
+      {"domain": "running", "action": "proceed_with_planned_run", "draft_action": "proceed_with_planned_run"}
+    ],
+    "phase_a_firings": []
+  },
+  "expected": {
+    "firing_summaries": {}
+  }
+}

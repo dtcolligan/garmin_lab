@@ -359,6 +359,32 @@ DEFAULT_THRESHOLDS: dict[str, Any] = {
             "r_extreme_deficiency_min_calorie_deficit_kcal": 500.0,
             "r_extreme_deficiency_max_protein_ratio": 0.7,
         },
+        # v0.1.8 W48 — code-owned review summary tokens. Tunes the
+        # `outcome_pattern_*` tokens emitted by
+        # ``core/review/summary.build_review_summary``. Tokens are
+        # visibility-only — they NEVER mutate thresholds, classifiers,
+        # policy, X-rules, confidence, intent, or targets in v0.1.8.
+        "review_summary": {
+            # Rolling window (days) the summary aggregates over. The
+            # window includes ``as_of_date``.
+            "window_days": 7,
+            # Below this many recorded outcomes, the summary emits the
+            # ``outcome_pattern_insufficient_denominator`` token instead
+            # of computing a pattern verdict.
+            "min_denominator": 3,
+            # ≥ this many followed-but-improvement-False outcomes in the
+            # window emits ``outcome_pattern_recent_negative``.
+            "recent_negative_threshold": 4,
+            # ≥ this many followed-and-improvement-True outcomes in the
+            # window emits ``outcome_pattern_recent_positive``.
+            "recent_positive_threshold": 4,
+            # When the followed-improvement rate falls inside
+            # [lower, upper] inclusive, emit
+            # ``outcome_pattern_mixed``. Defaults bracket the 50/50
+            # zone (40 %–60 %).
+            "mixed_token_lower_bound": 0.4,
+            "mixed_token_upper_bound": 0.6,
+        },
     },
     "synthesis": {
         "x_rules": {

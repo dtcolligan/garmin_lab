@@ -66,6 +66,77 @@ def test_compose_snapshot_runs_real_classifier(harness) -> None:
         assert "coverage_band" in cs
 
 
+# ---------------------------------------------------------------------------
+# v0.1.8 W41 — running domain extension
+# ---------------------------------------------------------------------------
+
+
+def test_running_rubric_doc_present() -> None:
+    rubric = HARNESS_DIR / "rubrics" / "running.md"
+    assert rubric.exists(), f"running rubric doc missing at {rubric}"
+    assert rubric.read_text().strip(), "running rubric doc is empty"
+
+
+def test_every_running_scenario_has_expected_block(harness) -> None:
+    scenarios = harness.load_scenarios("running")
+    assert scenarios, "no running scenarios registered"
+    for scenario in scenarios:
+        assert "expected" in scenario, scenario["scenario_id"]
+        expected = scenario["expected"]
+        assert "action" in expected, scenario["scenario_id"]
+        assert "policy_decisions_preserved" in expected, scenario["scenario_id"]
+
+
+def test_running_compose_snapshot_runs_real_classifier(harness) -> None:
+    """Every running scenario must compose into a running block carrying
+    classified_state + policy_result derived from the live runtime
+    (not hand-written in the scenario JSON)."""
+
+    for scenario in harness.load_scenarios("running"):
+        snap = harness.compose_snapshot(scenario)
+        block = snap["running"]
+        for key in ("signals", "classified_state", "policy_result"):
+            assert key in block, (scenario["scenario_id"], key)
+        cs = block["classified_state"]
+        assert "running_readiness_status" in cs
+        assert "coverage_band" in cs
+
+
+def test_live_mode_dispatches_skill_on_scenario_domain(harness) -> None:
+    """Codex P2-2: invoke_live used to hard-code recovery-readiness.
+    Verify the dispatch table maps each supported domain to the
+    correct skill name without launching live mode."""
+
+    assert harness._live_skill_name_for_domain("recovery") == "recovery-readiness"
+    assert harness._live_skill_name_for_domain("running") == "running-readiness"
+
+
+def test_live_mode_refuses_unknown_domain(harness) -> None:
+    """Unknown domains in live mode must raise rather than silently
+    fall back to recovery-readiness."""
+
+    with pytest.raises(harness.HarnessError) as excinfo:
+        harness._live_skill_name_for_domain("nonexistent_domain")
+    assert "nonexistent_domain" in str(excinfo.value)
+
+
+def test_running_scenarios_cover_required_paths(harness) -> None:
+    """W41 acceptance: running scenarios cover at least one clean,
+    one insufficient-signal, one policy-forced, and one cross-domain
+    coupling path."""
+
+    scenarios = harness.load_scenarios("running")
+    actions = {s["expected"]["action"] for s in scenarios}
+    # Clean path.
+    assert "proceed_with_planned_run" in actions, scenarios
+    # Insufficient-signal path.
+    assert "defer_decision_insufficient_signal" in actions
+    # Policy-forced path (R-acwr-spike).
+    assert "escalate_for_user_review" in actions
+    # Cross-domain coupling path (recovery=impaired → running holds).
+    assert "cross_train_instead" in actions
+
+
 def test_replay_scores_committed_transcripts(harness) -> None:
     """Replay the committed reference transcripts and assert correctness
     passes + rubric mean is 2.0 (reference transcripts are authored to

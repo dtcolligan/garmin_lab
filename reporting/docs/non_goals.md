@@ -86,11 +86,51 @@ scenario until the harness lands.
 ## Not a coach, a clinician, or a replacement for informed user
 judgment
 
-- No training plan generation. Recommendations shape or escalate
-  whatever session the user already planned.
-- No diet plan generation. Nutrition recommendations adjust targets
-  against the user's own goal, not a prescribed regime.
+- No autonomous training plan generation. The runtime does not
+  propose multi-day or multi-week training prescriptions on its own
+  initiative. Daily recommendations shape or escalate whatever
+  session the user already planned.
+- No autonomous diet plan generation. The runtime does not propose
+  meal plans, macro splits, or nutrition regimes. Nutrition
+  recommendations adjust against the user's own goal.
 - No mental-health surface, no crisis triage.
+
+### What IS allowed (v0.1.8 and forward)
+
+The above forbids *autonomous* prescriptions. The following user-
+driven shapes are explicitly in scope and should not be confused
+with plan generation:
+
+- **User-authored intent.** A user (or an agent acting on the
+  user's explicit instruction) records what they intend to do —
+  planned sessions, sleep windows, rest days, travel, constraints.
+  Persisted in the intent ledger (W49). The runtime reads intent
+  to interpret outcomes; it does not invent intent.
+- **User-authored targets.** A user records or confirms wellness
+  targets — hydration, protein, calories, sleep duration / window,
+  training-load aim. Persisted in the target ledger (W50) with
+  reason, source, effective date, and review date. Targets are
+  wellness support, not clinical prescriptions.
+- **Agent-proposed intent / targets** are allowed only when (a)
+  marked with ``source=agent_proposed`` (or equivalent), and (b)
+  gated behind an explicit user commit path before becoming
+  active. They never auto-promote.
+
+### What may be allowed later (post-v0.1.8, with new governance)
+
+Out of scope for v0.1.8, listed here only so contributors do not
+mistake it for "currently shipping":
+
+- Bounded wellness plan suggestions inside fixed enums (e.g.
+  "rest", "easy aerobic", "tempo"), surfaced as proposals that
+  require user approval, are auditable, and supersede via the
+  same archive/supersession discipline as intent and target rows.
+- Outcome-derived target *review* prompts — never automatic
+  target mutation.
+
+Anything beyond those two items — model-driven training plans,
+diet prescriptions, autonomous regimen design, hidden adaptation
+from outcomes — remains explicitly out of scope.
 
 ## Not a broad integration platform
 

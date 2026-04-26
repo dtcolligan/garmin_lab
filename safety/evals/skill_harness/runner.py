@@ -52,7 +52,28 @@ HARNESS_ROOT = Path(__file__).resolve().parent
 SCENARIOS_ROOT = HARNESS_ROOT / "scenarios"
 RUBRICS_ROOT = HARNESS_ROOT / "rubrics"
 
-SUPPORTED_DOMAINS = ("recovery",)
+SUPPORTED_DOMAINS = ("recovery", "running")
+
+
+# v0.1.8 W41 / Codex P2-2: domain → skill name dispatch table for
+# live-capture mode. Replay mode doesn't need this; only live mode
+# needs to know which SKILL.md file to load and which prompt to use.
+_LIVE_SKILL_BY_DOMAIN: dict[str, str] = {
+    "recovery": "recovery-readiness",
+    "running": "running-readiness",
+    # Future domains add their entry here; live-mode call will raise
+    # HarnessError for unrecognised domains rather than silently
+    # invoking the wrong skill.
+}
+
+
+def _live_skill_name_for_domain(domain: str) -> str:
+    if domain not in _LIVE_SKILL_BY_DOMAIN:
+        raise HarnessError(
+            f"live mode does not yet support domain={domain!r}; "
+            f"known: {sorted(_LIVE_SKILL_BY_DOMAIN)}"
+        )
+    return _LIVE_SKILL_BY_DOMAIN[domain]
 
 
 class HarnessError(RuntimeError):
@@ -162,15 +183,84 @@ def compose_snapshot(scenario: dict[str, Any]) -> dict[str, Any]:
     """Compose the full snapshot block the skill would read."""
 
     domain = scenario["domain"]
-    if domain != "recovery":
-        raise HarnessError(
-            f"pilot only handles domain=recovery; got {domain!r}",
-        )
-    block = _recovery_snapshot_block(scenario["input"])
+    if domain == "recovery":
+        block = _recovery_snapshot_block(scenario["input"])
+        return {
+            "as_of_date": scenario["input"].get("for_date"),
+            "user_id": scenario["input"].get("user_id", "u_eval"),
+            "recovery": block,
+        }
+    if domain == "running":
+        block = _running_snapshot_block(scenario["input"])
+        return {
+            "as_of_date": scenario["input"].get("for_date"),
+            "user_id": scenario["input"].get("user_id", "u_eval"),
+            "running": block,
+            # The running-readiness skill also reads recovery vendor
+            # signals for cross-checks — synthesize an empty recovery
+            # block so SKILL.md's vendor cross-check section has a
+            # field to reach for without a NoneType.
+            "recovery": {
+                "today": scenario["input"].get("recovery_today") or {},
+            },
+        }
+    raise HarnessError(
+        f"compose_snapshot: domain {domain!r} not yet supported by harness; "
+        f"current SUPPORTED_DOMAINS={SUPPORTED_DOMAINS}",
+    )
+
+
+def _running_snapshot_block(scenario_input: dict[str, Any]) -> dict[str, Any]:
+    """Build the ``snapshot.running`` dict the skill consumes.
+
+    Mirrors `_recovery_snapshot_block`: scenario authors evidence /
+    history / vendor signals; harness runs the real
+    ``derive_running_signals`` + ``classify_running_state`` +
+    ``evaluate_running_policy``.
+    """
+
+    from health_agent_infra.core.config import load_thresholds
+    from health_agent_infra.domains.running.signals import (
+        derive_running_signals,
+    )
+    from health_agent_infra.domains.running.classify import (
+        classify_running_state,
+    )
+    from health_agent_infra.domains.running.policy import (
+        evaluate_running_policy,
+    )
+
+    raw_summary = dict(scenario_input.get("raw_summary") or {})
+    running_today = scenario_input.get("running_today")
+    running_history = scenario_input.get("running_history") or []
+    activities_today = scenario_input.get("activities_today") or []
+    activities_history = scenario_input.get("activities_history") or []
+    recovery_classified = scenario_input.get("recovery_classified")
+
+    thresholds = load_thresholds()
+    running_signals = derive_running_signals(
+        raw_summary,
+        running_today=running_today,
+        running_history=running_history,
+        recovery_classified=recovery_classified,
+        activities_today=activities_today,
+        activities_history=activities_history,
+        as_of_date=scenario_input.get("for_date"),
+    )
+    classified = classify_running_state(running_signals, thresholds=thresholds)
+    policy = evaluate_running_policy(
+        classified, running_signals, thresholds=thresholds,
+    )
+
     return {
-        "as_of_date": scenario["input"].get("for_date"),
-        "user_id": scenario["input"].get("user_id", "u_eval"),
-        "recovery": block,
+        "today": running_today,
+        "history": running_history,
+        "activities_today": activities_today,
+        "activities_history": activities_history,
+        "signals": running_signals,
+        "classified_state": _dataclass_to_dict(classified),
+        "policy_result": _dataclass_to_dict(policy),
+        "missingness": scenario_input.get("missingness") or "present",
     }
 
 
@@ -240,19 +330,26 @@ def invoke_live(scenario: dict[str, Any]) -> Transcript:
             "triggered accidentally from CI or a normal pytest run",
         )
 
+    # Codex P2-2 fix: dispatch the skill path on scenario["domain"].
+    # Previously hard-coded to recovery-readiness — meant the running
+    # live-capture path would invoke the wrong skill silently.
+    domain = scenario.get("domain", "recovery")
+    skill_name = _live_skill_name_for_domain(domain)
     skill_path = (
         Path(__file__).resolve().parents[3]
-        / "src/health_agent_infra/skills/recovery-readiness/SKILL.md"
+        / f"src/health_agent_infra/skills/{skill_name}/SKILL.md"
     )
     if not skill_path.exists():
-        raise HarnessError(f"recovery-readiness skill not found at {skill_path}")
+        raise HarnessError(
+            f"{skill_name} skill not found at {skill_path}"
+        )
 
     snapshot = compose_snapshot(scenario)
     system_prompt = skill_path.read_text(encoding="utf-8")
     user_prompt = (
-        "You are running as the recovery-readiness skill. The snapshot "
+        f"You are running as the {skill_name} skill. The snapshot "
         "below is the only bundle you may read. Emit one and only one "
-        "JSON object matching the TrainingRecommendation schema. No "
+        "JSON object matching the proposal schema for this domain. No "
         "prose outside the JSON block.\n\n"
         f"SNAPSHOT:\n{json.dumps(snapshot, indent=2)}\n"
     )

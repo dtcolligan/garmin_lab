@@ -1,0 +1,41 @@
+{
+  "scenario_id": "run_h03_acwr_spike_escalates",
+  "domain": "running",
+  "description": "ACWR ratio at 1.6 (above the 1.5 R-rule threshold). R-acwr-spike fires and forces escalate_for_user_review.",
+  "input": {
+    "user_id": "u_eval",
+    "for_date": "2026-04-17",
+    "raw_summary": {
+      "as_of_date": "2026-04-17",
+      "user_id": "u_eval",
+      "training_load_baseline": 400.0,
+      "training_load_ratio_vs_baseline": 1.6,
+      "trailing_7d_training_load": 640.0,
+      "acwr_ratio": 1.6,
+      "training_readiness_pct": 60
+    },
+    "running_today": {
+      "as_of_date": "2026-04-17",
+      "total_distance_m": 14000.0,
+      "total_duration_s": 4200.0,
+      "moderate_intensity_min": 35,
+      "vigorous_intensity_min": 25
+    },
+    "running_history": [
+      {"as_of_date": "2026-04-16", "total_distance_m": 10000.0, "vigorous_intensity_min": 15, "total_duration_s": 3000},
+      {"as_of_date": "2026-04-15", "total_distance_m": 12000.0, "vigorous_intensity_min": 20, "total_duration_s": 3600},
+      {"as_of_date": "2026-04-14", "total_distance_m": 8000.0, "vigorous_intensity_min": 5, "total_duration_s": 2300},
+      {"as_of_date": "2026-04-13", "total_distance_m": 14000.0, "vigorous_intensity_min": 30, "total_duration_s": 4200},
+      {"as_of_date": "2026-04-12", "total_distance_m": 16000.0, "vigorous_intensity_min": 25, "total_duration_s": 4800},
+      {"as_of_date": "2026-04-11", "total_distance_m": 11000.0, "vigorous_intensity_min": 0, "total_duration_s": 3300}
+    ]
+  },
+  "expected": {
+    "action": "escalate_for_user_review",
+    "confidence_at_or_below": "moderate",
+    "policy_decisions_preserved": true,
+    "rationale_must_reference_bands": [
+      "acwr"
+    ]
+  }
+}
