@@ -408,15 +408,20 @@ class IntervalsIcuAdapter:
         wellness is the primary signal and we want `hai pull` to keep working
         even if an intervals.icu account has /activities disabled or the
         adapter hits a transient upstream error on the activities endpoint.
-        The wellness-level partial flag still reflects wellness status only;
-        activities failures log into ``last_pull_failed_days`` via the
-        ``activities_endpoint`` sentinel so dogfooders can see the gap.
+
+        v0.1.9 B5: an activities-endpoint failure now ALSO sets
+        ``last_pull_partial = True``. Pre-v0.1.9 the run looked fully
+        successful even though running-activity data was missed; the
+        running domain saw "no sessions today" instead of "sessions
+        unknown". The partial flag now propagates so downstream gating
+        (clean / daily) can degrade gracefully.
         """
 
         try:
             raw = self.client.fetch_activities_range(oldest=oldest, newest=newest)
         except IntervalsIcuError as exc:
             self.last_pull_failed_days.append(f"activities_endpoint:{exc}")
+            self.last_pull_partial = True
             return []
 
         return _parse_activities(raw, user_id=user_id)

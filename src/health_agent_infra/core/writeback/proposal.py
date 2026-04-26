@@ -243,64 +243,32 @@ def validate_proposal_dict(data: Any, *, expected_domain: Optional[str] = None) 
             f"for_date must be ISO-8601 YYYY-MM-DD; got {data['for_date']!r} ({exc})",
         )
 
-    # Phase A safety closure (v0.1.4) — Codex 2026-04-24 review pushback:
-    # banned diagnosis-shaped tokens must be rejected at the proposal seam,
-    # not only at the recommendation seam. A proposal carrying banned
-    # language would otherwise propagate through synthesis untouched (the
-    # mechanical draft preserves rationale verbatim) and the safety net
-    # would only catch it at the final recommendation validation. Catching
-    # earlier is cheaper for the agent (clearer error at propose time)
-    # and removes any window where banned text lives in proposal_log.
-    _check_proposal_banned_tokens(data)
-
-
-# Diagnosis-shaped tokens, sourced from the recommendation validator so
-# the proposal + recommendation safety surfaces stay in lockstep. Any
-# future addition to ``BANNED_TOKENS`` immediately covers proposals too.
-def _check_proposal_banned_tokens(data: dict) -> None:
-    # Import the compiled whole-word patterns from validate so proposal +
-    # recommendation surfaces stay in lockstep. The Codex 2026-04-24 round-2
-    # review caught a substring-match regression where `condition` rejected
-    # `conditional_readiness`; the word-boundary regex fixes it.
+    # v0.1.9 B3 — strict text shape on rationale / uncertainty /
+    # policy_decisions. Pre-v0.1.9 the validator only checked presence;
+    # Codex 2026-04-26 confirmed string values for rationale/uncertainty
+    # passed today. Shared with the recommendation validator so both
+    # surfaces enforce identical shape.
     from health_agent_infra.core.validate import (
-        _BANNED_TOKEN_PATTERNS,
-        _flatten_text_values,
+        check_banned_tokens_in_surfaces,
+        check_policy_decisions_shape,
+        check_rationale_shape,
+        check_uncertainty_shape,
     )
 
-    parts: list[str] = []
+    check_rationale_shape(data, error_cls=ProposalValidationError)
+    check_uncertainty_shape(data, error_cls=ProposalValidationError)
+    check_policy_decisions_shape(data, error_cls=ProposalValidationError)
 
-    rationale = data.get("rationale", [])
-    if isinstance(rationale, list):
-        parts.extend(str(r) for r in rationale)
-    else:
-        parts.append(str(rationale))
-
-    parts.extend(_flatten_text_values(data.get("action_detail")))
-
-    uncertainty = data.get("uncertainty", [])
-    if isinstance(uncertainty, list):
-        parts.extend(str(u) for u in uncertainty)
-    else:
-        parts.append(str(uncertainty))
-
-    policy_decisions = data.get("policy_decisions", [])
-    if isinstance(policy_decisions, list):
-        for decision in policy_decisions:
-            if isinstance(decision, dict):
-                note = decision.get("note")
-                if note is not None:
-                    parts.append(str(note))
-
-    haystack = " ".join(parts)
-    for pattern, token in _BANNED_TOKEN_PATTERNS:
-        if pattern.search(haystack):
-            raise ProposalValidationError(
-                "no_banned_tokens",
-                f"banned diagnosis-shaped token {token!r} found in proposal "
-                f"rationale, action_detail, uncertainty, or "
-                f"policy_decisions[].note. Proposals must be safety-clean "
-                f"before they reach proposal_log.",
-            )
+    # Phase A safety closure (v0.1.4) — banned diagnosis-shaped tokens must
+    # be rejected at the proposal seam, not only at the recommendation
+    # seam. v0.1.9 B3 routes both validators through one shared sweep
+    # (``check_banned_tokens_in_surfaces``) so a future surface added in
+    # one place is automatically covered in the other.
+    check_banned_tokens_in_surfaces(
+        data,
+        include_follow_up=False,  # proposals carry no follow_up by contract
+        error_cls=ProposalValidationError,
+    )
 
 
 @dataclass

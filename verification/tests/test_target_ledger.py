@@ -479,6 +479,7 @@ def test_cli_target_commit_round_trips(tmp_path: Path, capsys):
         "--db-path", str(db),
         "--user-id", USER,
         "--target-id", target_id,
+        "--confirm",  # W57: non-interactive caller must opt in.
     ])
     assert rc == 0
     promoted = json.loads(capsys.readouterr().out)
@@ -607,6 +608,7 @@ def test_cli_target_archive_round_trips(tmp_path: Path, capsys):
         "target", "archive",
         "--db-path", str(db), "--user-id", USER,
         "--target-id", target_id,
+        "--confirm",  # W57: archive of an active row is deactivation.
     ])
     assert rc == 0
     archived = json.loads(capsys.readouterr().out)

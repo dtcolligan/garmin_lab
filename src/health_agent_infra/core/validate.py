@@ -234,12 +234,21 @@ def validate_recommendation_dict(data: Any) -> None:
             f"bounded must be True, got {data['bounded']!r}",
         )
 
+    # v0.1.9 B3 — strict text shape checks on the audit-bearing fields.
+    # Pre-v0.1.9 the validator only checked presence; Codex 2026-04-26
+    # confirmed string values for rationale/uncertainty passed today.
+    check_rationale_shape(data, error_cls=RecommendationValidationError)
+    check_uncertainty_shape(data, error_cls=RecommendationValidationError)
+    check_policy_decisions_shape(data, error_cls=RecommendationValidationError)
+
     # R2 — banned diagnosis-shaped tokens. Sweeps every agent-/skill-authored
-    # text surface: rationale, action_detail, uncertainty, and the
-    # follow_up.review_question. The synthesis layer composes the review
-    # question from a curated template OR a skill overlay; either way it
-    # passes through here before commit.
-    _check_banned_tokens(data)
+    # text surface via the shared helper so proposal + recommendation
+    # surfaces stay in lockstep coverage.
+    check_banned_tokens_in_surfaces(
+        data,
+        include_follow_up=True,
+        error_cls=RecommendationValidationError,
+    )
 
     follow_up = data.get("follow_up")
     if not isinstance(follow_up, dict):
@@ -253,6 +262,11 @@ def validate_recommendation_dict(data: Any) -> None:
                 "follow_up_shape",
                 f"follow_up missing {fu_field!r}",
             )
+
+    # v0.1.9 B3 — review_question must be a non-empty string.
+    check_review_question_shape(
+        data, error_cls=RecommendationValidationError,
+    )
 
     # R4 — review_at within 24h of issued_at.
     try:
@@ -279,66 +293,12 @@ def validate_recommendation_dict(data: Any) -> None:
         )
 
 
-def _check_banned_tokens(data: dict) -> None:
-    """Sweep every text-bearing surface for banned tokens.
-
-    Surfaces (per Phase A brief + Codex 2026-04-24 review pushback):
-      - ``rationale[]``: proposal-derived OR skill overlay
-      - ``action_detail``: reason tokens, target zones, etc. — recursed
-        because nested dicts are common (e.g. ``{"detail": {"reason": ...}}``)
-      - ``uncertainty[]``: skill overlay
-      - ``follow_up.review_question``: skill overlay or runtime template
-      - ``policy_decisions[].note``: runtime-authored, but a code-level
-        bug that lets a banned token into a note is still a safety
-        violation we should catch — belt-and-suspenders per Codex review.
-    """
-
-    parts: list[str] = []
-
-    rationale = data.get("rationale", [])
-    if isinstance(rationale, list):
-        parts.extend(str(r) for r in rationale)
-    else:
-        parts.append(str(rationale))
-
-    detail = data.get("action_detail")
-    parts.extend(_flatten_text_values(detail))
-
-    uncertainty = data.get("uncertainty", [])
-    if isinstance(uncertainty, list):
-        parts.extend(str(u) for u in uncertainty)
-    else:
-        parts.append(str(uncertainty))
-
-    follow_up = data.get("follow_up")
-    if isinstance(follow_up, dict):
-        review_question = follow_up.get("review_question")
-        if review_question is not None:
-            parts.append(str(review_question))
-
-    policy_decisions = data.get("policy_decisions", [])
-    if isinstance(policy_decisions, list):
-        for decision in policy_decisions:
-            if isinstance(decision, dict):
-                note = decision.get("note")
-                if note is not None:
-                    parts.append(str(note))
-
-    # Whole-word match, case-insensitive. Codex 2026-04-24 round-2 review:
-    # a raw substring check rejected legitimate running language like
-    # `conditional` and `conditional_readiness` because the banned-token
-    # list contains `condition`. The fix is a word-boundary regex so a
-    # standalone "condition" still rejects but "conditional_readiness"
-    # passes. Same pattern as `core/narration/voice.py`.
-    haystack = " ".join(parts)
-    for pattern, token in _BANNED_TOKEN_PATTERNS:
-        if pattern.search(haystack):
-            raise RecommendationValidationError(
-                "no_banned_tokens",
-                f"banned diagnosis-shaped token {token!r} found in "
-                f"rationale, action_detail, uncertainty, "
-                f"follow_up.review_question, or policy_decisions[].note",
-            )
+# NOTE: the legacy ``_check_banned_tokens`` helper that lived here pre-v0.1.9
+# was extracted into the shared :func:`check_banned_tokens_in_surfaces` +
+# :func:`iter_text_surfaces` helpers below ``_flatten_text_values`` so the
+# proposal validator and the recommendation validator could share one source
+# of truth for surface coverage. ``validate_recommendation_dict`` calls the
+# shared helper directly with ``include_follow_up=True``.
 
 
 def _flatten_text_values(value: Any) -> list[str]:
@@ -361,6 +321,235 @@ def _flatten_text_values(value: Any) -> list[str]:
             out.extend(_flatten_text_values(item))
         return out
     return [str(value)]
+
+
+# ---------------------------------------------------------------------------
+# v0.1.9 B3 — shared text-surface enumeration + strict shape checks.
+#
+# The proposal validator (``core/writeback/proposal.py``) and the
+# recommendation validator (this module) walk overlapping text surfaces
+# for banned-token detection. Pre-v0.1.9 the surface-walking logic was
+# duplicated; a fix to one validator's coverage would silently leave
+# the other's stale. The shared helpers below ensure both validators
+# enforce identical text shape and identical banned-token coverage.
+#
+# Shape checks (new in v0.1.9):
+#   - rationale_list_of_strings — `rationale` must be list[str], non-empty.
+#   - uncertainty_list_of_strings — `uncertainty` must be list[str].
+#   - policy_decision_shape — every policy_decisions[i] is a dict with
+#     str rule_id, str decision, and (when present) str note.
+#   - review_question_string — recommendation `follow_up.review_question`
+#     is a non-empty str.
+# ---------------------------------------------------------------------------
+
+
+def iter_text_surfaces(
+    data: dict,
+    *,
+    include_follow_up: bool,
+) -> list[str]:
+    """Yield every agent-/skill-authored text surface as a flat list.
+
+    Surfaces walked:
+      - ``rationale[]`` — proposal-derived OR skill overlay
+      - ``action_detail`` — recursed because nested dicts are common
+      - ``uncertainty[]`` — skill overlay or runtime-emitted
+      - ``policy_decisions[].note`` — runtime-authored, but a code-level
+        bug that lets a banned token into a note is still a safety
+        violation we should catch
+      - ``follow_up.review_question`` — recommendation-only; pass
+        ``include_follow_up=True`` for recommendation surfaces, False
+        for proposal surfaces (proposals have no follow_up by contract)
+
+    The single source of truth: both validators call this. A new text
+    surface added here automatically gets both proposal-time and
+    recommendation-time coverage.
+    """
+
+    parts: list[str] = []
+
+    rationale = data.get("rationale", [])
+    if isinstance(rationale, list):
+        parts.extend(str(r) for r in rationale)
+    else:
+        parts.append(str(rationale))
+
+    parts.extend(_flatten_text_values(data.get("action_detail")))
+
+    uncertainty = data.get("uncertainty", [])
+    if isinstance(uncertainty, list):
+        parts.extend(str(u) for u in uncertainty)
+    else:
+        parts.append(str(uncertainty))
+
+    if include_follow_up:
+        follow_up = data.get("follow_up")
+        if isinstance(follow_up, dict):
+            review_question = follow_up.get("review_question")
+            if review_question is not None:
+                parts.append(str(review_question))
+
+    policy_decisions = data.get("policy_decisions", [])
+    if isinstance(policy_decisions, list):
+        for decision in policy_decisions:
+            if isinstance(decision, dict):
+                note = decision.get("note")
+                if note is not None:
+                    parts.append(str(note))
+
+    return parts
+
+
+def check_banned_tokens_in_surfaces(
+    data: dict,
+    *,
+    include_follow_up: bool,
+    error_cls: type,
+) -> None:
+    """Run the banned-token regex over every text surface.
+
+    Raises ``error_cls(invariant="no_banned_tokens", message=...)`` on
+    the first match. Both validators call this with their own error
+    class — ``RecommendationValidationError`` (this module) or
+    ``ProposalValidationError`` (proposal module). Raising distinct
+    types means each validator's tests can pattern-match by exception
+    class and the call site stays self-explanatory.
+    """
+
+    haystack = " ".join(iter_text_surfaces(data, include_follow_up=include_follow_up))
+    for pattern, token in _BANNED_TOKEN_PATTERNS:
+        if pattern.search(haystack):
+            surface_label = (
+                "rationale, action_detail, uncertainty, "
+                "follow_up.review_question, or policy_decisions[].note"
+                if include_follow_up
+                else "rationale, action_detail, uncertainty, or "
+                     "policy_decisions[].note"
+            )
+            raise error_cls(
+                "no_banned_tokens",
+                f"banned diagnosis-shaped token {token!r} found in "
+                f"{surface_label}",
+            )
+
+
+def check_rationale_shape(data: dict, *, error_cls: type) -> None:
+    """``rationale`` must be a ``list[str]`` (empty list permitted).
+
+    Pre-v0.1.9 the validator only checked presence; a string value
+    passed (Codex 2026-04-26 confirmed). v0.1.9 hardens the type-safety
+    side without imposing a non-empty rule — empty rationale is a
+    legitimate signal "the proposer chose not to surface narrative
+    text" (e.g. minimal eval-scenario fixtures, defer-only proposals).
+    The non-empty UX standard belongs in skill prose.
+    """
+
+    rationale = data.get("rationale")
+    if not isinstance(rationale, list):
+        raise error_cls(
+            "rationale_list_of_strings",
+            f"rationale must be a list of strings, got "
+            f"{type(rationale).__name__}",
+        )
+    for i, item in enumerate(rationale):
+        if not isinstance(item, str):
+            raise error_cls(
+                "rationale_list_of_strings",
+                f"rationale[{i}] must be str, got {type(item).__name__}",
+            )
+
+
+def check_uncertainty_shape(data: dict, *, error_cls: type) -> None:
+    """``uncertainty`` must be a ``list[str]`` (empty list is valid).
+
+    An empty uncertainty list is the legitimate signal "the runtime
+    has no caveats it wants to surface"; rejecting it would force
+    skills to invent uncertainty tokens.
+    """
+
+    uncertainty = data.get("uncertainty")
+    if not isinstance(uncertainty, list):
+        raise error_cls(
+            "uncertainty_list_of_strings",
+            f"uncertainty must be a list of strings, got "
+            f"{type(uncertainty).__name__}",
+        )
+    for i, item in enumerate(uncertainty):
+        if not isinstance(item, str):
+            raise error_cls(
+                "uncertainty_list_of_strings",
+                f"uncertainty[{i}] must be str, got {type(item).__name__}",
+            )
+
+
+def check_policy_decisions_shape(data: dict, *, error_cls: type) -> None:
+    """Every ``policy_decisions[i]`` must be a dict with:
+
+      - ``rule_id`` — str, required
+      - ``decision`` — str, required
+      - ``note`` — str when present (optional key)
+
+    Other keys are permitted (forward-compat for new audit fields).
+    """
+
+    policy_decisions = data.get("policy_decisions", [])
+    if not isinstance(policy_decisions, list):
+        raise error_cls(
+            "policy_decision_shape",
+            f"policy_decisions must be a list, got "
+            f"{type(policy_decisions).__name__}",
+        )
+    for i, decision in enumerate(policy_decisions):
+        if not isinstance(decision, dict):
+            raise error_cls(
+                "policy_decision_shape",
+                f"policy_decisions[{i}] must be a dict, got "
+                f"{type(decision).__name__}",
+            )
+        for required in ("rule_id", "decision"):
+            if required not in decision:
+                raise error_cls(
+                    "policy_decision_shape",
+                    f"policy_decisions[{i}] missing required key "
+                    f"{required!r}",
+                )
+            if not isinstance(decision[required], str):
+                raise error_cls(
+                    "policy_decision_shape",
+                    f"policy_decisions[{i}].{required} must be str, "
+                    f"got {type(decision[required]).__name__}",
+                )
+        if "note" in decision and not isinstance(decision["note"], str):
+            raise error_cls(
+                "policy_decision_shape",
+                f"policy_decisions[{i}].note must be str when "
+                f"present, got {type(decision['note']).__name__}",
+            )
+
+
+def check_review_question_shape(data: dict, *, error_cls: type) -> None:
+    """Recommendation-only: ``follow_up.review_question`` must be a
+    non-empty ``str``. Pre-v0.1.9 only the surrounding shape was
+    checked; the field's value type was unconstrained.
+    """
+
+    follow_up = data.get("follow_up")
+    if not isinstance(follow_up, dict):
+        # The follow_up shape itself is checked separately by
+        # validate_recommendation_dict; bail out here.
+        return
+    review_question = follow_up.get("review_question")
+    if not isinstance(review_question, str):
+        raise error_cls(
+            "review_question_string",
+            f"follow_up.review_question must be str, got "
+            f"{type(review_question).__name__}",
+        )
+    if not review_question.strip():
+        raise error_cls(
+            "review_question_string",
+            "follow_up.review_question must be a non-empty string",
+        )
 
 
 def _parse_dt(value: Any) -> datetime:

@@ -635,8 +635,17 @@ def test_synthesize_applies_skill_drafts_overlay(tmp_path):
         conn.close()
 
 
-def test_synthesize_ignores_skill_attempt_to_change_action(tmp_path):
-    """Skill cannot override Phase A outcomes. Action is runtime-owned."""
+def test_synthesize_rejects_skill_attempt_to_change_action(tmp_path):
+    """Skill cannot override Phase A outcomes. Action is runtime-owned.
+
+    v0.1.9 B2 inverts the prior fail-soft behavior: a skill draft
+    attempting to edit ``action`` / ``action_detail`` / ``confidence``
+    now raises ``SynthesisError(invariant=skill_overlay_out_of_lane)``
+    BEFORE the transaction opens. Atomic rollback by construction —
+    no daily_plan, recommendation_log, or x_rule_firing row lands.
+    """
+
+    from health_agent_infra.core.synthesis import SynthesisError
 
     db_path = _fresh_db(tmp_path)
     proposal = _running_proposal()
@@ -645,7 +654,7 @@ def test_synthesize_ignores_skill_attempt_to_change_action(tmp_path):
     skill_drafts = [
         {
             "recommendation_id": "rec_2026-04-17_u_local_1_running_01",
-            # Skill tries to UN-soften the action. Runtime must ignore.
+            # Skill tries to UN-soften the action. Runtime must reject.
             "action": "proceed_with_planned_run",
             "action_detail": {"skill_injected": True},
             "confidence": "high",
@@ -655,24 +664,22 @@ def test_synthesize_ignores_skill_attempt_to_change_action(tmp_path):
 
     conn = open_connection(db_path)
     try:
-        result = run_synthesis(
-            conn,
-            for_date=date(2026, 4, 17),
-            user_id="u_local_1",
-            snapshot=_x1a_triggering_snapshot(),
-            skill_drafts=skill_drafts,
-        )
-        rec_row = conn.execute(
-            "SELECT action, payload_json FROM recommendation_log "
-            "WHERE recommendation_id = ?",
-            (result.recommendation_ids[0],),
-        ).fetchone()
-        # Phase A's mutation stands; skill override silently ignored.
-        assert rec_row["action"] == "downgrade_to_easy_aerobic"
-        payload = json.loads(rec_row["payload_json"])
-        assert "skill_injected" not in (payload.get("action_detail") or {})
-        # But rationale overlay did land.
-        assert payload["rationale"] == ["skill_overlay"]
+        with pytest.raises(SynthesisError) as exc_info:
+            run_synthesis(
+                conn,
+                for_date=date(2026, 4, 17),
+                user_id="u_local_1",
+                snapshot=_x1a_triggering_snapshot(),
+                skill_drafts=skill_drafts,
+            )
+        assert "skill_overlay_out_of_lane" in str(exc_info.value)
+        # No daily_plan or recommendation_log row landed.
+        assert conn.execute(
+            "SELECT COUNT(*) FROM daily_plan"
+        ).fetchone()[0] == 0
+        assert conn.execute(
+            "SELECT COUNT(*) FROM recommendation_log"
+        ).fetchone()[0] == 0
     finally:
         conn.close()
 

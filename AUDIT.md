@@ -4,6 +4,23 @@ Health Agent Infra uses structured Codex review before substantive releases.
 The review is not a badge; the artifact is the value. This file indexes the
 existing release-cycle audit records so they are visible from the repo root.
 
+## v0.1.9 - 2026-04-26
+
+Hardening and governance closure after parallel Codex + Claude reviews of
+the v0.1.8 surface. Scope is B1-B8 only: W57 archive/commit gates,
+fail-loud skill overlay, validator shape hardening, direct synthesize parity,
+pull/clean provenance, safety-skill prose, and small P2 hygiene.
+
+| Round | Audit prompt | Maintainer response |
+|---|---|---|
+| Implementation review | [`codex_audit_prompt.md`](reporting/plans/v0_1_9/codex_audit_prompt.md) | [`codex_implementation_review_response.md`](reporting/plans/v0_1_9/codex_implementation_review_response.md) |
+
+**Outcome:** `SHIP_WITH_FIXES` review findings accepted and fixed. Full
+suite: 2133 passed, 2 skipped. Release proof:
+[`reporting/plans/v0_1_9/RELEASE_PROOF.md`](reporting/plans/v0_1_9/RELEASE_PROOF.md).
+
+Report: [`reporting/plans/v0_1_9/REPORT.md`](reporting/plans/v0_1_9/REPORT.md).
+
 ## v0.1.8 - 2026-04-25
 
 Plan-aware feedback visibility: intent + target + data-quality ledgers,

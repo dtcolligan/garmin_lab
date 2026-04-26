@@ -1,9 +1,8 @@
 # v0.1.9 backlog
 
-> **Status.** Seed file. Captures items deferred from v0.1.8 audit
-> rounds + items the multi-release roadmap commits to v0.1.9. The
-> formal v0.1.9 PLAN.md will land at the start of the v0.1.9 cycle
-> and may re-prioritise / cut items here.
+> **Status.** Backlog after v0.1.9 hardening scope cut. Captures items
+> deferred from v0.1.8 audit rounds plus roadmap items intentionally not
+> closed by the B1-B8 hardening release.
 
 ---
 
@@ -30,7 +29,7 @@ by type when users explicitly run it, and the round-4 fix only
 claimed the `policy.review_summary` runtime boundary. The bug
 exists but is not a release-blocker.
 
-**Proposed v0.1.9 fix.** Centralise typed threshold access — either
+**Proposed follow-up fix.** Centralise typed threshold access — either
 (a) extract `_coerce_int` / `_coerce_float` from
 `core/review/summary.py` into a shared `core/config/coerce.py`
 module, OR (b) validate merged `DEFAULT_THRESHOLDS` leaves at
@@ -49,16 +48,18 @@ without per-site changes; option (a) is incremental.
 `<http.client.HTTPResponse object>`"). Pre-existing, unrelated to
 v0.1.8 work, doesn't affect pass/fail.
 
-**Proposed v0.1.9 fix.** Audit the test for HTTP-client lifecycle
+**Proposed follow-up fix.** Audit the test for HTTP-client lifecycle
 (probably an unclosed response in an intervals.icu auth-check or
 similar) and ensure the response is closed in a `finally` block
 or `with` context.
 
 ---
 
-## Items committed to v0.1.9 by the multi-release roadmap
+## Roadmap items deferred past v0.1.9 hardening
 
-Per `reporting/plans/multi_release_roadmap.md` § 4 v0.1.9:
+Per `reporting/plans/multi_release_roadmap.md` § 4 v0.1.9 these were
+roadmap-committed, but the 2026-04-26 hardening review cut v0.1.9 down
+to B1-B8 only. These land after the hardening release:
 
 - **W52: `hai review weekly`** — code-owned weekly aggregation
   across accepted state, intent, target, recommendation, X-rule
@@ -69,8 +70,9 @@ Per `reporting/plans/multi_release_roadmap.md` § 4 v0.1.9:
   Prometheus-2-7B pinned by SHA, agent-judge negotiation loop per
   Decision 1 (settled 2026-04-25).
 
-See multi_release_roadmap.md § 4 v0.1.9 for full goal / ships /
-does-not-ship / acceptance.
+See multi_release_roadmap.md § 4 v0.1.9 for the original goal / ships /
+does-not-ship / acceptance. Do not mark these closed in the v0.1.9
+release proof.
 
 ---
 

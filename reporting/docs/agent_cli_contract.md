@@ -55,7 +55,7 @@ JSON; this markdown is an at-a-glance overview for humans.
 
 ## Commands
 
-*52 commands; hai 0.1.8; schema agent_cli_contract.v1*
+*52 commands; hai 0.1.9; schema agent_cli_contract.v1*
 
 | Command | Mutation | Idempotent | JSON | Agent-safe | Exit codes | Description |
 |---|---|---|---|---|---|---|
@@ -81,7 +81,7 @@ JSON; this markdown is an at-a-glance overview for humans.
 | ``hai intake nutrition`` | ``writes-state`` | ``no`` | ``default`` | yes | ``OK``, ``USER_INPUT`` | Record a macros-only nutrition intake entry. |
 | ``hai intake readiness`` | ``writes-state`` | ``no`` | ``default`` | yes | ``OK``, ``USER_INPUT`` | Record a manual readiness self-report entry. |
 | ``hai intake stress`` | ``writes-state`` | ``no`` | ``default`` | yes | ``OK``, ``USER_INPUT`` | Record a manual stress observation (used when Garmin stress is absent). |
-| ``hai intent archive`` | ``writes-state`` | ``yes-with-supersede`` | ``default`` | yes | ``OK``, ``USER_INPUT`` | Mark a W49 intent row as archived. Non-destructive. |
+| ``hai intent archive`` | ``writes-state`` | ``yes-with-supersede`` | ``default`` | no | ``OK``, ``USER_INPUT`` | Archive a W49 intent row (status='archived'). Marked NOT agent-safe: archiving an active or proposed row IS user-state deactivation per AGENTS.md W57. Agents that proposed the row must NOT auto-archive it; only an explicit user invocation may run this command. |
 | ``hai intent commit`` | ``writes-state`` | ``yes-with-supersede`` | ``default`` | no | ``OK``, ``USER_INPUT`` | Promote a proposed intent row to active. Marked NOT agent-safe: agents that proposed the row must NOT auto-promote it; only an explicit user invocation may run this command. |
 | ``hai intent list`` | ``read-only`` | ``n/a`` | ``default`` | yes | ``OK``, ``USER_INPUT`` | List intent rows from the W49 ledger; default-active. |
 | ``hai intent sleep set-window`` | ``writes-state`` | ``no`` | ``default`` | yes | ``OK``, ``USER_INPUT`` | Insert a sleep-window intent into the W49 intent ledger. |
@@ -106,7 +106,7 @@ JSON; this markdown is an at-a-glance overview for humans.
 | ``hai state snapshot`` | ``read-only`` | ``n/a`` | ``default`` | yes | ``OK``, ``USER_INPUT`` | Emit the cross-domain state snapshot the synthesis / skills layer consumes for a (for_date, user_id) pair. |
 | ``hai stats`` | ``read-only`` | ``n/a`` | ``opt-in`` | yes | ``OK``, ``USER_INPUT`` | Summarise sync_run_log (last pull per source) + runtime_event_log (recent commands, daily streak) from the user's local DB. With --outcomes, emits the code-owned review-outcome summary (W48) instead. No telemetry leaves the device. |
 | ``hai synthesize`` | ``writes-state`` | ``yes-with-supersede`` | ``default`` | yes | ``OK``, ``USER_INPUT``, ``INTERNAL`` | Run synthesis end-to-end inside one atomic SQLite transaction: daily_plan + x_rule_firings + planned_recommendation + recommendation_log. --supersede versions the plan instead of replacing it. |
-| ``hai target archive`` | ``writes-state`` | ``yes-with-supersede`` | ``default`` | yes | ``OK``, ``USER_INPUT`` | Mark a W50 target row as archived. |
+| ``hai target archive`` | ``writes-state`` | ``yes-with-supersede`` | ``default`` | no | ``OK``, ``USER_INPUT`` | Archive a W50 target row (status='archived'). Marked NOT agent-safe: archiving an active or proposed row IS user-state deactivation per AGENTS.md W57. Agents that proposed the row must NOT auto-archive it; only an explicit user invocation may run this command. |
 | ``hai target commit`` | ``writes-state`` | ``yes-with-supersede`` | ``default`` | no | ``OK``, ``USER_INPUT`` | Promote a proposed target row to active. Marked NOT agent-safe: agents that proposed the row must NOT auto-promote it; only an explicit user invocation may run this command. |
 | ``hai target list`` | ``read-only`` | ``n/a`` | ``default`` | yes | ``OK``, ``USER_INPUT`` | List target rows from the W50 ledger; default-active. |
 | ``hai target set`` | ``writes-state`` | ``no`` | ``default`` | yes | ``OK``, ``USER_INPUT`` | Insert a wellness target into the W50 target ledger. Wellness support, not a medical prescription. |

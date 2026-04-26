@@ -349,7 +349,224 @@ def test_duplicate_canonical_leaf_proposals_raises_before_commit(db):
 
 
 # ---------------------------------------------------------------------------
-# 6. All six domains pass valid recommendation validation
+# 6. v0.1.9 B2 — skill overlay fail-loud on out-of-lane edits
+#
+# Pre-v0.1.9 behavior: ``_overlay_skill_drafts`` silently dropped any
+# attempt by a skill draft to edit ``action`` / ``action_detail`` /
+# ``confidence`` / ``daily_plan_id`` / etc. That hid skill drift and
+# prompt injection. v0.1.9 makes every such attempt raise
+# ``SynthesisError(invariant=skill_overlay_out_of_lane)`` BEFORE the
+# transaction opens — atomic rollback by construction.
+# ---------------------------------------------------------------------------
+
+
+def test_skill_overlay_action_edit_rejects(db):
+    _seed(db, _make_proposal("recovery"))
+    pre = _table_counts(db)
+
+    skill_drafts = [{
+        "recommendation_id": _rec_id("recovery"),
+        "rationale": ["clean"],
+        "action": "rest_day_recommended",  # runtime-owned
+    }]
+    with pytest.raises(SynthesisError) as exc_info:
+        run_synthesis(
+            db, for_date=FOR_DATE, user_id=USER,
+            snapshot=_quiet_snapshot(), skill_drafts=skill_drafts,
+        )
+    assert "skill_overlay_out_of_lane" in str(exc_info.value)
+    assert "'action'" in str(exc_info.value)
+    assert _table_counts(db) == pre
+
+
+def test_skill_overlay_action_detail_edit_rejects(db):
+    _seed(db, _make_proposal("running"))
+    pre = _table_counts(db)
+
+    skill_drafts = [{
+        "recommendation_id": _rec_id("running"),
+        "action_detail": {"injected": "value"},  # runtime-owned
+    }]
+    with pytest.raises(SynthesisError) as exc_info:
+        run_synthesis(
+            db, for_date=FOR_DATE, user_id=USER,
+            snapshot=_quiet_snapshot(), skill_drafts=skill_drafts,
+        )
+    assert "skill_overlay_out_of_lane" in str(exc_info.value)
+    assert _table_counts(db) == pre
+
+
+def test_skill_overlay_confidence_edit_rejects(db):
+    _seed(db, _make_proposal("strength"))
+    pre = _table_counts(db)
+
+    skill_drafts = [{
+        "recommendation_id": _rec_id("strength"),
+        "confidence": "low",  # runtime-owned
+    }]
+    with pytest.raises(SynthesisError) as exc_info:
+        run_synthesis(
+            db, for_date=FOR_DATE, user_id=USER,
+            snapshot=_quiet_snapshot(), skill_drafts=skill_drafts,
+        )
+    assert "skill_overlay_out_of_lane" in str(exc_info.value)
+    assert _table_counts(db) == pre
+
+
+def test_skill_overlay_daily_plan_id_edit_rejects(db):
+    _seed(db, _make_proposal("sleep"))
+    pre = _table_counts(db)
+
+    skill_drafts = [{
+        "recommendation_id": _rec_id("sleep"),
+        "daily_plan_id": "plan_injected",  # runtime-owned
+    }]
+    with pytest.raises(SynthesisError) as exc_info:
+        run_synthesis(
+            db, for_date=FOR_DATE, user_id=USER,
+            snapshot=_quiet_snapshot(), skill_drafts=skill_drafts,
+        )
+    assert "skill_overlay_out_of_lane" in str(exc_info.value)
+    assert _table_counts(db) == pre
+
+
+def test_skill_overlay_unknown_recommendation_id_rejects(db):
+    """A skill draft whose recommendation_id doesn't match any
+    mechanical draft means the agent's bundle read drifted from the
+    synthesis write. Refuse loudly so the drift surfaces."""
+
+    _seed(db, _make_proposal("nutrition"))
+    pre = _table_counts(db)
+
+    skill_drafts = [{
+        "recommendation_id": "rec_phantom_does_not_exist",
+        "rationale": ["clean"],
+    }]
+    with pytest.raises(SynthesisError) as exc_info:
+        run_synthesis(
+            db, for_date=FOR_DATE, user_id=USER,
+            snapshot=_quiet_snapshot(), skill_drafts=skill_drafts,
+        )
+    assert "skill_overlay_out_of_lane" in str(exc_info.value)
+    assert "phantom" in str(exc_info.value).lower()
+    assert _table_counts(db) == pre
+
+
+def test_skill_overlay_review_at_edit_inside_follow_up_rejects(db):
+    """The skill may set ``follow_up.review_question`` but not
+    ``follow_up.review_at`` or ``follow_up.review_event_id`` — those
+    are runtime-owned scheduling primitives."""
+
+    _seed(db, _make_proposal("stress"))
+    pre = _table_counts(db)
+
+    skill_drafts = [{
+        "recommendation_id": _rec_id("stress"),
+        "follow_up": {
+            "review_question": "How did it feel?",
+            "review_at": "2099-01-01T00:00:00+00:00",  # runtime-owned
+        },
+    }]
+    with pytest.raises(SynthesisError) as exc_info:
+        run_synthesis(
+            db, for_date=FOR_DATE, user_id=USER,
+            snapshot=_quiet_snapshot(), skill_drafts=skill_drafts,
+        )
+    assert "skill_overlay_out_of_lane" in str(exc_info.value)
+    assert "review_at" in str(exc_info.value)
+    assert _table_counts(db) == pre
+
+
+def test_skill_overlay_string_rationale_rejects(db):
+    """Allowed overlay keys still need valid shape. A raw string
+    rationale used to be silently ignored, leaving the mechanical draft
+    in place and hiding skill drift."""
+
+    _seed(db, _make_proposal("recovery"))
+    pre = _table_counts(db)
+
+    skill_drafts = [{
+        "recommendation_id": _rec_id("recovery"),
+        "rationale": "raw skill prose, not list[str]",
+    }]
+    with pytest.raises(SynthesisError) as exc_info:
+        run_synthesis(
+            db, for_date=FOR_DATE, user_id=USER,
+            snapshot=_quiet_snapshot(), skill_drafts=skill_drafts,
+        )
+    assert "skill_overlay_out_of_lane" in str(exc_info.value)
+    assert "rationale" in str(exc_info.value)
+    assert _table_counts(db) == pre
+
+
+def test_skill_overlay_non_string_uncertainty_item_rejects(db):
+    _seed(db, _make_proposal("running"))
+    pre = _table_counts(db)
+
+    skill_drafts = [{
+        "recommendation_id": _rec_id("running"),
+        "uncertainty": ["valid", {"not": "a string"}],
+    }]
+    with pytest.raises(SynthesisError) as exc_info:
+        run_synthesis(
+            db, for_date=FOR_DATE, user_id=USER,
+            snapshot=_quiet_snapshot(), skill_drafts=skill_drafts,
+        )
+    assert "skill_overlay_out_of_lane" in str(exc_info.value)
+    assert "uncertainty" in str(exc_info.value)
+    assert _table_counts(db) == pre
+
+
+def test_skill_overlay_non_string_review_question_rejects(db):
+    _seed(db, _make_proposal("stress"))
+    pre = _table_counts(db)
+
+    skill_drafts = [{
+        "recommendation_id": _rec_id("stress"),
+        "follow_up": {"review_question": 42},
+    }]
+    with pytest.raises(SynthesisError) as exc_info:
+        run_synthesis(
+            db, for_date=FOR_DATE, user_id=USER,
+            snapshot=_quiet_snapshot(), skill_drafts=skill_drafts,
+        )
+    assert "skill_overlay_out_of_lane" in str(exc_info.value)
+    assert "review_question" in str(exc_info.value)
+    assert _table_counts(db) == pre
+
+
+def test_skill_overlay_allowed_fields_only_still_succeeds(db):
+    """Positive control: a skill draft with ONLY allow-listed fields
+    (rationale, uncertainty, follow_up.review_question) still completes
+    cleanly. The new gate must not regress the legitimate overlay path.
+    """
+
+    _seed(db, _make_proposal("recovery"))
+
+    skill_drafts = [{
+        "recommendation_id": _rec_id("recovery"),
+        "rationale": ["skill-narrated rationale"],
+        "uncertainty": ["skill-narrated uncertainty"],
+        "follow_up": {"review_question": "How did the day feel?"},
+    }]
+    result = run_synthesis(
+        db, for_date=FOR_DATE, user_id=USER,
+        snapshot=_quiet_snapshot(), skill_drafts=skill_drafts,
+    )
+    assert result.recommendation_ids == [_rec_id("recovery")]
+    # Verify the overlay actually applied.
+    row = db.execute(
+        "SELECT payload_json FROM recommendation_log WHERE recommendation_id = ?",
+        (_rec_id("recovery"),),
+    ).fetchone()
+    payload = json.loads(row["payload_json"])
+    assert payload["rationale"] == ["skill-narrated rationale"]
+    assert payload["uncertainty"] == ["skill-narrated uncertainty"]
+    assert payload["follow_up"]["review_question"] == "How did the day feel?"
+
+
+# ---------------------------------------------------------------------------
+# 7. All six domains pass valid recommendation validation
 # ---------------------------------------------------------------------------
 
 def test_all_six_domains_synthesize_cleanly_with_valid_proposals(db):

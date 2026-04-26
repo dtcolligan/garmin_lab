@@ -72,7 +72,16 @@ def _write_clean_bundle(tmp_path: Path, **overrides) -> Path:
 # v1.0 shape — no --evidence-json
 # ---------------------------------------------------------------------------
 
-def test_snapshot_v1_0_recovery_block_has_three_keys(tmp_path: Path, capsys):
+def test_snapshot_recovery_block_carries_classified_state_without_bundle(tmp_path: Path, capsys):
+    """v0.1.9 B4: classify+policy run on every snapshot, regardless of
+    whether ``--evidence-json`` was passed. ``evidence`` and
+    ``raw_summary`` only land when the bundle was supplied; without
+    them the classifier degrades bands to ``unknown`` but
+    ``classified_state`` and ``policy_result`` are always present.
+    Pre-v0.1.9 ``hai synthesize`` (which has no bundle) silently
+    missed X1 / X2 firings because classified_state was absent —
+    Codex 2026-04-26 caught the divergence."""
+
     db = _init_db(tmp_path)
     rc = cli_main([
         "state", "snapshot",
@@ -82,10 +91,14 @@ def test_snapshot_v1_0_recovery_block_has_three_keys(tmp_path: Path, capsys):
     ])
     assert rc == 0
     payload = json.loads(capsys.readouterr().out)
-    assert set(payload["recovery"].keys()) == {"today", "history", "missingness", "cold_start", "history_days", "review_summary", "data_quality"}
+    assert set(payload["recovery"].keys()) == {
+        "today", "history", "missingness", "cold_start", "history_days",
+        "classified_state", "policy_result",
+        "review_summary", "data_quality",
+    }
 
 
-def test_snapshot_v1_0_running_block_unchanged(tmp_path: Path, capsys):
+def test_snapshot_running_block_carries_classified_state_without_bundle(tmp_path: Path, capsys):
     db = _init_db(tmp_path)
     cli_main([
         "state", "snapshot",
@@ -93,14 +106,13 @@ def test_snapshot_v1_0_running_block_unchanged(tmp_path: Path, capsys):
         "--db-path", str(db),
     ])
     payload = json.loads(capsys.readouterr().out)
-    # v0.1.4: running block carries per-session activities_today +
-    # activities_history lists, sourced from the running_activity table
-    # that was added with migration 017. Empty lists when no intervals.icu
-    # pull has run against the profile, so v1.0 consumers that only
-    # read today/history still work.
+    # v0.1.9 B4: running block always carries signals + classified_state
+    # + policy_result; v0.1.4-era activities_today / activities_history
+    # remain present whether or not a pull has run.
     assert set(payload["running"].keys()) == {
         "today", "history", "missingness", "cold_start", "history_days",
         "activities_today", "activities_history",
+        "signals", "classified_state", "policy_result",
         "review_summary", "data_quality",
     }
     assert payload["running"]["activities_today"] == []
@@ -376,11 +388,14 @@ def test_snapshot_running_block_adds_signals_classified_policy_under_evidence_js
     }
 
 
-def test_snapshot_running_block_unchanged_without_evidence_json(
+def test_snapshot_running_block_carries_classified_state_without_bundle_v019(
     tmp_path: Path, capsys,
 ):
-    """No --evidence-json => running block is v1.0 + v0.1.4 activity lists
-    (which are always present but empty when no intervals.icu pull has run)."""
+    """v0.1.9 B4: classify+policy run on every snapshot. Without
+    ``--evidence-json``, the running block still has signals +
+    classified_state + policy_result (degraded for fields that need
+    raw_summary ratios) so direct ``hai synthesize`` sees the same
+    cross-domain bands ``hai daily`` would."""
 
     db = _init_db(tmp_path)
     cli_main([
@@ -392,6 +407,7 @@ def test_snapshot_running_block_unchanged_without_evidence_json(
     assert set(payload["running"].keys()) == {
         "today", "history", "missingness", "cold_start", "history_days",
         "activities_today", "activities_history",
+        "signals", "classified_state", "policy_result",
         "review_summary", "data_quality",
     }
 
@@ -604,11 +620,14 @@ def test_snapshot_evidence_json_missing_required_keys_fails_clean(tmp_path: Path
 # (Phase 3 step 5)
 # ---------------------------------------------------------------------------
 
-def test_snapshot_sleep_block_v1_0_keys_without_evidence_json(
+def test_snapshot_sleep_block_carries_classified_state_without_bundle(
     tmp_path: Path, capsys,
 ):
-    """Additive expansion guarantee: today/history/missingness still
-    present when no evidence bundle is supplied."""
+    """v0.1.9 B4: sleep block carries signals + classified_state +
+    policy_result on every snapshot, so direct ``hai synthesize`` sees
+    sleep_debt_band even when no evidence bundle was supplied. X1a /
+    X1b read this band; pre-v0.1.9 they silently no-op'd on
+    direct-synthesize because the block was bare."""
 
     db = _init_db(tmp_path)
     cli_main([
@@ -617,15 +636,20 @@ def test_snapshot_sleep_block_v1_0_keys_without_evidence_json(
         "--db-path", str(db),
     ])
     payload = json.loads(capsys.readouterr().out)
-    assert set(payload["sleep"].keys()) == {"today", "history", "missingness", "cold_start", "history_days", "review_summary", "data_quality"}
+    assert set(payload["sleep"].keys()) == {
+        "today", "history", "missingness", "cold_start", "history_days",
+        "signals", "classified_state", "policy_result",
+        "review_summary", "data_quality",
+    }
 
 
-def test_snapshot_stress_block_v1_0_keys_without_evidence_json(
+def test_snapshot_stress_block_carries_classified_state_without_bundle(
     tmp_path: Path, capsys,
 ):
-    """Stress block v1.0 carries convenience keys today_garmin /
-    today_manual / today_body_battery in addition to the standard
-    three, regardless of evidence_bundle presence."""
+    """v0.1.9 B4: stress block carries signals + classified_state +
+    policy_result on every snapshot. X7 reads
+    stress.classified_state.garmin_stress_band; X6 reads
+    stress.today_body_battery directly. Both work after v0.1.9."""
 
     db = _init_db(tmp_path)
     cli_main([
@@ -637,6 +661,7 @@ def test_snapshot_stress_block_v1_0_keys_without_evidence_json(
     assert set(payload["stress"].keys()) == {
         "today", "history", "missingness", "cold_start", "history_days",
         "today_garmin", "today_manual", "today_body_battery",
+        "signals", "classified_state", "policy_result",
         "review_summary", "data_quality",
     }
 

@@ -616,18 +616,41 @@ def cmd_clean(args: argparse.Namespace) -> int:
         raw_daily_row=raw_row,
     )
 
+    projection_status = None
     if raw_row is not None:
-        _project_clean_into_state(
+        projection_result = _project_clean_into_state(
             args.db_path,
             as_of_date=as_of,
             user_id=user_id,
             raw_row=raw_row,
             activities=activities,
         )
+        projection_status = projection_result["status"]
+        # v0.1.9 B5: fail closed when the projection raised. Pre-v0.1.9
+        # the function silently warned and let cmd_clean exit OK, which
+        # meant `hai daily` could plan over stale state without anyone
+        # knowing. Codex 2026-04-26 caught this.
+        if projection_status == _PROJECTION_RESULT_FAILED:
+            sys.stderr.write(
+                f"hai clean exit non-OK: clean projection into state DB "
+                f"failed ({projection_result['error_type']}: "
+                f"{projection_result['error']}). The cleaned-evidence "
+                f"JSON is still emitted on stdout but downstream "
+                f"`hai daily` / `hai state snapshot` callers will see "
+                f"stale or absent accepted-state rows.\n"
+            )
+            _emit_json({
+                "cleaned_evidence": evidence.to_dict(),
+                "raw_summary": summary.to_dict(),
+                "projection_status": projection_status,
+                "projection_error": projection_result["error"],
+            })
+            return exit_codes.INTERNAL
 
     _emit_json({
         "cleaned_evidence": evidence.to_dict(),
         "raw_summary": summary.to_dict(),
+        "projection_status": projection_status,
     })
     return exit_codes.OK
 
@@ -657,6 +680,32 @@ def _enrich_raw_row_with_activity_aggregate(
             raw_row[raw_key] = agg[agg_key]
 
 
+_PROJECTION_RESULT_SKIPPED_DB_ABSENT = "skipped_db_absent"
+_PROJECTION_RESULT_OK = "ok"
+_PROJECTION_RESULT_FAILED = "failed"
+
+
+def _evidence_hash(raw_row: dict, activities: Optional[list[dict]]) -> str:
+    """Deterministic 16-hex-char hash of the cleaned evidence.
+
+    Used as the ``export_batch_id`` so replays of identical evidence
+    produce identical raw provenance rows (idempotent at the source-row
+    layer). v0.1.9 B5 fix for the wall-clock ``export_batch_id`` Codex
+    flagged: pre-v0.1.9 every replay minted a new id, so a re-pulled
+    day created a new ``source_daily_garmin`` row instead of resolving
+    to the existing one.
+    """
+
+    import hashlib
+
+    payload = {
+        "raw_row": raw_row,
+        "activities": activities or [],
+    }
+    canonical = json.dumps(payload, sort_keys=True, default=str)
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()[:16]
+
+
 def _project_clean_into_state(
     db_path_arg,
     *,
@@ -664,8 +713,23 @@ def _project_clean_into_state(
     user_id: str,
     raw_row: dict,
     activities: Optional[list[dict]] = None,
-) -> None:
-    """Project Garmin raw row + two accepted-state rows into the state DB.
+) -> dict:
+    """Project Garmin raw row + accepted-state rows into the state DB.
+
+    Returns a structured status dict (v0.1.9 B5 — pre-v0.1.9 the
+    function returned ``None`` and swallowed DB failures as warnings,
+    so ``hai daily`` could plan over stale or absent accepted-state
+    rows without the caller knowing). Shape::
+
+        {
+          "status": "ok" | "skipped_db_absent" | "failed",
+          "export_batch_id": "<hex>" | None,
+          "error": str | None,
+          "error_type": str | None,
+        }
+
+    Callers (cmd_clean, cmd_daily) can inspect ``status`` to decide
+    whether to proceed or exit non-zero.
 
     **Atomicity contract.** All INSERT/UPDATE operations land in a
     single ``BEGIN IMMEDIATE`` transaction: either every row commits, or
@@ -704,12 +768,19 @@ def _project_clean_into_state(
             f"enable DB dual-write.",
             file=sys.stderr,
         )
-        return
+        return {
+            "status": _PROJECTION_RESULT_SKIPPED_DB_ABSENT,
+            "export_batch_id": None,
+            "error": None,
+            "error_type": None,
+        }
 
-    # export_batch_id stamps the pull run so corrections land as new raw rows
-    # per state_model_v1.md §3. A re-pull with newer Garmin data gets a fresh
-    # id; a rerun with the same id is an idempotent no-op.
-    export_batch_id = f"live_{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S%f')}"
+    # v0.1.9 B5: export_batch_id is now derived deterministically from
+    # the cleaned evidence content rather than wall-clock time. Replays
+    # of identical evidence collapse to one source_daily_garmin row;
+    # corrections (genuinely new Garmin numbers) hash differently and
+    # land as a fresh row, preserving the supersession model.
+    export_batch_id = f"live_{_evidence_hash(raw_row, activities)}"
     source_row_id = f"{export_batch_id}:0"
 
     conn = open_connection(db_path)
@@ -805,14 +876,34 @@ def _project_clean_into_state(
         except Exception:
             conn.rollback()
             raise
-    except Exception as exc:  # noqa: BLE001 — any DB failure becomes a warning
+    except Exception as exc:  # noqa: BLE001 — surface failure to caller
         print(
             f"warning: clean projection into state DB failed and was rolled "
             f"back: {exc}. `hai clean` output is still durable on stdout.",
             file=sys.stderr,
         )
+        try:
+            conn.close()
+        except Exception:
+            pass
+        return {
+            "status": _PROJECTION_RESULT_FAILED,
+            "export_batch_id": export_batch_id,
+            "error": str(exc),
+            "error_type": type(exc).__name__,
+        }
     finally:
-        conn.close()
+        try:
+            conn.close()
+        except Exception:
+            pass
+
+    return {
+        "status": _PROJECTION_RESULT_OK,
+        "export_batch_id": export_batch_id,
+        "error": None,
+        "error_type": None,
+    }
 
 
 def _dual_write_project(db_path_arg, project_fn, label: str) -> None:
@@ -1354,6 +1445,28 @@ def cmd_synthesize(args: argparse.Namespace) -> int:
             )
             return exit_codes.USER_INPUT
 
+    # v0.1.9 B4: enforce expected-domain completeness on direct
+    # synthesize. ``--domains`` defaults to the v1 six-domain set; pass
+    # ``--domains ''`` to opt out (matches pre-v0.1.9 permissive
+    # behavior — should be rare).
+    from health_agent_infra.core.synthesis import V1_EXPECTED_DOMAINS
+    domains_arg = getattr(args, "domains", None)
+    if domains_arg is None:
+        expected_domains = V1_EXPECTED_DOMAINS
+    elif domains_arg == "":
+        expected_domains = None
+    else:
+        names = [n.strip() for n in domains_arg.split(",") if n.strip()]
+        unknown = [n for n in names if n not in V1_EXPECTED_DOMAINS]
+        if unknown:
+            print(
+                f"hai synthesize rejected: --domains contains unknown "
+                f"domain(s) {unknown}. Allowed: {sorted(V1_EXPECTED_DOMAINS)}",
+                file=sys.stderr,
+            )
+            return exit_codes.USER_INPUT
+        expected_domains = frozenset(names)
+
     conn = open_connection(db_path)
     try:
         result = run_synthesis(
@@ -1363,6 +1476,7 @@ def cmd_synthesize(args: argparse.Namespace) -> int:
             skill_drafts=skill_drafts,
             agent_version=args.agent_version,
             supersede=args.supersede,
+            expected_domains=expected_domains,
         )
     except SynthesisError as exc:
         print(f"hai synthesize rejected: {exc}", file=sys.stderr)
@@ -2195,10 +2309,48 @@ def cmd_intent_training_list(args: argparse.Namespace) -> int:
     return cmd_intent_list(args)
 
 
+def _w57_user_gate(args: argparse.Namespace, *, command: str) -> Optional[int]:
+    """Reject W57-affected mutations from non-interactive callers.
+
+    Returns ``None`` when the call is permitted, ``USER_INPUT`` when
+    the gate refuses. AGENTS.md W57 reserves intent/target activation
+    AND deactivation for an explicit user commit; agents that propose
+    a row may not auto-promote OR auto-archive. The capabilities
+    manifest declares these four handlers ``agent_safe=False``, but
+    that is informational — this gate is the runtime enforcement.
+
+    Two recognised user gestures:
+
+      - ``--confirm`` flag passed explicitly. Suitable for scripted
+        runs where the user has already opted in (e.g. a wrapper
+        script the user authored).
+      - Interactive stdin (``sys.stdin.isatty()`` is True). Suitable
+        for manual command-line use.
+
+    Anything else — agent harnesses without ``--confirm``, piped
+    invocations, background jobs — is rejected.
+    """
+
+    if getattr(args, "confirm", False):
+        return None
+    if sys.stdin.isatty():
+        return None
+    sys.stderr.write(
+        f"{command}: refusing to mutate user-state row from a "
+        f"non-interactive caller. AGENTS.md W57 requires an explicit "
+        f"user commit. Pass --confirm to proceed.\n"
+    )
+    return exit_codes.USER_INPUT
+
+
 def cmd_intent_commit(args: argparse.Namespace) -> int:
     """`hai intent commit --intent-id ID` — promote a `proposed`
     intent row to `active`. The W57-required user-gated commit path
     for agent-proposed rows."""
+
+    gate = _w57_user_gate(args, command="hai intent commit")
+    if gate is not None:
+        return gate
 
     from health_agent_infra.core.intent import commit_intent
 
@@ -2228,7 +2380,12 @@ def cmd_intent_commit(args: argparse.Namespace) -> int:
 
 def cmd_intent_archive(args: argparse.Namespace) -> int:
     """`hai intent archive --intent-id ID` — flip a row to
-    ``status='archived'``."""
+    ``status='archived'``. The W57-required user-gated deactivation
+    path for currently-active or proposed rows."""
+
+    gate = _w57_user_gate(args, command="hai intent archive")
+    if gate is not None:
+        return gate
 
     from health_agent_infra.core.intent import archive_intent
 
@@ -2389,6 +2546,10 @@ def cmd_target_commit(args: argparse.Namespace) -> int:
     target row to `active`. The W57-required user-gated commit path
     for agent-proposed rows."""
 
+    gate = _w57_user_gate(args, command="hai target commit")
+    if gate is not None:
+        return gate
+
     from health_agent_infra.core.target import commit_target
 
     conn, db_path = _intent_open_db(args)
@@ -2416,7 +2577,13 @@ def cmd_target_commit(args: argparse.Namespace) -> int:
 
 
 def cmd_target_archive(args: argparse.Namespace) -> int:
-    """`hai target archive --target-id ID` — flip status to archived."""
+    """`hai target archive --target-id ID` — flip status to archived.
+    The W57-required user-gated deactivation path for currently-active
+    or proposed rows."""
+
+    gate = _w57_user_gate(args, command="hai target archive")
+    if gate is not None:
+        return gate
 
     from health_agent_infra.core.target import archive_target
 
@@ -4221,7 +4388,32 @@ def _daily_pull_and_project(
     else:  # intervals_icu
         adapter = _build_intervals_icu_adapter(args)
 
-    pull = adapter.load(as_of)
+    # v0.1.9 B5: hai daily now writes to sync_run_log via the same path
+    # `hai pull` uses. Pre-v0.1.9 daily called the adapter directly,
+    # bypassing freshness telemetry — so `hai stats --funnel` and the
+    # data-quality projector saw inconsistent provenance depending on
+    # whether the user ran `hai pull` followed by `hai daily`, or just
+    # `hai daily` alone.
+    mode = "csv" if source == "csv" else "live"
+    source_label = {
+        "csv": adapter.source_name,
+        "garmin_live": "garmin_live",
+        "intervals_icu": "intervals_icu",
+    }[source]
+    sync_id = _open_sync_row(
+        getattr(args, "db_path", None),
+        source=source_label,
+        user_id=user_id,
+        mode=mode,
+        for_date=as_of,
+    )
+
+    try:
+        pull = adapter.load(as_of)
+    except Exception as exc:
+        _close_sync_row_failed(getattr(args, "db_path", None), sync_id, exc)
+        raise
+
     raw_row = pull.get("raw_daily_row")
     activities = pull.get("activities") or []
     if raw_row is not None and activities:
@@ -4233,13 +4425,48 @@ def _daily_pull_and_project(
             ],
         )
     if raw_row is not None:
-        _project_clean_into_state(
+        # v0.1.9 B5: inspect projection result and bubble failure up.
+        # Pre-v0.1.9 ``hai daily`` swallowed projection failures as
+        # warnings and kept planning over potentially stale state.
+        projection_result = _project_clean_into_state(
             db_path,
             as_of_date=as_of,
             user_id=user_id,
             raw_row=raw_row,
             activities=activities,
         )
+        if projection_result["status"] == _PROJECTION_RESULT_FAILED:
+            _close_sync_row_failed(
+                getattr(args, "db_path", None),
+                sync_id,
+                RuntimeError(projection_result["error"] or "projection failed"),
+            )
+            raise RuntimeError(
+                f"clean projection into state DB failed: "
+                f"{projection_result['error_type']}: "
+                f"{projection_result['error']}. `hai daily` cannot plan "
+                f"over stale or absent accepted-state rows; either "
+                f"resolve the DB error and rerun, or invoke `hai pull` "
+                f"+ `hai clean` manually to surface the failure."
+            )
+
+    # Close the sync row on success. Counts mirror what cmd_pull records:
+    # raw rows pulled and accepted into state; duplicates skipped. Preserve
+    # adapter partial-pull telemetry as cmd_pull does, otherwise a daily run
+    # with intervals.icu wellness present but activities unavailable would look
+    # fully fresh in sync_run_log.
+    rows_pulled = 1 if raw_row is not None else 0
+    rows_accepted = 1 if raw_row is not None else 0
+    partial = getattr(adapter, "last_pull_partial", False)
+    sync_status = "partial" if partial else "ok"
+    _close_sync_row_ok(
+        getattr(args, "db_path", None),
+        sync_id,
+        rows_pulled=rows_pulled,
+        rows_accepted=rows_accepted,
+        duplicates_skipped=0,
+        status=sync_status,
+    )
 
     evidence_bundle: Optional[dict] = None
     manual = None
@@ -4425,6 +4652,17 @@ def _run_daily(
             report["overall_status"] = "failed"
             _emit_json(report)
             return exit_codes.USER_INPUT
+        except RuntimeError as exc:
+            # v0.1.9 B5: clean projection failure now bubbles up as a
+            # RuntimeError from ``_daily_pull_and_project``. ``hai daily``
+            # must not plan over stale or absent accepted-state rows.
+            report["stages"]["pull"] = {"status": "ran"}
+            report["stages"]["clean"] = {
+                "status": "failed", "error": str(exc),
+            }
+            report["overall_status"] = "failed"
+            _emit_json(report)
+            return exit_codes.INTERNAL
         report["stages"]["pull"] = {"status": "ran", "source": source_name}
         report["stages"]["clean"] = {
             "status": "ran" if projected else "no_raw_daily_row",
@@ -4968,19 +5206,16 @@ def _run_first_pull_backfill(
         history_days=history_days,
     )
 
-    sync_id = _open_sync_row(
-        db_path,
-        source="garmin_live",
-        user_id=user_id,
-        mode="live",
-        for_date=today,
-    )
+    # v0.1.9 B5: ``_daily_pull_and_project`` now manages its own
+    # sync_run_log row (fixing the daily-bypasses-provenance gap Codex
+    # caught). This caller no longer opens a parallel sync row — that
+    # would produce two rows per first-pull. Errors flow through
+    # ``_daily_pull_and_project``'s own ``_close_sync_row_failed`` call.
     try:
         source_name, projected, _ = _daily_pull_and_project(
             pull_args, as_of=today, user_id=user_id, db_path=db_path,
         )
     except GarminLiveError as exc:
-        _close_sync_row_failed(db_path, sync_id, exc)
         return {
             "status": "failed",
             "date": today.isoformat(),
@@ -4995,15 +5230,6 @@ def _run_first_pull_backfill(
             ),
         }
 
-    rows = 1 if projected else 0
-    _close_sync_row_ok(
-        db_path,
-        sync_id,
-        rows_pulled=rows,
-        rows_accepted=rows,
-        duplicates_skipped=0,
-        status="ok",
-    )
     return {
         "status": "ok",
         "date": today.isoformat(),
@@ -6192,6 +6418,16 @@ def build_parser() -> argparse.ArgumentParser:
     p_syn.add_argument("--agent-version", default="claude_agent_v1",
                        help="Agent version string to record on every row "
                             "(not part of the canonical plan idempotency key)")
+    p_syn.add_argument("--domains", default=None,
+                       help="CSV-encoded expected-domain set (e.g. "
+                            "'recovery,running'). When provided, synthesis "
+                            "refuses to commit unless every named domain has "
+                            "a canonical-leaf proposal in proposal_log. When "
+                            "omitted, defaults to the v1 six-domain set "
+                            "(recovery, running, sleep, stress, strength, "
+                            "nutrition). Pass --domains '' to bypass the gate "
+                            "entirely (matches pre-v0.1.9 permissive "
+                            "behavior — discouraged for agent calls).")
     p_syn.add_argument("--db-path", default=None,
                        help="State DB path (default: `$HAI_STATE_DB` or `~/.local/share/health_agent_infra/state.db`)")
     p_syn.set_defaults(func=cmd_synthesize)
@@ -6773,6 +7009,10 @@ def build_parser() -> argparse.ArgumentParser:
     _intent_common_flags(p_ic)
     p_ic.add_argument("--intent-id", required=True,
                       help="Intent id to promote (must currently be 'proposed').")
+    p_ic.add_argument("--confirm", action="store_true",
+                      help="Required for non-interactive callers (e.g. agents). "
+                           "Confirms the W57 user-gated mutation. Interactive "
+                           "stdin invocations are accepted without --confirm.")
     p_ic.set_defaults(func=cmd_intent_commit)
     annotate_contract(
         p_ic,
@@ -6789,14 +7029,18 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
 
-    # hai intent archive
+    # hai intent archive (W57 — archive of an active row IS deactivation)
     p_ia = intent_sub.add_parser(
         "archive",
-        help="Archive an intent row (status='archived'). Non-destructive; the row remains visible to the audit chain.",
+        help="Archive an intent row (status='archived'). Row remains visible to the audit chain. The W57-required user-gated path for deactivating active or proposed rows.",
     )
     _intent_common_flags(p_ia)
     p_ia.add_argument("--intent-id", required=True,
                       help="Intent id to archive.")
+    p_ia.add_argument("--confirm", action="store_true",
+                      help="Required for non-interactive callers (e.g. agents). "
+                           "Confirms the W57 user-gated mutation. Interactive "
+                           "stdin invocations are accepted without --confirm.")
     p_ia.set_defaults(func=cmd_intent_archive)
     annotate_contract(
         p_ia,
@@ -6804,8 +7048,14 @@ def build_parser() -> argparse.ArgumentParser:
         idempotent="yes-with-supersede",
         json_output="default",
         exit_codes=("OK", "USER_INPUT"),
-        agent_safe=True,
-        description="Mark a W49 intent row as archived. Non-destructive.",
+        agent_safe=False,
+        description=(
+            "Archive a W49 intent row (status='archived'). Marked NOT "
+            "agent-safe: archiving an active or proposed row IS user-"
+            "state deactivation per AGENTS.md W57. Agents that proposed "
+            "the row must NOT auto-archive it; only an explicit user "
+            "invocation may run this command."
+        ),
     )
 
     # ---------------------------------------------------------------------
@@ -6904,6 +7154,10 @@ def build_parser() -> argparse.ArgumentParser:
     _target_common_flags(p_tc)
     p_tc.add_argument("--target-id", required=True,
                       help="Target id to promote (must currently be 'proposed').")
+    p_tc.add_argument("--confirm", action="store_true",
+                      help="Required for non-interactive callers (e.g. agents). "
+                           "Confirms the W57 user-gated mutation. Interactive "
+                           "stdin invocations are accepted without --confirm.")
     p_tc.set_defaults(func=cmd_target_commit)
     annotate_contract(
         p_tc,
@@ -6920,13 +7174,18 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
 
+    # hai target archive (W57 — archive of an active row IS deactivation)
     p_ta = target_sub.add_parser(
         "archive",
-        help="Archive a target row (status='archived'). Non-destructive.",
+        help="Archive a target row (status='archived'). Non-destructive. The W57-required user-gated path for deactivating active or proposed rows.",
     )
     _target_common_flags(p_ta)
     p_ta.add_argument("--target-id", required=True,
                       help="Target id to archive.")
+    p_ta.add_argument("--confirm", action="store_true",
+                      help="Required for non-interactive callers (e.g. agents). "
+                           "Confirms the W57 user-gated mutation. Interactive "
+                           "stdin invocations are accepted without --confirm.")
     p_ta.set_defaults(func=cmd_target_archive)
     annotate_contract(
         p_ta,
@@ -6934,8 +7193,14 @@ def build_parser() -> argparse.ArgumentParser:
         idempotent="yes-with-supersede",
         json_output="default",
         exit_codes=("OK", "USER_INPUT"),
-        agent_safe=True,
-        description="Mark a W50 target row as archived.",
+        agent_safe=False,
+        description=(
+            "Archive a W50 target row (status='archived'). Marked NOT "
+            "agent-safe: archiving an active or proposed row IS user-"
+            "state deactivation per AGENTS.md W57. Agents that proposed "
+            "the row must NOT auto-archive it; only an explicit user "
+            "invocation may run this command."
+        ),
     )
 
     p_intake = sub.add_parser("intake", help="Typed human-input intake surfaces")

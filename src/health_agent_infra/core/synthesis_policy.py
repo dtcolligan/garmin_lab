@@ -522,29 +522,17 @@ def _nutrition_deficit_and_protein(
 
     Prefers ``nutrition.classified_state.calorie_deficit_kcal`` +
     ``protein_ratio`` — the classifier is the authoritative source of
-    truth. Falls back to computing them from ``nutrition.today`` against
-    the config targets when the bundle wasn't expanded (e.g. a snapshot
-    built without ``evidence_bundle``). Both paths honour the same
-    thresholds so the fallback stays in sync with the classifier.
+    truth. Returns (None, None) when classified_state is absent or
+    incomplete; ``evaluate_x2`` then performs its own threshold-aware
+    fallback against ``nutrition.today``. v0.1.9 B8 cleanup removed
+    the dead placeholder fallback that lived here pre-cycle.
     """
 
     deficit = _get(snapshot, "nutrition", "classified_state", "calorie_deficit_kcal")
     protein_ratio = _get(snapshot, "nutrition", "classified_state", "protein_ratio")
-    if deficit is not None or protein_ratio is not None:
-        return (
-            float(deficit) if deficit is not None else None,
-            float(protein_ratio) if protein_ratio is not None else None,
-        )
-    # Fallback: compute from today's row against the config targets.
-    today = _get(snapshot, "nutrition", "today") or {}
-    calories = today.get("calories")
-    protein_g = today.get("protein_g")
-    # Thresholds aren't in this function's closure; read from a stable
-    # module import. A deeper wiring would accept thresholds as an arg,
-    # but X2 already gets thresholds at call-time — we use those.
     return (
-        None if calories is None else None,  # placeholder; real fallback in evaluate_x2
-        None if protein_g is None else None,
+        float(deficit) if deficit is not None else None,
+        float(protein_ratio) if protein_ratio is not None else None,
     )
 
 

@@ -806,3 +806,36 @@ def test_x7_falls_back_to_raw_garmin_score_when_classified_state_missing():
     }
     firings = evaluate_x7(snapshot, [_running_hard_proposal()], _thresholds())
     assert len(firings) == 1
+
+
+# ---------------------------------------------------------------------------
+# v0.1.9 B8 #14 — every Phase B evaluator has a PHASE_B_TARGETS entry.
+#
+# Phase B firings pass through ``guard_phase_b_mutation`` which refuses any
+# rule_id absent from ``PHASE_B_TARGETS``. Pre-v0.1.9 there was no test
+# pinning that every evaluator was registered — adding a new Phase B rule
+# without registering it would surface as a runtime
+# XRuleWriteSurfaceViolation in production rather than a CI failure.
+# ---------------------------------------------------------------------------
+
+
+def test_every_phase_b_evaluator_has_targets_entry():
+    """Every PHASE_B_EVALUATORS entry must have a PHASE_B_TARGETS row."""
+
+    from health_agent_infra.core.synthesis_policy import (
+        PHASE_B_EVALUATORS,
+        PHASE_B_TARGETS,
+    )
+
+    expected_ids = []
+    for fn in PHASE_B_EVALUATORS:
+        suffix = fn.__name__[len("evaluate_"):]
+        expected_ids.append(suffix[0].upper() + suffix[1:])
+
+    missing = [rid for rid in expected_ids if rid not in PHASE_B_TARGETS]
+    assert not missing, (
+        f"Phase B evaluators with no PHASE_B_TARGETS entry: {missing}. "
+        f"Add a row to PHASE_B_TARGETS in core/synthesis_policy.py — "
+        f"the write-surface guard will reject any firing whose rule_id "
+        f"is unregistered."
+    )

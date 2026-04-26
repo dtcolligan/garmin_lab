@@ -671,7 +671,26 @@ def build_snapshot(
         **cold_start_flags["nutrition"],
     }
 
-    if evidence_bundle is not None:
+    # v0.1.9 B4 — classify+policy ALWAYS run, regardless of whether
+    # ``evidence_bundle`` was supplied. Pre-v0.1.9 the per-domain
+    # ``classified_state`` block only appeared when the caller passed an
+    # evidence bundle; this meant ``run_synthesis`` and
+    # ``build_synthesis_bundle`` (which pass no bundle) operated on a
+    # snapshot whose sleep/nutrition/etc. classified_state was missing,
+    # causing X1 (sleep-debt softening/blocking) and X2 (nutrition
+    # deficit) to silently no-op even when ``hai daily`` would have
+    # fired them. Codex 2026-04-26 caught this divergence.
+    #
+    # The fix: always run classify+policy. When ``evidence_bundle`` is
+    # absent, ``cleaned`` and ``raw_summary`` default to empty dicts.
+    # The classifiers degrade individual bands to ``unknown`` for fields
+    # that are only available via raw_summary ratios (recovery RHR / HRV
+    # vs baseline), but the cross-domain X-rules read from per-domain
+    # classifiers (sleep, nutrition, stress) that source their inputs
+    # from the persisted accepted_*_state_daily ``today`` rows already
+    # carried by this snapshot. So X1 / X2 / X3 / X4 / X5 / X6 / X7 / X9
+    # all fire identically across the daily and direct-synthesize paths.
+    if True:
         # Full-bundle shape: per-domain expansion with classify + policy.
         # Imports happen here (not at module top) so `core.schemas` /
         # `domains.*` stay out of the state package's import cycle at
@@ -706,14 +725,23 @@ def build_snapshot(
             evaluate_nutrition_policy,
         )
 
-        cleaned = evidence_bundle.get("cleaned_evidence") or {}
-        raw_summary = evidence_bundle.get("raw_summary") or {}
+        if evidence_bundle is not None:
+            cleaned = evidence_bundle.get("cleaned_evidence") or {}
+            raw_summary = evidence_bundle.get("raw_summary") or {}
+        else:
+            cleaned = {}
+            raw_summary = {}
 
-        # Recovery (Phase 1).
+        # Recovery (Phase 1). v0.1.9 B4: evidence + raw_summary are
+        # only attached when the caller supplied an evidence bundle —
+        # the classifier still runs (degrading bands to "unknown" for
+        # fields it can't compute without ratios), but the audit
+        # surface stays honest about what raw inputs were available.
         recovery_classified = classify_recovery_state(cleaned, raw_summary)
         recovery_policy = evaluate_recovery_policy(recovery_classified, raw_summary)
-        recovery_block["evidence"] = cleaned
-        recovery_block["raw_summary"] = raw_summary
+        if evidence_bundle is not None:
+            recovery_block["evidence"] = cleaned
+            recovery_block["raw_summary"] = raw_summary
         recovery_block["classified_state"] = _classified_to_dict(recovery_classified)
         recovery_block["policy_result"] = _policy_to_dict(recovery_policy)
 

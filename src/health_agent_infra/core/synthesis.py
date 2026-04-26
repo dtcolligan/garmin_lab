@@ -246,6 +246,18 @@ def _default_review_question(action: str, domain: str = "recovery") -> str:
     )
 
 
+_OVERLAY_ALLOWED_TOPLEVEL_KEYS: frozenset[str] = frozenset({
+    "recommendation_id",  # required match key
+    "rationale",
+    "uncertainty",
+    "follow_up",
+})
+
+_OVERLAY_ALLOWED_FOLLOW_UP_KEYS: frozenset[str] = frozenset({
+    "review_question",
+})
+
+
 def _overlay_skill_drafts(
     drafts: list[dict[str, Any]],
     skill_drafts: list[dict[str, Any]],
@@ -254,16 +266,108 @@ def _overlay_skill_drafts(
 
     The skill may only edit fields that belong to its judgment layer:
     ``rationale``, ``uncertainty``, and ``follow_up.review_question``.
-    Any skill attempt to edit ``action``, ``action_detail``,
-    ``confidence``, or ``daily_plan_id`` is silently ignored — those
-    are runtime-owned after Phase A mutation application.
+    Any other key on a skill draft — ``action``, ``action_detail``,
+    ``confidence``, ``daily_plan_id``, ``policy_decisions``, ``bounded``,
+    ``schema_version``, anything else — is a runtime-owned field that
+    the skill must not touch. v0.1.9 makes this fail-loud (was
+    fail-soft pre-v0.1.9): a skill draft attempting to edit a
+    runtime-owned field raises :class:`SynthesisError` with invariant
+    id ``skill_overlay_out_of_lane`` BEFORE the synthesis transaction
+    opens.
 
-    Skill drafts are keyed by ``recommendation_id`` for matching; the
-    overlay is best-effort (missing skill draft ⇒ mechanical draft
-    stands).
+    Drafts referring to a ``recommendation_id`` that doesn't match any
+    mechanical draft for the current synthesis run also raise
+    ``skill_overlay_out_of_lane`` — silently dropping unmatched drafts
+    would mask drift between the agent's bundle read and the synthesis
+    write.
+
+    Skill drafts that omit allowed fields are still valid (the
+    mechanical draft simply stands for those fields).
     """
 
-    by_id = {d.get("recommendation_id"): d for d in skill_drafts if d.get("recommendation_id")}
+    mechanical_ids = {d["recommendation_id"] for d in drafts}
+
+    for skill_draft in skill_drafts:
+        if not isinstance(skill_draft, dict):
+            raise SynthesisError(
+                f"skill_overlay_out_of_lane: skill draft entry must be a dict; "
+                f"got {type(skill_draft).__name__}"
+            )
+        rec_id = skill_draft.get("recommendation_id")
+        if rec_id is None:
+            raise SynthesisError(
+                "skill_overlay_out_of_lane: skill draft missing "
+                "'recommendation_id' — every overlay entry must name "
+                "the mechanical draft it modifies."
+            )
+        if rec_id not in mechanical_ids:
+            raise SynthesisError(
+                f"skill_overlay_out_of_lane: skill draft references "
+                f"recommendation_id={rec_id!r} which has no matching "
+                f"mechanical draft for this synthesis run. Refusing to "
+                f"overlay a phantom recommendation."
+            )
+
+        out_of_lane = set(skill_draft.keys()) - _OVERLAY_ALLOWED_TOPLEVEL_KEYS
+        if out_of_lane:
+            raise SynthesisError(
+                f"skill_overlay_out_of_lane: skill draft for "
+                f"recommendation_id={rec_id!r} attempted to edit "
+                f"runtime-owned field(s) {sorted(out_of_lane)}. The "
+                f"skill may only set rationale, uncertainty, and "
+                f"follow_up.review_question."
+            )
+
+        if "rationale" in skill_draft:
+            rationale = skill_draft["rationale"]
+            if not isinstance(rationale, list) or not all(
+                isinstance(item, str) for item in rationale
+            ):
+                raise SynthesisError(
+                    f"skill_overlay_out_of_lane: skill draft for "
+                    f"recommendation_id={rec_id!r} set rationale with "
+                    f"invalid shape; expected list[str]."
+                )
+
+        if "uncertainty" in skill_draft:
+            uncertainty = skill_draft["uncertainty"]
+            if not isinstance(uncertainty, list) or not all(
+                isinstance(item, str) for item in uncertainty
+            ):
+                raise SynthesisError(
+                    f"skill_overlay_out_of_lane: skill draft for "
+                    f"recommendation_id={rec_id!r} set uncertainty with "
+                    f"invalid shape; expected list[str]."
+                )
+
+        follow_up = skill_draft.get("follow_up")
+        if follow_up is not None:
+            if not isinstance(follow_up, dict):
+                raise SynthesisError(
+                    f"skill_overlay_out_of_lane: skill draft for "
+                    f"recommendation_id={rec_id!r} has follow_up of "
+                    f"type {type(follow_up).__name__}; expected dict."
+                )
+            fu_out_of_lane = set(follow_up.keys()) - _OVERLAY_ALLOWED_FOLLOW_UP_KEYS
+            if fu_out_of_lane:
+                raise SynthesisError(
+                    f"skill_overlay_out_of_lane: skill draft for "
+                    f"recommendation_id={rec_id!r} attempted to edit "
+                    f"follow_up field(s) {sorted(fu_out_of_lane)}. The "
+                    f"skill may only set follow_up.review_question; "
+                    f"review_at and review_event_id are runtime-owned."
+                )
+            if "review_question" in follow_up:
+                review_question = follow_up["review_question"]
+                if not isinstance(review_question, str) or not review_question.strip():
+                    raise SynthesisError(
+                        f"skill_overlay_out_of_lane: skill draft for "
+                        f"recommendation_id={rec_id!r} set "
+                        f"follow_up.review_question with invalid shape; "
+                        f"expected non-empty str."
+                    )
+
+    by_id = {d["recommendation_id"]: d for d in skill_drafts}
     out: list[dict[str, Any]] = []
     for draft in drafts:
         skill_draft = by_id.get(draft["recommendation_id"])
@@ -360,6 +464,11 @@ def _resolve_canonical_leaf_plan_id(
 # Main orchestration
 # ---------------------------------------------------------------------------
 
+V1_EXPECTED_DOMAINS: frozenset[str] = frozenset({
+    "recovery", "running", "sleep", "stress", "strength", "nutrition",
+})
+
+
 def run_synthesis(
     conn: sqlite3.Connection,
     *,
@@ -371,6 +480,7 @@ def run_synthesis(
     agent_version: str = "claude_agent_v1",
     now: Optional[datetime] = None,
     supersede: bool = False,
+    expected_domains: Optional[frozenset[str]] = None,
 ) -> SynthesisResult:
     """Run synthesis end-to-end inside a single SQLite transaction.
 
@@ -388,6 +498,19 @@ def run_synthesis(
     ``supersede=False`` (default) → replace prior canonical plan.
     ``supersede=True`` → keep prior plan, write new one at
     ``<canonical_id>_v<N>``, flip ``superseded_by`` pointer on prior.
+
+    ``expected_domains`` (v0.1.9 B4): when provided, refuse synthesis if
+    any expected domain is missing a canonical-leaf proposal. This
+    closes the gap Codex 2026-04-26 caught — pre-v0.1.9 ``run_synthesis``
+    only refused on zero proposals, so a direct ``hai synthesize`` could
+    commit a partial-domain plan even though the capabilities manifest
+    declared a ``proposal_log_has_row_for_each_target_domain``
+    precondition. ``hai daily`` had the gate; direct synthesize did
+    not. v0.1.9 makes the gate live in ``run_synthesis`` so every
+    caller — daily, direct synthesize, programmatic — gets the same
+    contract. Default ``None`` keeps the legacy "any non-zero
+    proposals" behavior so test fixtures and the eval runner that pass
+    minimal proposal sets still work.
     """
 
     if snapshot is None:
@@ -407,6 +530,19 @@ def run_synthesis(
             f"no proposals in proposal_log for (for_date={for_date_iso}, "
             f"user_id={user_id!r}). Call `hai propose` first."
         )
+
+    if expected_domains is not None:
+        present_domains = {p["domain"] for p in proposals}
+        missing = sorted(expected_domains - present_domains)
+        if missing:
+            raise SynthesisError(
+                f"missing_expected_proposals: synthesis blocked because "
+                f"the following expected domains have no canonical-leaf "
+                f"proposal in proposal_log for (for_date={for_date_iso}, "
+                f"user_id={user_id!r}): {missing}. Either post "
+                f"DomainProposal rows via `hai propose --domain <d>` "
+                f"for those domains, or narrow the expected set."
+            )
 
     # Defensive guard (Phase A safety closure): under D1 revision
     # semantics, ``read_proposals_for_plan_key`` already returns canonical

@@ -11,7 +11,7 @@ boundary that lets an LLM work over health data without owning the policy
 engine, the database, or the final write path.
 
 [![PyPI](https://img.shields.io/pypi/v/health-agent-infra)](https://pypi.org/project/health-agent-infra/)
-[![Tests](https://img.shields.io/badge/tests-2081_collected-green)](verification/tests/)
+[![Tests](https://img.shields.io/badge/tests-2135_collected-green)](verification/tests/)
 [![Python](https://img.shields.io/badge/python-3.11+-blue)](pyproject.toml)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
@@ -49,7 +49,7 @@ agent without handing the model unchecked authority over personal health data.
 | CLI contract | 52 annotated `hai` commands with mutation class, idempotency, JSON mode, exit codes, and agent-safety metadata |
 | State | 21 SQLite migrations, local-only by default |
 | Synthesis | 10 X-rule evaluators across two phases, committed in one transaction |
-| Verification | 2081 collected tests, 28 packaged deterministic eval scenarios |
+| Verification | 2135 collected tests, 28 packaged deterministic eval scenarios |
 
 ## Why it is different
 
@@ -71,7 +71,8 @@ agent without handing the model unchecked authority over personal health data.
   and `hai stats`; these surfaces reconcile supersede chains and hide schema
   churn that raw SQL will not.
 
-v0.1.8 closed four structured Codex audit rounds before release. The
+v0.1.9 closed a focused hardening review on top of the v0.1.8
+four-round Codex audit baseline. The
 release-by-release audit index is in [AUDIT.md](AUDIT.md).
 
 ## What the loop looks like
@@ -85,6 +86,33 @@ Runtime: Applies X-rules, commits the plan atomically, schedules review.
 User:  Reads `hai today`; asks "why did you soften the run?"
 Agent: Runs `hai explain --operator` and answers from persisted rows.
 ```
+
+## How the daily loop completes
+
+`hai daily` is the orchestrator the agent drives. It does not finish the
+full judgment loop in one call:
+
+1. `pull` fetches evidence from the configured source and writes a
+   `sync_run_log` row for freshness telemetry.
+2. `clean` normalizes evidence into typed accepted-state rows. v0.1.9
+   makes this fail-closed: a DB projection failure exits non-OK rather
+   than silently leaving downstream callers with stale state.
+3. `snapshot` builds the per-domain bundle, with `classified_state` and
+   `policy_result` populated on every domain regardless of whether the
+   caller passed an evidence bundle.
+4. `gaps` enumerates user-closeable intake gaps.
+5. `proposal_gate` reports `awaiting_proposals`, `incomplete`, or
+   `complete`.
+
+When the gate is not `complete`, the agent invokes the per-domain readiness
+skills, posts one `DomainProposal` per expected domain with
+`hai propose --domain <d>`, then re-runs `hai daily`. `--domains <csv>`
+narrows the expected set for partial-day runs. Direct `hai synthesize`
+enforces the same six-domain completeness gate by default — pass
+`--domains ''` to opt out (rare; matches pre-v0.1.9 permissive behavior).
+
+The full contract is in
+[`reporting/docs/agent_integration.md`](reporting/docs/agent_integration.md).
 
 ## Install
 
@@ -107,7 +135,7 @@ hai today                                       # read today's plan in plain lan
 `csv` for the committed fixture. Garmin Connect live scraping remains
 best-effort and rate-limited; use `--source garmin_live` only when you
 explicitly want it. The shortcut `hai init --with-auth --with-first-pull`
-exists, but in v0.1.8 it is the Garmin-first-pull wizard, not the
+exists, but in v0.1.9 it is the Garmin-first-pull wizard, not the
 intervals.icu setup path.
 
 On macOS, credentials are stored in the OS keyring. The first `hai pull`
@@ -130,24 +158,6 @@ Everything the runtime stores stays on your machine. Three locations matter:
 Run `hai doctor` to confirm resolved paths, schema version, source
 freshness, and skill installation status. It also warns when the applied
 migration set has gaps even if `MAX(version)` looks current.
-
-## How `hai daily` actually completes
-
-`hai daily` is the orchestrator the agent drives, not a single command that
-finishes the full judgment loop alone:
-
-1. `pull` fetches evidence from the configured source.
-2. `clean` normalizes evidence into typed state rows.
-3. `snapshot` builds the per-domain bundle skills consume.
-4. `gaps` enumerates user-closeable intake gaps.
-5. `proposal_gate` reports `awaiting_proposals`, `incomplete`, or
-   `complete`.
-
-When the gate is not `complete`, the agent invokes the per-domain readiness
-skills, posts one `DomainProposal` per expected domain with
-`hai propose --domain <d>`, then re-runs `hai daily`. `--domains <csv>`
-narrows the expected set for partial-day runs. The full contract is in
-[`reporting/docs/agent_integration.md`](reporting/docs/agent_integration.md).
 
 ## Reading your plan
 

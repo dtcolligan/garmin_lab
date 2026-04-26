@@ -35,6 +35,7 @@ from contextlib import redirect_stdout
 import pytest
 
 from health_agent_infra.cli import main as cli_main
+from health_agent_infra.core import exit_codes
 from health_agent_infra.core.state import (
     build_snapshot,
     initialize_database,
@@ -942,10 +943,11 @@ def test_cli_clean_projection_is_atomic_on_middle_failure(tmp_path, monkeypatch)
     rc = cli_main([
         "clean", "--evidence-json", str(evidence), "--db-path", str(db),
     ])
-    # Fail-soft: CLI still exits 0 (stdout is the audit boundary; DB is
-    # best-effort). The warning lands on stderr; we don't assert its exact
-    # wording here.
-    assert rc == 0
+    # v0.1.9 B5: clean projection is now FAIL-CLOSED. Pre-v0.1.9
+    # cmd_clean returned OK regardless and printed a stderr warning;
+    # `hai daily` then planned over stale state. Now cmd_clean exits
+    # INTERNAL when projection raises.
+    assert rc == exit_codes.INTERNAL
 
     conn = open_connection(db)
     try:
@@ -992,12 +994,14 @@ def test_cli_clean_projection_recovers_on_retry_after_rollback(tmp_path, monkeyp
         state_pkg, "project_accepted_recovery_state_daily", _fail_once,
     )
 
+    # v0.1.9 B5: first attempt fails closed → INTERNAL exit code.
+    # Second attempt without the injected failure succeeds → OK.
     assert cli_main([
         "clean", "--evidence-json", str(evidence), "--db-path", str(db),
-    ]) == 0
+    ]) == exit_codes.INTERNAL
     assert cli_main([
         "clean", "--evidence-json", str(evidence), "--db-path", str(db),
-    ]) == 0
+    ]) == exit_codes.OK
 
     conn = open_connection(db)
     try:
@@ -1269,8 +1273,10 @@ def test_cli_clean_rolls_back_activity_insert_on_downstream_failure(tmp_path: Pa
             "--evidence-json", str(evidence),
             "--db-path", str(db),
         ])
-    # Clean is fail-soft: it emits a stderr warning and still returns 0.
-    assert rc == 0
+    # v0.1.9 B5: clean is now fail-closed on projection failure.
+    # The malformed activity raises mid-transaction; cmd_clean exits
+    # INTERNAL and the running_activity table stays empty after rollback.
+    assert rc == exit_codes.INTERNAL
 
     conn = open_connection(db)
     try:

@@ -531,6 +531,7 @@ def test_cli_intent_commit_round_trips(tmp_path: Path, capsys):
         "--db-path", str(db),
         "--user-id", USER,
         "--intent-id", intent_id,
+        "--confirm",  # W57: non-interactive caller must opt in.
     ])
     assert rc == 0
     promoted = json.loads(capsys.readouterr().out)
@@ -707,6 +708,7 @@ def test_cli_intent_commit_rejects_unknown_id(tmp_path: Path, capsys):
         "--db-path", str(db),
         "--user-id", USER,
         "--intent-id", "intent_does_not_exist",
+        "--confirm",  # W57: non-interactive caller must opt in.
     ])
     assert rc != 0
 
@@ -726,6 +728,7 @@ def test_cli_intent_archive_round_trips(tmp_path: Path, capsys):
         "intent", "archive",
         "--db-path", str(db), "--user-id", USER,
         "--intent-id", intent_id,
+        "--confirm",  # W57: archive of an active row is deactivation.
     ])
     assert rc == 0
     archived = json.loads(capsys.readouterr().out)

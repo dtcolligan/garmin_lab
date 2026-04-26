@@ -11,6 +11,59 @@ Per-release detail lives under `reporting/plans/<version>/`.
 
 ---
 
+## [0.1.9] - 2026-04-26
+
+> **Theme.** Hardening and governance closure. v0.1.9 closes the
+> post-v0.1.8 P0/P1 findings from parallel Codex + Claude reviews
+> without adding new product features.
+
+### Fixed
+
+- **W57 runtime gate closure** - `hai intent archive` and
+  `hai target archive` are now marked `agent_safe=false`, and all four
+  intent/target activation/deactivation handlers (`commit` + `archive`)
+  require either interactive stdin or `--confirm`. Non-interactive
+  callers without confirmation exit `USER_INPUT` without mutating state.
+- **Skill overlay fail-loud** - synthesis skill overlays may only set
+  `rationale`, `uncertainty`, and `follow_up.review_question`. Attempts
+  to edit runtime-owned fields, reference unknown recommendation ids, or
+  pass malformed allowed fields now raise
+  `skill_overlay_out_of_lane` before the synthesis transaction opens.
+- **Proposal/recommendation validator hardening** - `rationale` and
+  `uncertainty` must be `list[str]`; `policy_decisions[]` entries must
+  have string `rule_id` / `decision` and string `note` when present; and
+  recommendation `follow_up.review_question` must be a non-empty string.
+  Proposal and recommendation banned-token sweeps now share the same
+  text-surface walker.
+- **Direct synthesize parity** - direct `hai synthesize` now enforces the
+  same expected-domain proposal completeness gate as `hai daily` by
+  default, while `--domains <csv>` narrows and `--domains ''` explicitly
+  opts out. Snapshots always populate per-domain `classified_state` and
+  `policy_result`, so direct synthesis sees the same Phase A X-rule
+  inputs as daily.
+- **Pull/clean provenance** - `hai daily` writes `sync_run_log` rows like
+  `hai pull`, including partial-pull status; clean projection failures
+  now fail closed instead of allowing planning over stale accepted state;
+  identical evidence replays produce deterministic raw provenance ids;
+  intervals.icu activities failures mark the pull partial.
+- **Safety skill prose** - the safety skill now distinguishes
+  R-rule coverage blocks from X-rule block-tier escalation, and it
+  describes nutrition v1 as bounded macro alignment rather than blanket
+  "no macros" advice.
+
+### Changed
+
+- Promoted the README daily-loop explanation above install and tightened
+  it around v0.1.9 fail-closed clean and direct-synthesize completeness
+  semantics.
+- Regenerated `reporting/docs/agent_cli_contract.md` for `hai 0.1.9`.
+
+### Deferred
+
+- W52 weekly review, W53 insight proposal ledger, and W58 LLM-judge
+  factuality remain post-hardening work. Global threshold-runtime type
+  hardening also remains tracked in the v0.1.9 backlog for follow-up.
+
 ## [0.1.8] — 2026-04-25
 
 > **Theme.** Plan-aware feedback visibility. Adds the intent +
