@@ -1,9 +1,8 @@
 # Audit Cycle
 
-Health Agent Infra uses structured external review before substantive
-releases. The review is not a badge; the artifact is the value. This file
-indexes the existing release-cycle audit records so they are visible from
-the repo root.
+Health Agent Infra uses structured Codex review before substantive releases.
+The review is not a badge; the artifact is the value. This file indexes the
+existing release-cycle audit records so they are visible from the repo root.
 
 ## v0.1.8 - 2026-04-25
 

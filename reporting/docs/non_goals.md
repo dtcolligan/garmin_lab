@@ -37,13 +37,13 @@ discipline is load-bearing, not aspirational.
 - A minimal learning loop is an explicit deferred open question —
   see the rebuild plan §8.
 
-## Not a multi-source fusion platform
+## Not a broad multi-source fusion platform
 
-- One wearable source in v1: Garmin (CSV fixture + optional live
-  pull via ``python-garminconnect``).
+- Two pull surfaces exist today: the committed Garmin-format CSV fixture and
+  live intervals.icu. Garmin Connect live scraping is present but best-effort,
+  rate-limited, and not the default supported live source.
 - Apple Health, Oura, Whoop, Strava are NOT scoped for v1. The
-  pull layer keeps a small adapter Protocol (historically named
-  ``FlagshipPullAdapter`` in code) so a second source is addable,
+  pull layer keeps a small adapter Protocol so another source is addable,
   but adding one is a product decision, not a background goal.
 
 ## Not meal-level nutrition in v1
@@ -134,7 +134,7 @@ from outcomes — remains explicitly out of scope.
 
 ## Not a broad integration platform
 
-- `v0.1.0` is released and installable from PyPI.
+- `v0.1.8` is released and installable from PyPI.
 - `hai init` and `hai doctor` ship in v1.
 - An MCP server wrapper remains optional and deferred; the shipped
   surface is the `hai` CLI plus packaged skills.
@@ -145,8 +145,8 @@ Counterpoint for clarity — these ARE in v1:
 
 - Six domains with classify + policy + skill per domain.
 - Synthesis with 10 X-rule evaluators across two phases.
-- Schema-validated writeback at three points (propose,
-  synthesize, writeback).
+- Schema-validated boundaries for propose, synthesize, review, intake,
+  intent, and target paths.
 - Atomic SQLite transactions around daily_plan commits.
 - Review loop with per-domain counts.
 - Config-driven thresholds via platformdirs TOML.

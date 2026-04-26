@@ -32,7 +32,7 @@ retry loops without a clean signal to the caller. ``1`` was free, so
 ## Scope
 
 All ``hai`` subcommand handlers have been migrated to the taxonomy as
-of Phase 2 of the agent-operable runtime plan. The authoritative
+of the agent-operable runtime plan. The authoritative
 per-command list lives in [`agent_cli_contract.md`](agent_cli_contract.md)
 (generated from the annotations on each `add_parser` call); this
 document now only enumerates the codes themselves.
@@ -56,7 +56,7 @@ if not db_path.exists():
 ## Usage — shell
 
 ```bash
-hai pull --live --date "$(date -I)"
+hai pull --source intervals_icu --date "$(date -I)"
 case $? in
   0) echo "ok" ;;
   1) echo "invocation error — fix flags and retry" ;;

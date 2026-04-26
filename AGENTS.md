@@ -5,10 +5,11 @@ first; it is the project-specific operating contract.
 
 ## What This Project Is
 
-Health Agent Infra is a local-first governance layer for personal-health
-agents. A host agent reads governed snapshots, uses packaged skills to
-compose bounded proposals, and relies on the Python runtime to validate,
-reconcile, and commit decisions to local SQLite state.
+Health Agent Infra is an agent-native governance runtime for personal-health
+agents. A user talks to a host agent in natural language; the agent operates
+the local `hai` CLI, reads governed snapshots, uses packaged skills to compose
+bounded proposals, and relies on the Python runtime to validate, reconcile,
+and commit decisions to local SQLite state.
 
 The unit of shipping is a Python wheel (`health-agent-infra`) plus markdown
 skills consumed by the agent at runtime. The maintainer's daily development

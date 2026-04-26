@@ -28,8 +28,8 @@ src/health_agent_infra/skills/<d>-readiness/SKILL.md
 ```
 
 (skills named by what they reason about: ``recovery-readiness``,
-``sleep-quality``, ``stress-regulation``, ``strength-readiness``,
-``nutrition-alignment``).
+``running-readiness``, ``sleep-quality``, ``stress-regulation``,
+``strength-readiness``, ``nutrition-alignment``).
 
 ## Step 1 — schema
 
@@ -132,7 +132,7 @@ Add:
 - ``verification/tests/test_<d>_skill_gates.py`` — skill-boundary
   contract (the skill does NOT change forced actions, DOES compose
   rationale, etc).
-- ``verification/evals/scenarios/<d>/*.json`` — ≥ 3 scenarios (baseline,
+- ``src/health_agent_infra/evals/scenarios/<d>/*.json`` — ≥ 3 scenarios (baseline,
   R-rule firing, coverage gap).
 
 ``verification/tests/test_eval_scenarios.py`` has a parametrized test
@@ -152,7 +152,7 @@ Consider whether the new domain should participate in an X-rule:
   X1a pattern.
 
 Every new X-rule needs a scenario under
-``verification/evals/scenarios/synthesis/`` and an entry in the
+``src/health_agent_infra/evals/scenarios/synthesis/`` and an entry in the
 ``test_synthesis_scenarios_cover_key_x_rules`` floor check.
 
 ## Checklist

@@ -1,12 +1,12 @@
 # Architecture
 
-Health Agent Infra is a governed runtime for a multi-domain personal
-health agent. One Claude agent (or open equivalent) reads a
-cross-domain state snapshot, emits per-domain proposals via
-domain-specific skills, and a synthesis skill reconciles them into
-bounded per-domain recommendations validated at the ``hai
-writeback`` boundary. Every deterministic guarantee lives in code;
-every judgment call lives in a skill; the contract between them is
+Health Agent Infra is an agent-native governed runtime for a multi-domain
+personal health agent. The user speaks to a Claude Code agent (or equivalent)
+in natural language; the agent operates the local `hai` CLI. It reads a
+cross-domain state snapshot, invokes domain-specific skills to emit
+per-domain proposals, and lets deterministic synthesis reconcile them into
+bounded per-domain recommendations. Every deterministic guarantee lives in
+code; every judgment call lives in a skill; the contract between them is
 typed.
 
 This doc covers *how* the runtime is wired. For the framing layer
@@ -39,7 +39,7 @@ precedence. Synthesis does not privilege one domain over another.
 ┌─────────────────────────────────────────────────────────────────────┐
 │              INTAKE — source + user-authored                        │
 │                                                                     │
-│  hai pull [--live]      hai intake gym         hai intake nutrition │
+│  hai pull [--source ...] hai intake gym        hai intake nutrition │
 │                         hai intake stress      hai intake note      │
 │                         hai intake exercise    hai intake readiness │
 └─────────────────────────────┬───────────────────────────────────────┘
@@ -48,9 +48,8 @@ precedence. Synthesis does not privilege one domain over another.
 ┌─────────────────────────────────────────────────────────────────────┐
 │              PROJECTORS — per-domain, deterministic                 │
 │                                                                     │
-│  core/state/projectors/{recovery, running, sleep,                   │
-│                          stress, strength, nutrition,               │
-│                          running_activity}.py                       │
+│  core/state/projector.py + projectors/{recovery, sleep, stress,     │
+│                          strength, nutrition, running_activity}.py  │
 └─────────────────────────────┬───────────────────────────────────────┘
                               │
                               ▼ (canonical accepted_*_state_daily tables
@@ -109,14 +108,13 @@ precedence. Synthesis does not privilege one domain over another.
                               ▼
 ┌─────────────────────────────────────────────────────────────────────┐
 │                        REVIEW — per-domain                          │
-│    hai review schedule / record / summary [--domain <d>]            │
+│    hai review schedule / record / summary                           │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
 ## Code-vs-skill boundary
 
-The line is tight and the plan documents it in detail
-(``reporting/plans/comprehensive_rebuild_plan.md §2.1``). Short form:
+The line is tight and intentionally simple. Short form:
 
 **Code owns:**
 - Deterministic arithmetic (band classification, scoring, signal
@@ -130,7 +128,7 @@ The line is tight and the plan documents it in detail
 - X-rule mutation application, tier precedence, Phase B write-
   surface guard.
 - Atomic transaction around daily_plan + firings + recommendations.
-- Schema validation at the writeback boundaries.
+- Schema validation at the proposal, synthesis, review, and intake boundaries.
 
 **Skills own:**
 - Composing rationale prose for an already-fixed action.
@@ -173,7 +171,7 @@ See [``x_rules.md``](x_rules.md) for the full catalogue.
 See [``state_model_v1.md``](state_model_v1.md) for the authoritative
 table-by-table schema. Each accepted_*_state_daily table is
 deterministically derived from one or more raw + source tables by
-the projector. Migrations 001–011 are live:
+the projector. Migrations 001-021 are live:
 
 - 001 initial schema
 - 002 training-readiness column rename
@@ -204,11 +202,15 @@ the projector. Migrations 001–011 are live:
   truth for session structure; the rollup is an aggregation over
   today's activities (populated by `aggregate_activities_to_daily_rollup`
   in `cmd_clean`)
+- 018 proposal canonical-leaf uniqueness
+- 019 intent_item — user-authored and agent-proposed intent ledger
+- 020 target — user-authored and agent-proposed wellness target ledger
+- 021 data_quality_daily — per-domain coverage/missingness ledger
 
-## Agent-operable surfaces (M8)
+## Agent-native surfaces
 
-The M8 cycle added three surfaces that make the runtime directly
-agent-operable without changing the governance model:
+The runtime is built so the agent can translate natural-language user intent
+into a bounded CLI workflow without changing the governance model:
 
 - **Three-state audit chain.** `planned_recommendation` (migration
   011) persists the aggregate pre-X-rule bundle alongside the
@@ -221,6 +223,10 @@ agent-operable without changing the governance model:
   [``agent_cli_contract.md``](agent_cli_contract.md). All handlers
   return from the stable `OK / USER_INPUT / TRANSIENT / NOT_FOUND /
   INTERNAL` taxonomy.
+- **Daily next-actions manifest.** `hai daily --auto` emits versioned
+  `next_actions[]` entries with concrete `command_argv`, retry semantics,
+  and after-success routing so the agent can continue the loop from the
+  runtime's structured report.
 - **Sentence-form X-rule explanations.** Every firing carries both a
   stable slug (`sleep-debt-softens-hard`) and a one-sentence
   `human_explanation` the agent narrates verbatim.
@@ -243,15 +249,20 @@ src/health_agent_infra/
         synthesis_policy.py         # X-rule evaluators
         writeback/
             proposal.py             # DomainProposal validation + JSONL
-            recommendation.py       # BoundedRecommendation validation
+            outcome.py              # review-outcome validation
+            recommendation.py       # BoundedRecommendation validation helper
+        explain/                    # hai explain queries + renderer
+        memory/ intent/ target/     # user memory + v0.1.8 ledgers
+        data_quality/               # data_quality_daily projection
         state/
             snapshot.py             # cross-domain bundle builder
             store.py                # SQLite connection + migrations
             projector.py            # orchestrator
-            projectors/{recovery,running,sleep,stress,strength,nutrition}.py
-            migrations/001…006.sql
+            projectors/{recovery,running_activity,sleep,stress,strength,nutrition}.py
+            # accepted running daily projection still lives in projector.py
+            migrations/001…021.sql
         clean/                      # hai clean deterministic prep
-        pull/                       # Garmin CSV + live adapters + auth
+        pull/                       # CSV fixture, intervals.icu, Garmin live + auth
         review/                     # schedule / record / summarize
         intake/                     # shared intake helpers
     domains/
@@ -272,6 +283,8 @@ src/health_agent_infra/
         daily-plan-synthesis/SKILL.md
         strength-intake/SKILL.md
         merge-human-inputs/SKILL.md
+        intent-router/SKILL.md
+        expert-explainer/SKILL.md
         review-protocol/SKILL.md
         safety/SKILL.md
         reporting/SKILL.md
@@ -282,20 +295,22 @@ reporting/
     experiments/                    # Phase 0.5 / 2.5 throwaway prototypes
 verification/
     tests/                          # unit + contract + integration tests
-    evals/                          # Phase 6 eval framework
-        scenarios/{domain,synthesis}/
-        rubrics/
-        runner.py  cli.py  README.md
+    evals/                          # dev-reference eval docs + harness notes
+src/health_agent_infra/evals/       # packaged deterministic eval runner
+    scenarios/{domain,synthesis}/
+    rubrics/
+    runner.py
 ```
 
 ## CLI surface (v1)
 
 ```
-hai auth garmin                               # keyring credential storage
+hai auth intervals-icu | garmin               # keyring credential storage
 hai auth status
 
-hai pull [--live] --date <YYYY-MM-DD>         # Garmin CSV / live pull
+hai pull [--source csv|intervals_icu|garmin_live] --date <YYYY-MM-DD>
 hai clean --evidence-json <p>                  # raw → CleanedEvidence + RawSummary
+hai daily [--source ...] [--auto] [--explain] [--domains <csv>]
 
 hai intake gym      --session-json <p>         # per-set + bulk modes
 hai intake exercise --name <canonical>         # user-defined taxonomy row
@@ -317,21 +332,29 @@ hai synthesize --as-of <d> --user-id <u>                        # six-domain ato
 hai synthesize --as-of <d> --user-id <u> --bundle-only          # read-only skill seam
 hai synthesize --as-of <d> --user-id <u> --drafts-json <p>      # skill overlay pass
 
-hai explain --for-date <d> --user-id <u> [--text]                # read-only audit-chain reconstruction
-hai explain --daily-plan-id <id> [--text]                        # exact-plan form (incl. _v<N> variants)
+hai explain --for-date <d> --user-id <u> [--operator]            # read-only audit-chain reconstruction
+hai explain --daily-plan-id <id> [--operator]                    # exact-plan form (incl. _v<N> variants)
 
-hai review schedule | record | summary [--domain <d>] --base-dir <root>
+hai review schedule --recommendation-json <p> --base-dir <root>
+hai review record --outcome-json <p> --base-dir <root>
+hai review summary [--domain <d>] --base-dir <root>
 
-hai config init | show
+hai config init | show | validate | diff
+hai memory set | list | archive
+hai intent training add-session | training list | sleep set-window | list | archive
+hai target set | list | archive
 hai exercise search --query <free-text>
+hai research topics | search --topic <t>
+hai today [--as-of <d>] [--domain <d>] [--format json]
+hai stats [--outcomes|--data-quality|--baselines|--funnel]
 hai eval run --domain <d> | --synthesis [--json]
 
 hai setup-skills [--dest ~/.claude/skills] [--force]
 ```
 
-## Determinism boundary
+## Determinism boundaries
 
-Two places the runtime refuses to proceed without a valid contract:
+The two primary recommendation boundaries are:
 
 1. **``hai propose``** — every DomainProposal is validated against
    ``core/writeback/proposal.py:validate_proposal_dict``:
@@ -348,8 +371,11 @@ Two places the runtime refuses to proceed without a valid contract:
    legacy recovery-only ``hai writeback`` direct path was removed in
    v0.1.4 D2.)
 
-Both points reject-loudly with ``exit=2`` and named ``invariant`` ids
-for programmatic recovery.
+Both points reject loudly with the `USER_INPUT` exit class when caller input
+violates the contract; validation failures carry named ``invariant`` ids where
+callers need programmatic recovery. Intake, review, intent, and target commands
+have their own validators, but they do not change the recommendation action
+space.
 
 ## How an agent uses this
 

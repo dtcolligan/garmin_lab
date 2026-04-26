@@ -56,14 +56,8 @@ ACLs manually.
 the OS keychain (macOS Keychain, GNOME Keyring, KWallet). They never
 land in the state DB or any JSONL.
 
-To remove credentials:
-
-```bash
-hai auth garmin --remove          # forget Garmin Connect creds
-hai auth intervals-icu --remove   # forget intervals.icu creds
-```
-
-You can also delete them directly from your OS's keychain UI under the
+There is no `hai auth --remove` command in v0.1.8. To remove credentials,
+delete them directly from your OS's keychain UI or keychain CLI under the
 service names `hai_garmin` and `hai_intervals_icu`.
 
 ## Inspecting your data
@@ -112,29 +106,18 @@ rm -rf ~/.local/share/health_agent_infra
 # 2. Remove your intake / writeback JSONLs (whatever --base-dir you used)
 rm -rf ~/.health_agent
 
-# 3. Remove wearable credentials
-hai auth garmin --remove
-hai auth intervals-icu --remove
+# 3. Remove wearable credentials from your OS keychain
+#    Service names: hai_garmin, hai_intervals_icu
 ```
 
 That leaves no health data on your machine. The next `hai state init`
 starts a fresh DB.
 
-To delete only one day's data, query the DB directly:
-
-```bash
-sqlite3 ~/.local/share/health_agent_infra/state.db <<EOF
-DELETE FROM recommendation_log WHERE for_date = '2026-04-23';
-DELETE FROM proposal_log WHERE for_date = '2026-04-23';
-DELETE FROM daily_plan WHERE daily_plan_id LIKE 'plan_2026-04-23_%';
-EOF
-```
-
-The JSONL audit logs are append-only by design — to truly delete a day's
-intake history, you'd need to remove the relevant lines manually and
-then run `hai state reproject --base-dir <dir>` to rebuild the DB.
-The system favours auditability over forgetability; this is a deliberate
-tradeoff.
+There is no first-class "forget one day" command in v0.1.8. The JSONL audit
+logs are append-only by design; to truly remove one day's intake/review/proposal
+history, edit the relevant JSONL lines yourself and then run
+`hai state reproject --base-dir <dir>` to rebuild the DB. The system favours
+auditability over forgetability; this is a deliberate tradeoff.
 
 ## Migrating to a new machine
 

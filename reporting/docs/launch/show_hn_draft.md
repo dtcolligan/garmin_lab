@@ -19,7 +19,7 @@ something you'd say out loud.
 ## Framing A — Personal testimonial (recommended for Show HN)
 
 ### Title
-`Show HN: A local governed agent runtime for my Garmin data (Claude Code + SQLite)`
+`Show HN: A local governed agent runtime for my wearable data`
 
 *Alt title (shorter):* `Show HN: Governed agent runtime over my own health data`
 
@@ -27,9 +27,10 @@ something you'd say out loud.
 
 I got tired of health apps that give me opaque recommendations I can't
 audit and that phone home with data I'd rather keep local. So I built
-the thing I wanted: a single-user runtime that reads my Garmin data,
-runs a Claude Code agent over it, and commits recommendations to a
-local SQLite file on my own machine. Nothing leaves the device.
+the thing I wanted: a single-user runtime where I talk to a Claude Code
+agent in natural language, the agent operates a local CLI, and the runtime
+commits recommendations to a SQLite file on my own machine. The package has
+no telemetry or hosted backend; live pulls only call the source I configure.
 
 The interesting idea for me was the **skill/code split**. Python owns
 every mechanical decision — classification bands, policy rules,
@@ -49,15 +50,16 @@ runs the full loop in one command. `hai explain` reconstructs the
 audit chain — proposals → rule firings → final recommendation.
 
 It's not an MLOps project, not a wearable API, not clinical. It's
-infrastructure a Claude Code agent consumes. It exists because I
+agent-native infrastructure: the user talks to the agent, the agent invokes
+`hai`, and deterministic code bounds the state changes. It exists because I
 wanted something I could actually trust, and every design tenet —
 local, deterministic tools, governed skills — is what I'd want
 protected as it scales.
 
-Install: `pipx install health-agent-infra && hai init --with-auth
---with-first-pull`, then `hai daily` tomorrow morning. Requires a
-Garmin device and Claude Code today; MCP portability and additional
-wearables (Apple Health, Oura, Whoop) are on the roadmap.
+Install: `pipx install health-agent-infra && hai init && hai auth
+intervals-icu`, then `hai daily` tomorrow morning. Built for Claude Code
+today; live pulls currently support intervals.icu as the preferred source and
+Garmin Connect as best-effort, with a CSV fixture for offline runs.
 
 Source: [GITHUB_URL]
 
@@ -96,17 +98,18 @@ The invariants that matter:
   action. The boundary is enforced by `agent-safe` CLI annotations.
 - All mutations are atomic. A partial failure rolls back; there's no
   "half-applied plan" state.
-- Every read surface (`hai snapshot`, `hai explain`, `hai stats`,
+- Every read surface (`hai state snapshot`, `hai explain`, `hai stats`,
   `hai doctor`) is strictly read-only.
-- No remote calls except to Garmin's API with the user's own
-  credentials (keyring). No telemetry.
+- No package telemetry or hosted backend. Live pulls call only the configured
+  source (intervals.icu or best-effort Garmin Connect) with the user's own
+  credentials in the OS keyring.
 
 It's MIT-licensed, runs on macOS and Linux, requires Python 3.11+
-and Claude Code. 1200+ tests, 28 eval scenarios, atomic audit chain
+and Claude Code. 2081 collected tests, 28 eval scenarios, atomic audit chain
 end-to-end.
 
-Install: `pipx install health-agent-infra && hai init --with-auth
---with-first-pull`.
+Install: `pipx install health-agent-infra && hai init && hai auth
+intervals-icu`.
 
 Source: [GITHUB_URL]
 
@@ -126,10 +129,10 @@ rigid for the judgment-heavy parts.
 Anthropic's skills pattern — markdown instructions that a Claude Code
 agent invokes alongside deterministic tools — is elegant in the
 abstract but scarce in the wild as a non-trivial end-to-end example.
-Health Agent Infra is one: six domain skills, a synthesis skill, a
-writeback-protocol skill, and an intake-routing skill, all composed
-over a deterministic Python runtime with atomic commits and a real
-audit chain.
+Health Agent Infra is one: six domain skills, a synthesis skill, an
+intent-router skill, an expert-explainer skill, and cross-cutting intake /
+review / reporting / safety skills, all composed over a deterministic Python
+runtime with atomic commits and a real audit chain.
 
 The pattern I found worked:
 - Python tools own every mechanical decision (classification bands,
@@ -153,11 +156,12 @@ boundary. The second is an auto-generated manifest of every CLI
 surface the agent can call, including mutation class and idempotency.
 Both are where the skills pattern earns its keep or doesn't.
 
-MIT-licensed. Claude Code + Garmin today; MCP-portable and
-multi-source on the roadmap.
+MIT-licensed. Claude Code today; intervals.icu is the preferred live source,
+Garmin Connect is best-effort, and MCP portability / broader source support
+are on the roadmap.
 
-Install: `pipx install health-agent-infra && hai init --with-auth
---with-first-pull`.
+Install: `pipx install health-agent-infra && hai init && hai auth
+intervals-icu`.
 
 Source: [GITHUB_URL]
 

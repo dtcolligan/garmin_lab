@@ -15,10 +15,10 @@ the runtime is built to answer). The one-line frame:
 [`state_model_v1.md`](state_model_v1.md) is the authoritative
 table-by-table schema. This doc is the layered view.
 
-## 1. The four shipped memory layers
+## 1. The four core memory layers
 
-The runtime writes four distinct kinds of memory, each with a different
-author, a different idempotency contract, and a different consumer.
+The runtime writes four core kinds of memory, each with a different author,
+a different idempotency contract, and a different consumer.
 
 ```
 ┌──────────────────────────────────────────────────────────────────────┐
@@ -30,11 +30,9 @@ author, a different idempotency contract, and a different consumer.
 └──────────────────────────────────────────────────────────────────────┘
 ```
 
-Plus two kinds of memory that are explicitly *not* shipped yet, covered
-in §2:
+User memory / intent / target ledgers are shipped supporting layers, covered
+in §2. Adaptive memory is deliberately absent.
 
-- explicit user memory (planned, roadmap Phase D);
-- adaptive memory (deliberately absent).
 
 ### 1.1 Raw evidence memory
 
@@ -43,8 +41,12 @@ interpretation. Two forms:
 
 - **Raw tables in SQLite.** Per-domain raw and source tables populated
   by pull + intake:
-  - `source_daily_garmin` — one row per Garmin pull day.
-  - `running_session` — Garmin-derived running sessions.
+  - `source_daily_garmin` — one row per Garmin-format source day (CSV,
+    intervals.icu-normalized, or Garmin live).
+  - `running_session` — legacy raw running-session table from the initial
+    schema.
+  - `running_activity` — current per-session structure from intervals.icu
+    activities.
   - `gym_session`, `gym_set` — user-authored strength sessions and
     per-set detail (via `hai intake gym`).
   - `nutrition_intake_raw` — daily macros entries (via
@@ -56,9 +58,9 @@ interpretation. Two forms:
     `taxonomy_seed.csv`; extendable via `hai intake exercise`).
 - **Per-domain JSONL audit files.** Append-only logs under
   `<base_dir>/<domain>_proposals.jsonl` (default
-  `~/.local/share/hai/`), plus the recovery-only writeback audit at
-  the same base. These carry the full validated payload that passed
-  each determinism boundary.
+  `~/.health_agent/`). These carry the full validated proposal payloads
+  that passed the `hai propose` boundary. Intake and review commands
+  write sibling JSONL audit files in the same base directory.
 
 **Who writes it.** `hai pull`, each `hai intake *` subcommand, and the
 JSONL writers inside `core/writeback/*.py`. A writer never edits a prior
@@ -67,8 +69,9 @@ later row that the projector then supersedes.
 
 **Who reads it.** The projectors read the SQLite raw tables to derive
 accepted state; `hai clean` reads pull output to produce
-`CleanedEvidence + RawSummary`. Audit JSONL is not read by the runtime
-during normal operation — it exists for human / agent audit.
+`CleanedEvidence + RawSummary`. `hai state reproject` can rebuild selected
+tables from the JSONL audit files under `base_dir`; normal daily reads use
+SQLite.
 
 **Why it stays separate from accepted state.** Raw evidence can be
 noisy, late-arriving, or contradictory. Keeping it separate lets the
@@ -94,9 +97,8 @@ Each row is keyed on `(for_date, user_id)` plus domain-specific
 context and is idempotent per day: running the projector twice over the
 same raw evidence produces the same row.
 
-**Who writes it.** The per-domain projectors under
-`core/state/projectors/<domain>.py`, orchestrated by
-`core/state/projector.py` and triggered via
+**Who writes it.** The projectors under `core/state/projector.py` and
+`core/state/projectors/`, triggered by pull/clean, intake, or
 `hai state reproject`.
 
 **Who reads it.** `hai state snapshot` reads every accepted table into
@@ -144,12 +146,11 @@ All five are written inside a single SQLite transaction by
 transaction rolls back; no partial plan reaches state.
 
 **Who writes it.** `hai propose` writes `proposal_log`. `hai
-synthesize` writes `daily_plan`, `x_rule_firing`, and (for every domain
-except legacy recovery-only writeback) `recommendation_log`. `hai
-writeback` writes `recommendation_log` only for the recovery-only
-legacy direct path.
+synthesize` writes `planned_recommendation`, `daily_plan`,
+`x_rule_firing`, and `recommendation_log` atomically. The legacy
+recovery-only `hai writeback` path is removed.
 
-**Who reads it.** `hai explain` (shipped in Phase C) reads this layer
+**Who reads it.** `hai explain` reads this layer
 to reconstruct why a given plan exists; direct SQLite reads remain
 available. See [`explainability.md`](explainability.md) for the
 bundle shape and [`query_taxonomy.md`](query_taxonomy.md) §2.3 for
@@ -167,14 +168,15 @@ proposal → firing → mutation → final recommendation.
 - `review_event` — one row per scheduled review (typically one per
   recommendation), with due date and domain.
 - `review_outcome` — one row per captured outcome, carrying the
-  review verdict (`completed` / `modified` / `skipped` / etc.) and
-  freeform notes.
+  strict `followed_recommendation` / `self_reported_improvement`
+  values, optional completion and intensity fields, disagreed firing ids,
+  and freeform notes.
 
 **Who writes it.** `hai review schedule` writes `review_event`; `hai
 review record` writes `review_outcome`.
 
 **Who reads it.** `hai review summary` rolls outcomes up per domain.
-`hai explain` (Phase C) includes review linkage when present — see
+`hai explain` includes review linkage when present — see
 [`explainability.md`](explainability.md).
 
 **Why it exists.** Outcome memory closes the audit loop: a later
@@ -184,9 +186,9 @@ landed.
 **What it deliberately does not do.** Outcome rows never feed back into
 thresholds, classifiers, policy, or X-rules. See §2.2.
 
-## 2. Memory that is not shipped yet — and memory that will not be
+## 2. Supporting memory and absent adaptive memory
 
-### 2.1 Explicit user memory (shipped, Phase D)
+### 2.1 Explicit user memory (shipped)
 
 **What it holds.** Goals, preferences, constraints, and durable
 context notes as inspectable local SQLite state. Migration 007
@@ -225,9 +227,9 @@ thresholds, classifiers, policy, or X-rules. Explicit user memory is
 bounded read-only context for snapshot / explain / skills — it is not
 an adaptation channel. See §2.2.
 
-See
-[`reporting/plans/post_v0_1_roadmap.md`](../plans/post_v0_1_roadmap.md)
-§5 Phase D for the acceptance criteria.
+The same "explicit row, explicit archive" discipline now also governs the
+intent and target ledgers added in v0.1.8: agent-proposed entries may exist,
+but activation/deactivation requires a user-gated commit path.
 
 ### 2.2 Absent adaptive memory (deliberately)
 
@@ -269,16 +271,18 @@ None of those exist today.
 
 | Layer | SQLite tables | Files |
 |---|---|---|
-| Raw evidence | `source_daily_garmin`, `running_session`, `gym_session`, `gym_set`, `nutrition_intake_raw`, `stress_manual_raw`, `context_note`, `exercise_taxonomy` | per-domain JSONL audits under `~/.local/share/hai/` (default `base_dir`) |
+| Raw evidence | `source_daily_garmin`, `running_session`, `running_activity`, `gym_session`, `gym_set`, `nutrition_intake_raw`, `stress_manual_raw`, `context_note`, `manual_readiness_raw`, `exercise_taxonomy` | intake/review/proposal JSONL audits under `~/.health_agent/` (default `base_dir`) |
 | Accepted state | `accepted_recovery_state_daily`, `accepted_running_state_daily`, `accepted_sleep_state_daily`, `accepted_stress_state_daily`, `accepted_resistance_training_state_daily`, `accepted_nutrition_state_daily` | none |
-| Decision | `proposal_log`, `planned_recommendation`, `daily_plan`, `x_rule_firing`, `recommendation_log` | `<base_dir>/<domain>_proposals.jsonl`; recovery-only writeback audit |
+| Decision | `proposal_log`, `planned_recommendation`, `daily_plan`, `x_rule_firing`, `recommendation_log` | `<base_dir>/<domain>_proposals.jsonl` |
 | Outcome | `review_event`, `review_outcome` | none |
 | Explicit user memory | `user_memory` (migration 007) | none |
+| Intent / targets | `intent_item`, `target` | none |
+| Observability / quality | `sync_run_log`, `runtime_event_log`, `data_quality_daily` | none |
 | Adaptive memory | *(intentionally none)* | *(intentionally none)* |
 
 The SQLite database itself lives under `platformdirs` user-data path by
-default (overridable via `--db-path`). Migrations 001–007 create the
-shipped tables; forward-only migrations are expected for later phases.
+default (overridable via `--db-path`). Migrations 001-021 create the
+shipped tables; forward-only migrations are expected for later releases.
 
 ## 4. What this buys a new reader
 
@@ -292,7 +296,7 @@ without reading any source file:
 - *who* wrote it (projector, `hai propose`, `hai synthesize`, `hai
   review`, a raw intake command);
 - *whether* a given behavior is shipped, planned, or deliberately out
-  of scope (explicit user memory is Phase D; adaptive memory is
+  of scope (explicit user memory is shipped; adaptive memory is
   absent-by-design);
 - *why* the runtime refuses to turn review outcomes into silent
   learning.

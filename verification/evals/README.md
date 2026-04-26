@@ -50,9 +50,9 @@ This directory retains only the dev-reference docs:
   `rationale_quality: skipped_requires_agent_harness` axis so the gap
   is visible rather than silently green.
 
-- **Live Garmin pull.** Evals run on frozen evidence bundles; the
-  pull path is covered by `verification/tests/test_pull_garmin_live.py`
-  with a mocked client.
+- **Live pull adapters.** Evals run on frozen evidence bundles; pull paths
+  are covered by focused tests such as `test_pull_intervals_icu.py` and
+  `test_pull_garmin_live.py` with mocked clients.
 
 See `skill_harness_blocker.md` for the deferred skill-harness work.
 

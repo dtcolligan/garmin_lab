@@ -3,11 +3,9 @@
 The kinds of user question Health Agent Infra is built to answer, and
 the surfaces that answer each one today.
 
-This doc is grounded in the shipped runtime. Where a category is not yet
-a first-class product surface, the "Shipped surface" column says so and
-points at the phase that would change that. See
-[`reporting/plans/post_v0_1_roadmap.md`](../plans/post_v0_1_roadmap.md)
-for the phase plan.
+This doc is grounded in the shipped runtime. Where a category is deliberately
+narrow, the "Shipped surface" column names the exact CLI or skill surface
+instead of implying a broader product.
 
 It pairs with [`personal_health_agent_positioning.md`](personal_health_agent_positioning.md)
 (role map) and [`memory_model.md`](memory_model.md) (what the runtime
@@ -21,15 +19,15 @@ asked.*
 |---|---|---|
 | 1. Current state understanding | "Am I recovered enough to train hard today?" | `hai state snapshot`; per-domain readiness skills reading `classified_state` + `policy_result` |
 | 2. Action planning | "What should I do today, across domains?" | `hai daily`; `hai synthesize` (optionally two-pass with `--bundle-only` + `--drafts-json`) |
-| 3. Explanation / audit | "Why did the system recommend an easy run today?" | `hai explain` (added in Phase C, see [`explainability.md`](explainability.md)); direct reads of `proposal_log`, `x_rule_firing`, `recommendation_log`, `review_*` remain available. |
-| 4. Longitudinal review | "How has the last two weeks gone?" | `hai review schedule / record / summary [--domain <d>]`; direct reads of `accepted_*_state_daily` + `daily_plan` history |
-| 5. Grounded topic explanation | "What does sleep debt mean in this system?" | **Not shipped in v0.1.0.** Read-only grounded-expert prototype is **Phase F**, under explicit source/privacy rules. |
+| 3. Explanation / audit | "Why did the system recommend an easy run today?" | `hai explain` (see [`explainability.md`](explainability.md)); direct reads of `proposal_log`, `x_rule_firing`, `recommendation_log`, `review_*` remain available. |
+| 4. Longitudinal review | "How has the last two weeks gone?" | `hai review schedule`, `hai review record`, `hai review summary [--domain <d>]`; `hai stats --outcomes`; direct reads of `accepted_*_state_daily` + `daily_plan` history |
+| 5. Grounded topic explanation | "What does sleep debt mean in this system?" | Bounded local research surface: `hai research topics`, `hai research search --topic <t>`, and the `expert-explainer` skill. |
 | 6. Human-input routing | "I did squats today — 3×8 at 225" | `hai intake gym|exercise|nutrition|stress|note|readiness`; `strength-intake` + `merge-human-inputs` skills; `hai memory set|list|archive` for durable goals / preferences / constraints / context |
 
 A question that falls outside all six classes is usually either (a) a
 clinical / diagnostic question the runtime refuses by design (see
 [`non_goals.md`](non_goals.md)), or (b) a general health-topic question
-the grounded expert will eventually answer read-only in Phase F.
+outside the current grounded-expert allowlist.
 
 ## 2. Class-by-class detail
 
@@ -37,8 +35,9 @@ the grounded expert will eventually answer read-only in Phase F.
 
 **What the user is asking.** "Where am I today, across my domains?"
 
-**How the runtime answers.** Evidence is pulled (`hai pull` or `hai
-pull --live`), cleaned, and projected into `accepted_*_state_daily`
+**How the runtime answers.** Evidence is pulled (`hai pull`, usually
+`--source intervals_icu` when credentials exist, else the CSV fixture),
+cleaned, and projected into `accepted_*_state_daily`
 tables. `hai state snapshot --as-of <d> --user-id <u>` returns one
 block per domain, each carrying:
 
@@ -102,13 +101,10 @@ recommendation is already persisted:
   `supersedes` / `superseded_by` links when `--supersede` was used;
 - `review_event` / `review_outcome` — the outcome trail if one exists.
 
-In v0.1.0 the agent (or a user) reaches this via direct SQLite reads.
-That works but is not ergonomic.
-
-**`hai explain` is the first-class surface (Phase C, shipped).** It is
+**`hai explain` is the first-class surface.** It is
 a read-only CLI that reconstructs the audit chain for
 `--for-date <d> --user-id <u>` or `--daily-plan-id <id>`, in both JSON
-and human-readable form. It does not mutate state and does not recompute
+and operator-readable form. It does not mutate state and does not recompute
 anything — it reads from the tables above. See
 [`explainability.md`](explainability.md) for the bundle shape and use
 cases.
@@ -125,14 +121,14 @@ plan?"
 
 **How the runtime answers today.** Two complementary paths:
 
-- **Outcome side.** `hai review schedule | record | summary
-  [--domain <d>]` drives the review loop. `review_event` rows represent
+- **Outcome side.** `hai review schedule`, `hai review record`, and
+  `hai review summary [--domain <d>]` drive the review loop. `review_event` rows represent
   scheduled reviews (typically one per recommendation); `review_outcome`
-  rows carry the user's captured outcome (`completed` / `modified` /
-  `skipped` / etc.) plus freeform notes. `hai review summary` reports
-  per-domain counts.
+  rows carry the user's captured strict booleans, optional completion /
+  intensity fields, disagreed firing ids, and freeform notes. `hai review
+  summary` and `hai stats --outcomes` report per-domain counts.
 - **State side.** `accepted_*_state_daily` rows are day-keyed and grow
-  with each `hai state reproject`, so trailing-window reads (e.g. the
+  through pull/clean, intake, and reproject paths, so trailing-window reads (e.g. the
   last 14 days of `running_load_7d` or `sleep_debt_14d`) are direct
   SQLite queries today.
 
@@ -146,20 +142,20 @@ non-goal; see §2.6.
 / ACWR / body battery / protein ratio? Why does low protein soften
 strength?"
 
-**Shipped surface today.** None. `v0.1.0` does not ship a grounded
-expert layer. The closest existing surface is the architecture and
-x-rule docs (`architecture.md`, `x_rules.md`, `state_model_v1.md`),
-which are reference material rather than an agent-facing answer
-surface.
+**Shipped surface today.** A narrow read-only grounded-expert surface is
+shipped. `hai research topics` lists the allowlisted topic tokens;
+`hai research search --topic <t>` returns local citations from repository
+sources; the `expert-explainer` skill turns those citations into an answer.
+The current allowlist is intentionally small (`sleep_debt`, `body_battery`,
+`protein_ratio_strength`).
 
-**Phase F shape.** A read-only grounded-expert prototype is scoped in
-the roadmap as Phase F. Its constraints are load-bearing:
+Its constraints are load-bearing:
 
 - read-only; never inside recommendation mutation;
 - explicit allowlist of source classes;
 - every substantive claim either cites or abstains;
 - no silent retrieval inside `hai daily`, `hai synthesize`, or policy;
-- any off-device context send must be explicit and operator-initiated.
+- no network; retrieval runs over packaged local sources only.
 
 **What it will never do.** Symptom triage. Diagnosis. Recommendation
 mutation. Those are non-goals regardless of phase.
@@ -189,10 +185,9 @@ Two skills mediate the judgment side of routing:
 - `merge-human-inputs` reconciles user-authored context with
   wearable-derived evidence when both are present.
 
-After intake, the user reruns the state chain: `hai clean` (for any
-raw evidence file) and `hai state reproject` to refresh the
-`accepted_*_state_daily` tables. From there the question is back in
-class 1 (current state) or class 2 (action planning).
+After intake, the agent can refresh the daily loop with `hai daily` or use
+`hai state reproject` when rebuilding from JSONL audit logs. From there the
+question is back in class 1 (current state) or class 2 (action planning).
 
 **What it will not do.** It will not write to `accepted_*` tables
 directly — all accepted state is projector-derived. It will not infer a
@@ -209,9 +204,9 @@ Three classes of question the runtime refuses:
   absence of any condition.
 - **Meal-level nutrition questions.** "Was my lunch balanced?" is out
   of scope in v1 per the Phase 2.5 retrieval-gate outcome.
-- **Open-ended general health-topic questions.** Until Phase F ships a
-  read-only grounded expert under an explicit source allowlist, the
-  runtime does not answer open-ended health-topic questions.
+- **Open-ended general health-topic questions.** The grounded expert answers
+  only allowlisted system-topic questions with local citations. It does not
+  answer broad health advice questions.
 
 See [`non_goals.md`](non_goals.md) for the full refusal list.
 
@@ -224,9 +219,9 @@ six classes pinned to stages:
 |---|---|---|---|
 | Current state | projection → snapshot | `accepted_*_state_daily` | projectors (`hai state reproject`) |
 | Action planning | proposal → synthesis | `proposal_log` → `daily_plan`, `x_rule_firing`, `recommendation_log` | `hai propose`, `hai synthesize` |
-| Explanation / audit | post-synthesis read | proposal_log + x_rule_firing + recommendation_log (+ review tables) | none (read-only); `hai explain` ships in Phase C |
+| Explanation / audit | post-synthesis read | proposal_log + x_rule_firing + recommendation_log (+ review tables) | none (read-only); `hai explain` |
 | Longitudinal review | review loop + historical snapshot | `review_event`, `review_outcome`, historical `accepted_*_state_daily` / `daily_plan` | `hai review` |
-| Grounded topic explanation | *not shipped* | *(Phase F)* | *(Phase F)* |
+| Grounded topic explanation | research / skill-time read | allowlisted local source registry | none (read-only); `hai research search` + `expert-explainer` |
 | Human-input routing | intake | raw tables (`gym_session`, `gym_set`, `nutrition_intake_raw`, `stress_manual_raw`, `context_note`, user-defined `exercise_taxonomy`) | `hai intake *` |
 
 Together with the memory-model doc, this gives a new reader enough

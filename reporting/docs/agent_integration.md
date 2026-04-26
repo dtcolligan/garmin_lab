@@ -1,7 +1,8 @@
 # Agent Integration
 
-How a Claude agent (or open Claude-equivalent) installs and uses
-Health Agent Infra v1.
+How a Claude Code agent (or equivalent shell-capable agent) installs and uses
+Health Agent Infra v1. The human product loop is natural language; the agent
+translates that intent into validated `hai` commands.
 
 The package ships two things the agent consumes:
 
@@ -15,8 +16,8 @@ The package ships two things the agent consumes:
 
 The agent reads skills, makes judgment calls, and invokes CLI
 subcommands to move structured state. The CLI validates the
-agent's output at two determinism boundaries (``hai propose`` and
-``hai synthesize``).
+agent's output at the proposal, synthesis, review, intake, intent, and target
+boundaries.
 
 ## Install
 
@@ -54,8 +55,8 @@ Typical daily loop:
    legacy ``--live`` (= garmin_live; rate-limited) > intervals.icu
    when credentials are configured > csv fixture fallback. The
    supported live source is intervals.icu.
-3. Agent runs ``hai clean`` + ``hai state reproject`` to refresh
-   accepted state.
+3. Agent runs ``hai clean``; intake paths project their own rows, and
+   ``hai state reproject`` can rebuild from JSONL audit logs when needed.
 4. Agent reads ``hai state snapshot --as-of <date> --user-id <u>``.
 5. Per domain, agent reads the domain's readiness skill + the
    snapshot's domain block, honours any ``policy_result.forced_action``
@@ -92,11 +93,13 @@ Two supported paths:
 
 1. **CLI subcommand dispatch** — the SDK agent shells out to
    ``hai``. Same flow as Claude Code; fully agent-agnostic.
-2. **Direct Python imports** — if the SDK runs in the same Python
-   environment where ``pip install -e .`` happened, the agent can
+2. **Direct Python imports for read paths** — if the SDK runs in the same
+   Python environment where ``pip install -e .`` happened, the agent can
    ``from health_agent_infra.core.state.snapshot import
    build_snapshot`` and call functions directly. Skips subprocess
-   overhead; couples the agent to Python.
+   overhead; couples the agent to Python. Mutation paths should still use
+   the same validated runtime functions or the `hai` CLI, not ad hoc SQLite
+   writes.
 
 For the SDK, skill discovery is not automatic. Either upload skills
 to the Anthropic Skills API or reference them by file path in your
@@ -113,7 +116,7 @@ Any agent with both:
 can drive this package. The wire contract is JSON at the three
 determinism boundaries.
 
-## Determinism boundaries (three places the runtime refuses)
+## Determinism boundaries
 
 1. **``hai propose``** — validates a DomainProposal against
    ``core/writeback/proposal.py :: validate_proposal_dict``.

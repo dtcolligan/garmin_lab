@@ -1,11 +1,14 @@
-# PyPI publish checklist
+# Historical PyPI publish checklist (v0.1.0)
 
-Pre-launch state of the `health_agent_infra` package, what's already
-verified, and the exact commands to push to PyPI when you're ready.
-**Nothing here should be executed without an explicit "publish it"
-from you** — PyPI releases are visible and hard to un-ship.
+This file records the first PyPI publish workflow for v0.1.0. It is retained
+as release history, not as the current publish checklist. The current public
+package is v0.1.8; use `pyproject.toml`, `CHANGELOG.md`, and the active release
+plan for any future publish.
 
-## Pre-flight (verified)
+**Nothing here should be executed as-is for a current release** — PyPI releases
+are visible and hard to un-ship.
+
+## Pre-flight verified for v0.1.0
 
 - [x] `python -m build` produces both sdist + wheel cleanly.
       Artifacts at `dist/health_agent_infra-0.1.0{.tar.gz,-py3-none-any.whl}`.

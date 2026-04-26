@@ -1,39 +1,38 @@
 # How to add a pull adapter
 
-This is a contributor guide for adding a second source adapter under
+This is a contributor guide for adding another source adapter under
 [`src/health_agent_infra/core/pull/`](../../src/health_agent_infra/core/pull/).
 It describes the stabilized post-v0.1.x runtime, not a future
-multi-source design. The two reference implementations are the
+multi-source design. The current reference implementations are the
 committed-CSV adapter
-([`garmin.py`](../../src/health_agent_infra/core/pull/garmin.py)) and
-the live-API adapter
+([`garmin.py`](../../src/health_agent_infra/core/pull/garmin.py)), the
+preferred live intervals.icu adapter
+([`intervals_icu.py`](../../src/health_agent_infra/core/pull/intervals_icu.py)),
+and the best-effort Garmin Connect adapter
 ([`garmin_live.py`](../../src/health_agent_infra/core/pull/garmin_live.py)).
-Keep both open while you work — every contract below is visible in one
-of them.
+Keep those open while you work — every contract below is visible in one of
+them.
 
 ## When this doc applies
 
 Use this guide when you want to add a new data source to the runtime:
-a second wearable (Apple Health, Oura, Whoop…), a different ingest
+another wearable (Apple Health, Oura, Whoop...), a different ingest
 path into Garmin (e.g. FIT files), or any other deterministic loader
 that turns external state into evidence the runtime consumes. It does
 **not** apply to user-authored intake surfaces — those live under
 [`src/health_agent_infra/core/intake/`](../../src/health_agent_infra/core/intake/)
 and are wired through `hai intake …` subcommands, not `hai pull`.
 
-The post-v0.1.x roadmap intentionally defers a second live adapter
-(see [`reporting/plans/post_v0_1_roadmap.md`](../plans/post_v0_1_roadmap.md)
-§2.3 and locked decision 3.1.8). Land the seam doc before the
-implementation; don't grow this doc by shipping the adapter at the
-same time.
+The roadmap intentionally defers a broad source marketplace. Land a scoped
+source plan before the implementation; don't grow this doc by quietly shipping
+an adapter at the same time.
 
 ## The adapter contract (required)
 
 `hai pull` looks up one adapter, calls `adapter.load(as_of)`, and
 emits the returned dict on stdout with `source: adapter.source_name`
 and `user_id` / `manual_readiness` metadata. See
-[`cli.py :: cmd_pull`](../../src/health_agent_infra/cli.py) (around
-line 120) for the dispatch.
+[`cli.py :: cmd_pull`](../../src/health_agent_infra/cli.py) for the dispatch.
 
 Conformers are checked structurally against
 [`core/pull/protocol.py :: FlagshipPullAdapter`](../../src/health_agent_infra/core/pull/protocol.py):
@@ -47,12 +46,12 @@ class FlagshipPullAdapter(Protocol):
 
 No inheritance is required. The Protocol is deliberately thin: the
 binding contract is the **shape of the dict** `load()` returns, not a
-second type declaration. Both Garmin adapters conform structurally
+second type declaration. The existing adapters conform structurally
 and are exercised against the Protocol in
 [`verification/tests/test_pull_garmin_live.py`](../../verification/tests/test_pull_garmin_live.py).
 
 Name: `source_name` must be stable across runs and identify the
-source in provenance. `"garmin"` and `"garmin_live"` are taken;
+source in provenance. `"garmin"`, `"garmin_live"`, and `"intervals_icu"` are taken;
 pick a distinct namespace (e.g. `"apple_health"`, `"oura"`).
 
 ## Evidence shape (required)
@@ -61,7 +60,7 @@ pick a distinct namespace (e.g. `"apple_health"`, `"oura"`).
 [`clean_inputs()`](../../src/health_agent_infra/core/clean/recovery_prep.py)
 and the raw-row projectors read. The shape is the canonical contract
 between pull and clean/state; the exact same layout is emitted by
-both reference adapters:
+the reference adapters:
 
 ```python
 {
@@ -89,8 +88,8 @@ Notes a new adapter must honour:
 
 - **`sleep` is the as-of night.** `None` is legal; downstream
   `clean_inputs` treats it as an unavailable signal, not an error.
-- **Series are trailing windows.** The Garmin adapters use
-  `history_days=14` — match it unless you have a reason not to, since
+- **Series are trailing windows.** Adapters use `history_days=14` where the
+  source supports a trailing window — match it unless you have a reason not to, since
   downstream baselines assume roughly two weeks of context.
 - **Series entries must be JSON-round-trippable.** Date values are
   ISO strings; numeric values are plain floats; `record_id` is stable
@@ -171,8 +170,8 @@ Whichever path you pick, preserve these invariants:
 - **Live-path auth.** If the adapter needs credentials, model them
   on
   [`core/pull/auth.py`](../../src/health_agent_infra/core/pull/auth.py) —
-  `CredentialStore` uses the OS keyring; `hai auth garmin` is the
-  reference CLI surface.
+  `CredentialStore` uses the OS keyring; `hai auth intervals-icu` and
+  `hai auth garmin` are the reference CLI surfaces.
 - **Library-agnostic client split.** `garmin_live.py` depends on a
   `GarminLiveClient` Protocol and only imports the upstream SDK
   inside `build_default_client`. That split makes the adapter
@@ -244,18 +243,15 @@ need to extend evals.
 
 ## CLI wiring
 
-`hai pull` is the only surface that calls adapters today. Rather
-than introducing a `--source <name>` flag per adapter, the intended
-pattern (mirrored by the CSV/live split) is:
+`hai pull` is the only surface that calls adapters today. The intended
+pattern is to add the source to the existing `--source` dispatch, not to add a
+new top-level command:
 
-- The adapter exports a constructor that `cmd_pull` can dispatch to
-  behind a flag. `--live` switched between the CSV and live Garmin
-  adapters in
-  [`cli.py :: cmd_pull`](../../src/health_agent_infra/cli.py).
+- The adapter exports a constructor that `cmd_pull` can dispatch to from
+  `--source <name>`.
 - The dispatch logic stays tiny: construct, call `.load(as_of)`,
-  emit. If dispatch grows past a second flag, that is a signal to
-  refactor `cmd_pull` into a registry — **not** to move the logic
-  into the adapter.
+  emit. If dispatch grows too large, refactor `cmd_pull` into a registry —
+  **not** move orchestration logic into the adapter.
 
 Don't add a new top-level CLI subcommand for a source. `hai pull`
 is the single documented entry point.

@@ -2,10 +2,9 @@ cff-version: 1.2.0
 message: "If you use this software in research, please cite it as below."
 title: "Health Agent Infra: A governed runtime for personal-health agents"
 abstract: >-
-  A local-first governance layer for personal-health agents. It combines
-  deterministic policy, typed state ledgers, packaged skills, and a review
-  loop so an LLM can help operate over health data without owning the rules,
-  state, or commit path.
+  An agent-native local governance runtime for personal-health agents. A user
+  talks to an LLM in natural language; the agent operates the local hai CLI;
+  deterministic code owns the rules, state, and commit path.
 type: software
 authors:
   - given-names: Dom

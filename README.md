@@ -1,9 +1,10 @@
 # Health Agent Infra
 
-Health Agent Infra is a local-first governance runtime for personal-health
-agents. It combines deterministic policy, typed state ledgers, packaged
-skills, and a review loop so an LLM can help operate over health data
-without owning the rules, state, or commit path.
+Health Agent Infra is an agent-native governance runtime for personal-health
+agents. The user talks to an LLM in natural language; the agent operates the
+local `hai` CLI; deterministic code owns the rules, state, and commit path.
+It combines policy, typed state ledgers, packaged skills, and a review loop
+so health-data work stays local, auditable, and bounded by code.
 
 Six domains - recovery, running, sleep, stress, strength, nutrition - are
 classified by Python, bounded by policy rules, narrated by markdown skills,
@@ -16,12 +17,15 @@ and committed atomically to a local SQLite database.
 
 ## What this is
 
-A Claude Code agent reads a governed snapshot of your wearable and intake
-data, emits per-domain proposals bounded by code-owned rules, and commits
-auditable recommendations you review the next day. The runtime owns
-mechanical decisions: classification bands, R-rules, X-rules, validation,
-and transactional commits. Skills own rationale, uncertainty, and
-clarification. **Skills never change an action; code never writes prose.**
+A Claude Code agent is the intended operator. You ask in natural language:
+check readiness, log a gym session, explain yesterday's recommendation, or
+record how the day went. The agent maps that intent onto validated `hai`
+commands, reads governed snapshots of wearable and intake data, emits
+per-domain proposals bounded by code-owned rules, and commits auditable
+recommendations you review the next day. The runtime owns mechanical
+decisions: classification bands, R-rules, X-rules, validation, and
+transactional commits. Skills own rationale, uncertainty, and clarification.
+**Skills never change an action; code never writes prose.**
 
 The package stores state locally and has no telemetry path. Pull commands
 only call the configured data source, currently intervals.icu or Garmin
@@ -29,33 +33,39 @@ Connect. If you drive the runtime with a hosted LLM agent, any context you
 send to that host is governed by that host's data policy; Health Agent Infra
 does not control the model provider.
 
-**For** technical users comfortable with a CLI who want agent
-recommendations they can audit, reproduce, and keep under local control.
+**For** technical users who want to talk to an agent in natural language
+while keeping the health-data runtime local, deterministic, auditable, and
+CLI-bounded.
 
 - **Local-first runtime.** State lives in SQLite under your home directory.
   No account, no daemon, no hosted backend.
 - **Governed, not generative.** Python owns deterministic policy; skills
   only narrate and ask for clarification over already-constrained actions.
-- **Agent-operable by contract.** `hai capabilities --json` exposes every
+- **Agent-native by contract.** `hai capabilities --json` exposes every
   subcommand's mutation class, idempotency, JSON behavior, exit codes, and
   agent-safe flag. The `intent-router` skill maps natural-language intent to
-  that contract.
+  that contract, so the CLI is the agent's tool surface rather than a list of
+  commands the user must memorize.
 - **Auditable by construction.** Pulls, accepted state, proposals, X-rule
   firings, final recommendations, and review outcomes persist in typed
   tables. Inspect with `hai today`, `hai explain --operator`, `hai doctor`,
   and `hai stats`; these surfaces reconcile supersede chains and hide schema
   churn that raw SQL will not.
 
-v0.1.8 closed four external audit rounds before release. The release-by-
-release audit index is in [AUDIT.md](AUDIT.md).
+v0.1.8 closed four structured Codex audit rounds before release. The
+release-by-release audit index is in [AUDIT.md](AUDIT.md).
 
 ## Install
 
+The commands below are the agent-operable surface. You can run them by hand,
+but the intended daily loop is natural language first: tell the agent what
+you want, let it inspect `hai capabilities`, and let it invoke the right
+validated command.
+
 ```bash
 pipx install health-agent-infra                # or: pip install -e .
-hai init --with-auth --with-first-pull         # scaffolds state + config + skills,
-                                                # prompts for credentials,
-                                                # backfills the last 7 days
+hai init                                       # scaffolds state + config + skills
+hai auth intervals-icu                         # preferred live source
 hai daily                                       # orchestrates pull -> clean ->
                                                 # snapshot -> gaps -> proposal gate;
                                                 # the agent then posts proposals
@@ -65,11 +75,9 @@ hai today                                       # read today's plan in plain lan
 `--source` defaults to `intervals_icu` when credentials are configured, else
 `csv` for the committed fixture. Garmin Connect live scraping remains
 best-effort and rate-limited; use `--source garmin_live` only when you
-explicitly want it. Set up intervals.icu auth with:
-
-```bash
-hai auth intervals-icu
-```
+explicitly want it. The shortcut `hai init --with-auth --with-first-pull`
+exists, but in v0.1.8 it is the Garmin-first-pull wizard, not the
+intervals.icu setup path.
 
 On macOS, credentials are stored in the OS keyring. The first `hai pull`
 may ask for access; choose **Always Allow** if you want scripted runs such
@@ -203,6 +211,10 @@ Full scope boundaries are in
 [SECURITY.md](SECURITY.md).
 
 ## CLI surface
+
+This is the contract an agent operates after translating user intent from
+natural language. Humans can use it directly for setup, debugging, and audit;
+the normal product loop is still conversational.
 
 ```bash
 # Evidence + intake

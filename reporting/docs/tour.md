@@ -5,8 +5,9 @@ A 10-minute guided read of the v1 multi-domain runtime, for someone
 
 ## 1. What you're looking at
 
-Health Agent Infra is **agent infrastructure**, not a health app. It
-ships two things to an agent like Claude Code:
+Health Agent Infra is **agent-native infrastructure**, not a health app. The
+user speaks to an agent in natural language; the agent operates the local
+`hai` CLI. The package ships two things to an agent like Claude Code:
 
 - **A CLI called ``hai``** with deterministic subcommands for
   pulling evidence, running intake, projecting state, classifying
@@ -55,20 +56,20 @@ deterministic runtime behaviour on frozen scenarios.
 
 - [`architecture.md`](architecture.md) — pipeline diagram,
   code-vs-skill boundary, R-rules + X-rules intro, package layout,
-  agent-operable surfaces (M8).
+  agent-native surfaces.
 - [`non_goals.md`](non_goals.md) — what this project refuses to
   build (no medical device, no hosted product, no ML loop, no
   meal-level nutrition in v1, etc).
 - [`x_rules.md`](x_rules.md) — the full cross-domain X-rule
   catalogue, including sentence-form human explanations per rule.
 - [`state_model_v1.md`](state_model_v1.md) — table-by-table state
-  schema (includes the `planned_recommendation` ledger added in M8).
+  schema (through migration 021 in v0.1.8).
 - [`explainability.md`](explainability.md) — `hai explain` and the
   three-state audit bundle (planned → adapted → performed).
 - [`agent_cli_contract.md`](agent_cli_contract.md) — generated
   per-command contract manifest the intent-router skill consumes.
-- [`../plans/agent_operable_runtime_plan.md`](../plans/agent_operable_runtime_plan.md)
-  — M8 cycle plan and locked design decisions.
+- [`../plans/multi_release_roadmap.md`](../plans/multi_release_roadmap.md)
+  — current release roadmap.
 - [`how_to_add_a_domain.md`](how_to_add_a_domain.md) —
   conceptual walk-through for adding a seventh domain; paired with
   the [`domains/README.md`](domains/README.md) checklist.
@@ -100,7 +101,7 @@ Core orchestration in ``src/health_agent_infra/core/``:
 
 ## 5. Where the judgment lives
 
-Twelve skills in ``skills/``:
+Fourteen skills in ``skills/``:
 
 - ``recovery-readiness/``  ``running-readiness/``  ``sleep-quality/``
   ``stress-regulation/``  ``strength-readiness/``
@@ -111,6 +112,10 @@ Twelve skills in ``skills/``:
 - ``strength-intake/`` — agent-mediated narration of gym sessions.
 - ``merge-human-inputs/`` — hybrid-intake router (shipped in
   Phase 7C.4, retained as-is).
+- ``intent-router/`` — maps natural-language user intent to `hai`
+  workflows by reading the capabilities manifest.
+- ``expert-explainer/`` — read-only explanation over allowlisted local
+  sources.
 - ``review-protocol/``, ``reporting/``, ``safety/`` — cross-
   cutting.
 
@@ -155,7 +160,7 @@ hai state init
 A daily run from the agent's perspective:
 
 ```bash
-# Evidence — pull Garmin (CSV fixture by default; --live uses keyring).
+# Evidence — intervals.icu when credentials exist, else the CSV fixture.
 hai pull --date 2026-04-18
 
 # Manual inputs (whichever the user reports).
@@ -167,7 +172,7 @@ hai intake note --text "new role kicked off; early starts this week"
 
 # Deterministic projection.
 hai clean --evidence-json /tmp/evidence.json
-hai state reproject --scope all
+hai state reproject
 
 # Snapshot — the cross-domain bundle the agent reads.
 hai state snapshot --as-of 2026-04-18 --user-id u_local_1 > /tmp/snapshot.json
@@ -181,7 +186,7 @@ hai propose --domain running    --proposal-json /tmp/prop_run.json
 hai synthesize --as-of 2026-04-18 --user-id u_local_1
 
 # Review scheduled automatically; record outcomes next morning.
-hai review record --outcome-json /tmp/outcome_recovery.json --domain recovery
+hai review record --outcome-json /tmp/outcome_recovery.json
 hai review summary --domain recovery
 ```
 
@@ -189,7 +194,8 @@ hai review summary --domain recovery
 
 - No ML / learning loop. ``hai review summary`` counts; it does not
   tune.
-- No second wearable. Garmin only in v1.
+- No broad wearable marketplace. intervals.icu is the supported live source;
+  Garmin Connect live scraping is best-effort and not the default.
 - No meal-level nutrition, no food taxonomy, no micronutrient
   inference. See ``non_goals.md`` for why (Phase 2.5 retrieval
   gate).
@@ -212,8 +218,8 @@ hai review summary --domain recovery
 | "How does an agent install this?" | [agent_integration.md](agent_integration.md) |
 | "Is it tested?" | ``verification/tests/`` (2081 collected) |
 | "Does it have evals?" | ``verification/evals/`` + ``hai eval run --domain <d>`` |
-| "Does it run on real Garmin data?" | ``hai pull --live`` after ``hai auth garmin`` |
-| "How did we get here?" | Git log on ``rebuild`` branch |
+| "Does it run on live wearable data?" | ``hai auth intervals-icu`` then ``hai pull --source intervals_icu`` |
+| "How did we get here?" | [AUDIT.md](../../AUDIT.md) + release folders under ``reporting/plans/`` |
 
 ## 10. One honest caveat
 

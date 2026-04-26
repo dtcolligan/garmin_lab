@@ -1,8 +1,8 @@
 """Proposal writeback (Phase 2 step 4).
 
 Append-only JSONL audit + DB projection for ``DomainProposal``-shaped
-payloads emitted by per-domain skills (``running-readiness``,
-eventually ``recovery-readiness``, sleep, stress, strength, nutrition).
+payloads emitted by the six per-domain readiness skills (recovery,
+running, sleep, stress, strength, nutrition).
 
 Parallel to :mod:`health_agent_infra.core.writeback.recommendation` but
 for proposals, with three differences:

@@ -85,6 +85,6 @@ Open Wearables as dependencies. Reasoning:
   Adopting FHIR vocabulary as a dependency would undermine that
   positioning.
 
-When v0.5+ adds bounded clinical export (a possibility, not a
-commitment), a "FHIR projection layer" would land as a separate
-optional module — not as a dependency on the core runtime.
+If a bounded clinical export is ever explicitly scoped, a "FHIR projection
+layer" would land as a separate optional module — not as a dependency on the
+core runtime.

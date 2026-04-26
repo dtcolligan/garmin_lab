@@ -1,9 +1,9 @@
 # State Model v1
 
-Status: **authoritative** for the shipped `v0.1.0` rebuild.
+Status: **authoritative** for the shipped `v0.1.8` runtime.
 
 The source of truth is the live SQLite schema under
-`src/health_agent_infra/core/state/migrations/001..006.sql`. This
+`src/health_agent_infra/core/state/migrations/001..021.sql`. This
 document is the human-readable map of that schema and of the runtime
 rules that sit around it.
 
@@ -18,6 +18,8 @@ the on-device SQLite database, which stores:
 - proposal and recommendation history
 - synthesis audit rows
 - review events and review outcomes
+- explicit user memory, intent, target, sync, runtime-event, and
+  data-quality ledgers
 
 The agent resumes from local runtime state, not from chat memory alone.
 
@@ -72,12 +74,13 @@ These tables capture source truth before projection:
 |---|---|
 | `source_daily_garmin` | Full Garmin daily row for one date. |
 | `nutrition_intake_raw` | Daily macro intake entries and corrections. |
-| `stress_score_raw` | Subjective 1–5 stress entries and corrections. |
-| `context_note_raw` | Free-text human-input notes. |
+| `stress_manual_raw` | Subjective 1-5 stress entries and corrections. |
+| `context_note` | Free-text human-input notes. |
 | `manual_readiness_raw` | Subjective soreness / energy / planned-session readiness input. |
 | `gym_session` | Resistance-training session envelope. |
 | `gym_set` | Individual sets within a session, optionally linked to `exercise_taxonomy`. |
-| `running_session` | Reserved raw per-activity running table; declared but not populated in v1. |
+| `running_session` | Legacy raw per-activity running table from the initial schema. |
+| `running_activity` | Current per-session running structure from intervals.icu activities. |
 | `goal` | User-declared goals, optionally domain-scoped. |
 
 ## Accepted state tables
@@ -105,6 +108,12 @@ Each accepted row carries projection metadata such as:
 | Table | Purpose |
 |---|---|
 | `exercise_taxonomy` | Canonical strength exercise names, aliases, muscle groups, equipment, source. |
+| `user_memory` | Durable goals, preferences, constraints, and context notes. |
+| `intent_item` | User-authored or agent-proposed intent, with explicit commit/archive discipline. |
+| `target` | User-authored or agent-proposed wellness targets, with explicit commit/archive discipline. |
+| `sync_run_log` | Pull freshness and source status rows. |
+| `runtime_event_log` | Per-command local runtime event rows for `hai stats`. |
+| `data_quality_daily` | Per-domain coverage/missingness/cold-start ledger. |
 
 There is **no** `food_taxonomy` table in v1. That was deferred by the
 Phase 2.5 nutrition retrieval gate.
@@ -123,7 +132,7 @@ plan) → `daily_plan` + `x_rule_firing` + `recommendation_log`
 | `planned_recommendation` | Pre-X-rule aggregate bundle, one row per (daily_plan_id, domain). Mirrors `recommendation_log` shape with FKs to `daily_plan` and `proposal_log`. Added in migration 011 (M8 Phase 1). |
 | `daily_plan` | One synthesized plan per `(for_date, user_id)` canonical key, with explicit supersession path. |
 | `x_rule_firing` | Persisted X-rule firings, including tier, phase, orphan flag, source signals, and mutation JSON. |
-| `recommendation_log` | Final bounded recommendations emitted by synthesis/writeback. |
+| `recommendation_log` | Final bounded recommendations emitted by synthesis. |
 
 Important invariants:
 
@@ -139,6 +148,8 @@ Important invariants:
 - Legacy plans committed before migration 011 have no paired
   planned rows; `hai explain` degrades to a two-state view
   (adapted + performed) for those.
+- Proposal chains and plan chains have canonical-leaf constraints so
+  re-authoring and supersession remain walkable without cycles.
 
 ## Outcome-state tables
 
@@ -148,6 +159,19 @@ Important invariants:
 | `review_outcome` | Recorded review answers / outcomes. |
 
 Review rows are domain-aware and support per-domain summaries.
+
+## User memory, intent, target, and quality ledgers
+
+These tables are runtime state, not hidden agent memory:
+
+| Table | Purpose |
+|---|---|
+| `user_memory` | Append-only user-authored goals, preferences, constraints, and context, with archive timestamps. |
+| `intent_item` | Planned sessions, sleep windows, and related intent. Agent-proposed rows require explicit user commit before becoming active. |
+| `target` | Wellness targets such as hydration, protein, calories, sleep duration/window, and training-load aims. Agent-proposed rows require explicit user commit before becoming active. |
+| `data_quality_daily` | Snapshot-visible per-domain coverage, missingness, source-unavailable, user-input-pending, and cold-start state. |
+| `sync_run_log` | Source freshness and pull status. |
+| `runtime_event_log` | Local command observability for `hai stats`; not package telemetry. |
 
 ## Missingness model
 
@@ -166,7 +190,7 @@ fabricate data from nulls.
 The runtime tracks provenance with two separate concepts:
 
 - `source`
-  - where the fact came from (`garmin`, `user_manual`, etc.)
+  - where the fact came from (`garmin`, `intervals_icu`, `user_manual`, etc.)
 - `ingest_actor`
   - what transported it into the runtime (`garmin_csv_adapter`,
     `hai_cli_direct`, `claude_agent_v1`, etc.)
@@ -182,6 +206,7 @@ multiple transports over time.
 - no hosted/multi-user tenancy layer
 - no learned/adaptive memory layer
 - no audio/voice-specific persistence layer
+- no agent-side memory store or vector database
 
 Human input may be typed directly or transcribed upstream, but in both
 cases it enters the runtime through the same typed `hai intake ...`

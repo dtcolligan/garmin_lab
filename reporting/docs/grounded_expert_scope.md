@@ -1,9 +1,9 @@
 # Grounded Expert Scope
 
-The scope / policy contract for the Phase F grounded-expert prototype.
-A read-only explanation layer that can answer bounded questions about
-what terms mean *in this system* and why the runtime would soften,
-block, or adjust an action — always with citations, and always local.
+The scope / policy contract for the bounded grounded-expert surface. It is a
+read-only explanation layer that can answer allowlisted questions about what
+terms mean *in this system* and why the runtime would soften, block, or adjust
+an action — always with citations, and always from local repository sources.
 
 This doc is load-bearing: it is cited by the expert skill, the
 retrieval module, and the expert eval scenarios. A change here is a
@@ -13,8 +13,8 @@ It pairs with
 [`personal_health_agent_positioning.md`](personal_health_agent_positioning.md)
 §2 (grounded expert role), [`query_taxonomy.md`](query_taxonomy.md)
 §2.5 (grounded topic explanation), and
-[`reporting/plans/post_v0_1_roadmap.md`](../plans/post_v0_1_roadmap.md)
-§5 Phase F (deliverable).
+[`agent_cli_contract.md`](agent_cli_contract.md) for the read-only `hai
+research` commands that expose the source registry.
 
 ## 1. What the prototype is
 
@@ -48,10 +48,10 @@ reader (or a test) can verify that the citation was not fabricated —
 the test suite asserts that `excerpt` appears in the live file at
 `origin_path`.
 
-Nothing outside this table is quotable by the prototype. A later phase
+Nothing outside this table is quotable by the prototype. A later release
 may add new classes (for example `curated_external_guideline`) under
 an explicit allowlist and an explicit operator-initiated retrieval
-path; v0.1-F does not.
+path; v0.1.8 does not.
 
 ## 3. Privacy rules
 
@@ -60,7 +60,7 @@ Three load-bearing rules, enforced by the retrieval module:
 1. **No user state leaves the machine.** Retrieval runs over the
    packaged source registry in-process. The module opens no socket,
    resolves no external host, and makes no HTTP or DNS request. The
-   prototype cannot page in a URL or an embedding from a hosted
+   surface cannot page in a URL or an embedding from a hosted
    service.
 2. **No user context travels even locally.** A `RetrievalQuery` carries
    a topic token (e.g. `sleep_debt`) and nothing else. User memory,
@@ -80,11 +80,11 @@ Three load-bearing rules, enforced by the retrieval module:
 The test suite locks rule (2) by asserting that
 `RetrievalQuery` rejects payloads flagged as carrying user context
 unless an explicit operator-initiated flag is set, and that no such
-flag ships in v0.1-F.
+flag ships today.
 
 ## 4. Citation policy
 
-The prototype's honesty contract:
+The surface's honesty contract:
 
 1. **Cite or abstain.** Every substantive claim in an answer is either
    backed by at least one source from §2 or explicitly marked as
@@ -107,7 +107,7 @@ The prototype's honesty contract:
 
 ## 5. Out-of-scope (non-negotiable)
 
-This phase does *not*, under any circumstance:
+This surface does *not*, under any circumstance:
 
 1. Mutate a recommendation, a proposal, an X-rule firing, a plan, or
    any row in the runtime's write-surface tables. Zero `INSERT` /
@@ -159,7 +159,7 @@ are the fence.
 
 ## 7. How this extends later
 
-The prototype is narrow on purpose. If later phases want to broaden
+The surface is narrow on purpose. If later releases want to broaden
 it, the path is documented so it does not happen quietly:
 
 - **New topic coverage** is cheap: add a `Source` record whose
@@ -172,7 +172,8 @@ it, the path is documented so it does not happen quietly:
 - **Off-device retrieval** (a hosted knowledge base, a literature
   lookup) would require §3 rule 3's operator-initiated flag, an
   audit trail of every off-device send, and a scope-doc update that
-  enumerates destinations. It is deliberately deferred past Phase F.
+  enumerates destinations. It is deliberately deferred beyond the current
+  bounded local surface.
 
 Any commit that touches the research module without also updating
 this doc's §2 / §3 / §5 is, by construction, a scope regression.

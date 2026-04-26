@@ -33,15 +33,16 @@ verbatim).
 ## 2. CLI surface
 
 ```
-hai explain --for-date <YYYY-MM-DD> --user-id <u>     [--text] [--db-path <p>]
-hai explain --daily-plan-id <id>                       [--text] [--db-path <p>]
+hai explain --for-date <YYYY-MM-DD> --user-id <u>     [--operator] [--db-path <p>]
+hai explain --daily-plan-id <id>                       [--operator] [--db-path <p>]
 ```
 
 - The two selector forms are mutually exclusive. Use `--for-date` /
   `--user-id` for the canonical plan; use `--daily-plan-id` for an
   exact id (including `_v<N>` supersession variants).
 - Default output is JSON, suitable for programmatic consumers.
-- `--text` emits an operator-facing report grouped by audit layer.
+- `--operator` emits an operator-facing report grouped by audit layer.
+  `--text` remains as a deprecated alias.
 - `--db-path` falls through to the canonical default (`$HAI_STATE_DB`
   or `~/.local/share/health_agent_infra/state.db`).
 
@@ -226,24 +227,20 @@ for each step.
 | `plan` | `daily_plan` | `daily_plan_id` |
 | `proposals` | `proposal_log` | `WHERE daily_plan_id = ?` |
 | `x_rule_firings.phase_a` / `.phase_b` | `x_rule_firing` | `WHERE daily_plan_id = ?`, split by tier |
-| `recommendations` | `recommendation_log` | `WHERE json_extract(payload_json, '$.daily_plan_id') = ?` |
+| `recommendations` | `recommendation_log` | `WHERE daily_plan_id = ?` |
 | `reviews[].review_*` | `review_event` | `WHERE recommendation_id IN (...)` |
 | `reviews[].outcomes[]` | `review_outcome` | `WHERE review_event_id IN (...)` |
 | `user_memory.entries[]` | `user_memory` | `WHERE user_id = ? AND created_at <= <for_date_eod> AND (archived_at IS NULL OR archived_at > <for_date_eod>)` |
 
-The recommendation lookup uses `json_extract` because
-`recommendation_log` carries `daily_plan_id` inside `payload_json`
-rather than as a column — the same pattern
-`delete_canonical_plan_cascade` uses on the write side
-(`core/state/projector.py`). When migration 003 originally added the
-synthesis layer it did not add a FK column on `recommendation_log`;
-that decision is still load-bearing for the read path.
+Migration 009 promoted `recommendation_log.daily_plan_id` to a first-class
+indexed column. The original JSON payload still carries the same id for audit
+continuity, but current explain reads use the column.
 
 ## 5. What `hai explain` deliberately does not do
 
-- **Mutate state.** No `INSERT`, no `UPDATE`, no `DELETE`. The Phase C
-  acceptance criteria pin this and the test suite asserts row counts
-  before/after a JSON or text run are identical.
+- **Mutate state.** No `INSERT`, no `UPDATE`, no `DELETE`. The test suite
+  pins this by asserting row counts
+  before/after a JSON or operator-text run are identical.
 - **Recompute classification, policy, or X-rules.** A user wanting to
   see what the runtime *would* do today should use
   `hai state snapshot` and `hai synthesize --bundle-only`, not
@@ -257,7 +254,7 @@ that decision is still load-bearing for the read path.
   longitudinal view belongs to `hai review summary` and direct reads
   of `accepted_*_state_daily` (see
   [`query_taxonomy.md`](query_taxonomy.md) §2.4), not here.
-- **Recompute** active user memory. The `user_memory` bundle (Phase D)
+- **Recompute** active user memory. The `user_memory` bundle
   is surfaced under the new top-level `user_memory` key alongside the
   plan / proposals / firings / recommendations / reviews layers — see
   `memory_model.md` §2.1 for the table shape and time-axis semantics.
@@ -270,7 +267,7 @@ that decision is still load-bearing for the read path.
 ### Operator: "Why did the runtime soften my run today?"
 
 ```sh
-hai explain --for-date 2026-04-17 --user-id u_local_1 --text
+hai explain --for-date 2026-04-17 --user-id u_local_1 --operator
 ```
 
 Read `## Phase A X-rule firings` for the rule that fired (e.g. `X1a

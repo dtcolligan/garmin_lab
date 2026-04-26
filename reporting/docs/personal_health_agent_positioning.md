@@ -12,10 +12,11 @@ in [`x_rules.md`](x_rules.md); the scope discipline in
 
 ## 1. The one-sentence frame
 
-Health Agent Infra is a **governed local runtime** that lets one Claude
-agent reason across six health domains with deterministic tools, typed
-contracts, and auditable persisted state, so that the agent's
-recommendations are bounded, explainable, and resumable across days.
+Health Agent Infra is an **agent-native governed local runtime** that lets
+one Claude Code agent (or equivalent) operate over six health domains through
+the local `hai` CLI. The user speaks in natural language; deterministic tools,
+typed contracts, and auditable persisted state bound what the agent can do, so
+recommendations are explainable and resumable across days.
 
 "Governed" means:
 
@@ -47,14 +48,14 @@ processes, and only the first two have runtime surface today.
 | **Runtime analyst** | Pull, clean, project, classify, policy, synthesis mutation, persistence. All deterministic. | Python code under `src/health_agent_infra/core/` + `domains/<d>/` |
 | **Coach** | Composing rationale for an already-fixed action, surfacing uncertainty, asking clarifying questions during narration. Judgment only. | Markdown skills under `src/health_agent_infra/skills/` |
 | **Memory** | Raw evidence, accepted per-domain state, proposals, plans, firings, recommendations, reviews. | Local SQLite + per-domain JSONL audits |
-| **Grounded expert** | Read-only topic explanation with citations (e.g. "what does sleep debt mean in this system?"). | **Not shipped in v0.1.0.** Planned under post-v0.1 Phase F. |
+| **Grounded expert** | Read-only topic explanation with citations (e.g. "what does sleep debt mean in this system?"). | Bounded local research surface: `hai research topics`, `hai research search --topic <t>`, and `expert-explainer`. |
 
 Two rules hold across the map:
 
 1. **The runtime analyst is the only role that mutates state.** Coach
    skills never change an action and never run arithmetic the runtime
    already ran. Memory is written by the runtime as a side effect of
-   `propose` / `synthesize` / `writeback` / `review`.
+   `propose` / `synthesize` / `review` / `intake`.
 2. **Memory is inspectable.** Everything the memory role holds is a
    SQLite row or an append-only JSONL line on the user's disk. Nothing
    important lives only in an agent chat transcript.
@@ -79,7 +80,7 @@ evaluation maturity**, not as an architecture to copy. Concretely:
 | Multi-agent (data-science / domain-expert / coach) | Single Claude agent with typed tools + markdown skills + governed state |
 | Role specialization inside the agent system | Role specialization inside the **typed-tool + skill + state** system |
 | Coaching is a peer agent | Coaching is a skill the one agent loads, constrained by the runtime's already-fixed action set |
-| Expert grounding is a first-class agent | Grounded expert is read-only, not shipped in v0.1.0, planned as Phase F |
+| Expert grounding is a first-class agent | Grounded expert is a narrow read-only local retrieval surface, not a mutation path |
 | Evaluation is multi-level across agents | Evaluation is deterministic today; skill-harness eval is Phase E |
 
 Two lessons we take forward from the PHA framing:
@@ -97,8 +98,8 @@ Three lessons we explicitly do **not** take:
   Claude agent reads skills and calls typed CLI tools. The "multi-agent"
   surface is replaced by `hai propose` + `hai synthesize` +
   `x_rule_firing`.
-- We do not let a grounded expert mutate recommendations. Any Phase F
-  expert layer is read-only; recommendation mutation remains a
+- We do not let a grounded expert mutate recommendations. The expert layer is
+  read-only; recommendation mutation remains a
   runtime/synthesis responsibility.
 - We do not adopt "agent memory" as a hidden retrieval surface. Memory
   here is explicit local SQLite, not opaque embeddings or unbounded
@@ -140,8 +141,8 @@ The scope cost is explicit. Because the runtime is local-first:
 
 - it does not have a hosted control plane, so multi-user features are
   out of scope;
-- it does not have cloud retrieval, so grounded explanations have to
-  come from a bounded allowlist when Phase F ships;
+- it does not have cloud retrieval, so grounded explanations come from a
+  bounded local allowlist;
 - it does not have a fleet-telemetry surface, so learning-loop work
   (if ever scoped) would have to be a per-user local loop, not an
   aggregate one.

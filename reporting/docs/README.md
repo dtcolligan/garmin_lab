@@ -18,7 +18,7 @@ itself (docs / artifacts / plans / experiments), see
 - [`x_rules.md`](x_rules.md) — full X-rule catalogue with
   triggers, tiers, effects, and config keys.
 - [`state_model_v1.md`](state_model_v1.md) — table-by-table state
-  schema (migrations 001–006 live).
+  schema (migrations 001-021 live).
 
 ## Onboarding
 

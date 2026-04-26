@@ -24,7 +24,7 @@ Per-release detail lives under `reporting/plans/<version>/`.
 
 ### Added
 
-- **Test fixture-factory module** (`safety/tests/_fixtures/`) — pure
+- **Test fixture-factory module** (`verification/tests/_fixtures/`) — pure
   dict builders `make_intent_row`, `make_target_row`,
   `make_outcome_chain`, `make_data_quality_row` plus a SQLite
   `seed_outcome_chain` helper for the existing
@@ -32,7 +32,7 @@ Per-release detail lives under `reporting/plans/<version>/`.
   ahead of v0.1.8 W48–W51 per `reporting/plans/v0_1_8/PLAN.md` § 0
   fixture-factory precondition so the ~80–120 forthcoming tests share
   one seeding API. Smoke-covered by
-  `safety/tests/test_fixture_factory.py`.
+  `verification/tests/test_fixture_factory.py`.
 
 ### Changed
 
@@ -70,7 +70,7 @@ Per-release detail lives under `reporting/plans/<version>/`.
   only in v0.1.8.
 - **`snapshot.<domain>.review_summary`** field attached to all six
   per-domain blocks by `build_snapshot` (W48). 13 regression tests
-  in `safety/tests/test_review_summary.py` cover every token rule,
+  in `verification/tests/test_review_summary.py` cover every token rule,
   window scoping, per-domain isolation, aggregate roll-up, re-link
   counter, threshold overrides, and snapshot integration.
 - **`hai stats --outcomes [--domain <d>] [--since N] [--json]`**
@@ -93,7 +93,7 @@ Per-release detail lives under `reporting/plans/<version>/`.
   readiness skills' `allowed-tools` extended with
   `Bash(hai intent list *)` so they can consume the snapshot's
   intent context. 13 new tests in
-  `safety/tests/test_intent_ledger.py`.
+  `verification/tests/test_intent_ledger.py`.
 - **Target ledger MVP** (W50, migration 020). New `target` table
   + `core/target/` module (`add_target`, `list_target`,
   `list_active_target`, `archive_target`, `supersede_target`).
@@ -105,7 +105,7 @@ Per-release detail lives under `reporting/plans/<version>/`.
   `snapshot.target` block carries every active row whose effective
   window covers `as_of_date`. Per-domain readiness skills'
   `allowed-tools` extended with `Bash(hai target list *)`. 13 new
-  tests in `safety/tests/test_target_ledger.py`.
+  tests in `verification/tests/test_target_ledger.py`.
 - **Data quality ledger** (W51, migration 021). New
   `data_quality_daily` table + `core/data_quality/` projector +
   `hai stats --data-quality` CLI mode. Per-source / per-domain row
@@ -114,7 +114,7 @@ Per-release detail lives under `reporting/plans/<version>/`.
   integration: `snapshot.<domain>.data_quality` block carries the
   fields without requiring the projector to have run. Subsumes the
   v0.1.7 cold-start visibility gap — `cold_start_window_state` is
-  pinned by `safety/tests/test_data_quality_cold_start_consistency.py`
+  pinned by `verification/tests/test_data_quality_cold_start_consistency.py`
   to match `snapshot.<domain>.cold_start` per the W51 maintainer
   refinement. 7 new tests across `test_data_quality_ledger.py` +
   `test_data_quality_cold_start_consistency.py`.
@@ -124,7 +124,7 @@ Per-release detail lives under `reporting/plans/<version>/`.
   so the user can inspect what numbers the runtime is using without
   reading SQL. Read-only; no recomputation in the CLI — every band
   is the snapshot's classification. 3 new tests in
-  `safety/tests/test_cli_stats_baselines.py`.
+  `verification/tests/test_cli_stats_baselines.py`.
 - **`hai config validate` + `hai config diff`** (W39). Discoverable
   authoring + diffing for the user's `thresholds.toml`. Validate
   parses the TOML, walks every leaf, and reports `unknown_key` /
@@ -134,14 +134,14 @@ Per-release detail lives under `reporting/plans/<version>/`.
   (and flags unknown keys with `key_known=false`). Outcomes never
   write thresholds — those paths only land via the existing
   `hai config init` scaffold. 7 new tests in
-  `safety/tests/test_cli_config_validate_diff.py`.
+  `verification/tests/test_cli_config_validate_diff.py`.
 - **`hai stats --funnel [--since N] [--json]`** (W46). Mode on
   `hai stats` that aggregates `runtime_event_log.context_json` for
   `command='daily'` runs in the window: daily run count,
   overall_status histogram, missing-domain frequency,
   blocking-action count. Closes the v0.1.7 proposal-gate telemetry
   carry-over. 2 new tests in
-  `safety/tests/test_cli_stats_funnel.py`.
+  `verification/tests/test_cli_stats_funnel.py`.
 - **`hai daily --auto --explain` thick JSON** (W43). New
   `--explain` flag on `hai daily` adds a per-stage `explain` block
   to the output (pull / clean / snapshot / gaps / proposal_gate /
@@ -149,7 +149,7 @@ Per-release detail lives under `reporting/plans/<version>/`.
   already-computed stage data; never recomputes or fabricates
   fields. Plain `hai daily` and `hai daily --auto` (no `--explain`)
   remain byte-identical — the block is opt-in via the explicit
-  flag. 3 new tests in `safety/tests/test_cli_daily_auto_explain.py`.
+  flag. 3 new tests in `verification/tests/test_cli_daily_auto_explain.py`.
 - **Skill harness extended to running** (W41). Added `running` to
   `SUPPORTED_DOMAINS`, `_running_snapshot_block` driving the real
   `derive_running_signals` + `classify_running_state` +
@@ -159,17 +159,17 @@ Per-release detail lives under `reporting/plans/<version>/`.
   `rubrics/running.md`. Replay mode runs in normal CI; live capture
   remains operator-gated via `HAI_SKILL_HARNESS_LIVE=1`.
 - **Synthesis-skill scoring harness** (W42). New
-  `safety/evals/synthesis_harness/` with `runner.py`,
+  `verification/evals/synthesis_harness/` with `runner.py`,
   `rubrics/synthesis.md`, and 3 fixture scenarios (clean / partial
   X1a soften / escalated X3b block). Scorer applies four rubric
   invariants over a candidate synthesis output: every Phase A firing
   cited or summarised, no invented X-rule, no invented band, no
   action mutation claimed by prose. 7 new tests in
-  `safety/tests/test_synthesis_harness.py` exercise both
+  `verification/tests/test_synthesis_harness.py` exercise both
   passing-output and each failure mode so the rubric localises the
   broken rationale line.
 - **W0.1.8 replay / property tests** (W45). New
-  `safety/tests/property/test_v0_1_8_replay_properties.py` pins
+  `verification/tests/property/test_v0_1_8_replay_properties.py` pins
   determinism contracts for the new state surfaces: intent
   supersession-chain replay, late-arriving target does not
   retroactively change a past snapshot, intent / target
@@ -285,7 +285,7 @@ Per-release detail lives under `reporting/plans/<version>/`.
   `command_argv` (or `command_root` + `command_template`), `blocking`
   / `safe_to_retry` hints, and an `after_success` routing pointer. An
   agent can plan a fixture day end-to-end from the manifest alone —
-  proven by `safety/tests/test_daily_auto_manifest_fixture.py` (W35).
+  proven by `verification/tests/test_daily_auto_manifest_fixture.py` (W35).
 - **`hai planned-session-types`** read-only command surfaces the
   canonical vocabulary for `--planned-session-type` so agents can
   discover the recognised tokens without README lookup (W33).

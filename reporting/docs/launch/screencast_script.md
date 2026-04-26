@@ -13,7 +13,9 @@ watching.
 - [ ] Dark theme — the green "ok" / red "fail" coloring reads better.
 - [ ] Wider-than-default terminal (120+ columns) so `hai stats` doesn't
       wrap.
-- [ ] Valid Garmin credentials in a password manager, ready to paste.
+- [ ] Valid intervals.icu athlete id + API key in a password manager, ready
+      to paste. Garmin credentials are only needed if deliberately demoing the
+      best-effort Garmin Connect path.
 - [ ] Test `pipx` is installed (`brew install pipx` or distro equivalent)
       BEFORE starting the recording — we're demoing `hai`, not `pipx`.
 - [ ] Have `~/.claude/skills/` empty (or renamed aside) so the skills
@@ -43,24 +45,25 @@ line ("installed package ...") in post.
 **Voiceover (optional):** *"Health Agent Infra is a governed local
 agent runtime for personal health data. One install, one CLI."*
 
-### Shot 2 · 0:15–0:45 · one-command setup
+### Shot 2 · 0:15–0:45 · setup + live-source auth
 
 ```
-$ hai init --with-auth --with-first-pull
+$ hai init
+$ hai auth intervals-icu
 ```
 
 The wizard should:
 1. Scaffold config + state DB + skills (fast, 1–2s).
-2. Prompt: `Garmin email:` — type the email.
-3. Prompt: `Garmin password:` — paste (password stays hidden).
-4. Pull + project the last 7 days (5–15s depending on Garmin latency).
-5. Emit the consolidated JSON report.
+2. Prompt for intervals.icu athlete id + API key.
+3. Store credentials in the OS keyring.
+4. Leave the first pull to `hai daily`, where the source-resolution behavior
+   is visible.
 
 If step 4 takes >15s, **cut** in post to the last 2s of the progress
 output. Don't let the viewer watch the network.
 
-**Voiceover:** *"One command scaffolds the state DB, copies skills into
-Claude Code, authenticates Garmin, and backfills a week of history.
+**Voiceover:** *"Setup scaffolds the state DB, copies skills into Claude
+Code, and stores the live-source credential locally in the OS keyring.
 Idempotent, safe to re-run."*
 
 ### Shot 3 · 0:45–0:55 · look at what landed
@@ -107,7 +110,7 @@ atomic plan."*
 ### Shot 5 · 2:00–2:20 · `hai explain`
 
 ```
-$ hai explain --for-date $(date -u +%F)
+$ hai explain --for-date $(date -u +%F) --user-id u_local_1 --operator
 ```
 
 Show the audit-chain view: which proposals were made, which X-rules
