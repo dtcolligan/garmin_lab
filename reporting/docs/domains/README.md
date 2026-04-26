@@ -124,18 +124,18 @@ accepted_*_state_daily table, add a projector under
 
 Add:
 
-- ``safety/tests/test_<d>_schemas.py`` — schema validation.
-- ``safety/tests/test_<d>_classify.py`` — one test per band
+- ``verification/tests/test_<d>_schemas.py`` — schema validation.
+- ``verification/tests/test_<d>_classify.py`` — one test per band
   boundary per signal.
-- ``safety/tests/test_<d>_policy.py`` — one test per R-rule
+- ``verification/tests/test_<d>_policy.py`` — one test per R-rule
   firing + non-firing.
-- ``safety/tests/test_<d>_skill_gates.py`` — skill-boundary
+- ``verification/tests/test_<d>_skill_gates.py`` — skill-boundary
   contract (the skill does NOT change forced actions, DOES compose
   rationale, etc).
-- ``safety/evals/scenarios/<d>/*.json`` — ≥ 3 scenarios (baseline,
+- ``verification/evals/scenarios/<d>/*.json`` — ≥ 3 scenarios (baseline,
   R-rule firing, coverage gap).
 
-``safety/tests/test_eval_scenarios.py`` has a parametrized test
+``verification/tests/test_eval_scenarios.py`` has a parametrized test
 that runs every ``SUPPORTED_DOMAINS`` member through the eval
 runner, so a new domain is picked up automatically once its
 scenarios are committed.
@@ -152,7 +152,7 @@ Consider whether the new domain should participate in an X-rule:
   X1a pattern.
 
 Every new X-rule needs a scenario under
-``safety/evals/scenarios/synthesis/`` and an entry in the
+``verification/evals/scenarios/synthesis/`` and an entry in the
 ``test_synthesis_scenarios_cover_key_x_rules`` floor check.
 
 ## Checklist

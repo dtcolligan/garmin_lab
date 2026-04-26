@@ -32,7 +32,7 @@ The rebuild's central rule is simple:
    mutation.
 3. Wire a CLI surface in `src/health_agent_infra/cli.py` only if the
    agent or operator genuinely needs it.
-4. Add deterministic tests under `safety/tests/`.
+4. Add deterministic tests under `verification/tests/`.
 5. If the change crosses a schema boundary, update the producing and
    consuming paths in the same commit.
 
@@ -65,7 +65,7 @@ Never:
 
 ## Before opening a PR
 
-1. `uv run pytest safety/tests -q`
+1. `uv run pytest verification/tests -q`
 2. If you touched packaging or versioning: `uv run python -m build --wheel --sdist`
 3. If you touched docs: make sure `README.md`, `CHANGELOG.md`,
    `ROADMAP.md`, `AUDIT.md`, and the active docs under `reporting/docs/`
@@ -77,9 +77,9 @@ Never:
 
 ## Good first changes
 
-- Strengthen a contract test in `safety/tests/` for malformed proposal
+- Strengthen a contract test in `verification/tests/` for malformed proposal
   or recommendation JSON.
-- Add eval scenarios or rubric coverage under `safety/evals/`.
+- Add eval scenarios or rubric coverage under `verification/evals/`.
 - Improve a domain classifier/policy test at a boundary condition.
 - Fix active docs that drift from shipped runtime behavior.
 

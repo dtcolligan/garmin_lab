@@ -7,7 +7,7 @@ the Phase-1 write-surface contracts in ``health_agent_infra.core.schemas``
 narrow ``action`` to ``SleepActionKind`` and default ``domain`` to
 ``"sleep"``.
 
-Invariants enforced by ``safety/tests/test_sleep_schemas.py``:
+Invariants enforced by ``verification/tests/test_sleep_schemas.py``:
 
   - ``SLEEP_ACTION_KINDS`` matches the plan §4 Phase 3 deliverable 3 v1
     enum exactly.

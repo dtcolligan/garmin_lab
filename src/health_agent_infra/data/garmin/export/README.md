@@ -13,8 +13,8 @@ any real user's wearable export and ships only so the offline `hai pull
   components, ACWR, etc. Match the shape of the live Garmin Connect daily
   CSV export so the same `garmin.GarminRecoveryReadinessAdapter` reads both.
 - **No names, email addresses, device serials, GPS coordinates, or other
-  identifiers.** A regression test in `safety/tests/test_packaged_fixture_privacy.py`
-  scans the file on every commit to keep this property load-bearing.
+  identifiers.** `verification/tests/test_privacy_hardening.py` scans the file
+  on every commit to keep this property load-bearing.
 
 ## What this fixture is for
 
@@ -44,8 +44,8 @@ A contributor regenerating this fixture should:
    schema in `RAW_DAILY_ROW_COLUMNS` (see `core/pull/garmin_live.py` /
    `core/pull/intervals_icu.py`).
 2. Pin dates in a deliberately future window so it's obviously seed data.
-3. Re-run `safety/tests/test_packaged_fixture_privacy.py` to confirm the
-   PII scan still passes.
+3. Re-run `verification/tests/test_privacy_hardening.py` to confirm the PII
+   scan still passes.
 4. Re-run the full test suite — many classifier tests depend on this
    fixture's specific values.
 

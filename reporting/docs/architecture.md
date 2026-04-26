@@ -278,9 +278,9 @@ src/health_agent_infra/
 reporting/
     docs/                           # this doc + friends
     artifacts/flagship_loop_proof/  # eval runner captures
-    plans/                          # rebuild plan + Phase 2.5 gates
+    plans/                          # roadmap + release/audit plans
     experiments/                    # Phase 0.5 / 2.5 throwaway prototypes
-safety/
+verification/
     tests/                          # unit + contract + integration tests
     evals/                          # Phase 6 eval framework
         scenarios/{domain,synthesis}/

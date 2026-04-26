@@ -10,7 +10,7 @@ Three load-bearing invariants hold across every record:
 
 1. Each ``origin_path`` points to a file that exists in this repository.
 2. Each ``excerpt`` appears verbatim inside that file. The test suite
-   (``safety/tests/test_expert_research.py``) asserts both at import
+   (``verification/tests/test_expert_research.py``) asserts both at import
    time so a future edit that renames a section or reflows a sentence
    fails *before* the retrieval surface starts citing a stale excerpt.
 3. Every source's ``source_class`` is drawn from

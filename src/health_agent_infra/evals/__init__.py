@@ -9,7 +9,7 @@ The skill-layer narration axes (rationale quality, uncertainty
 calibration as prose) are explicitly NOT invoked here: they require a
 live Claude Code agent subprocess and are marked
 ``skipped_requires_agent_harness`` per scenario. See
-``safety/evals/skill_harness_blocker.md`` for the deferred follow-up.
+``verification/evals/skill_harness_blocker.md`` for the deferred follow-up.
 """
 
 from .runner import (

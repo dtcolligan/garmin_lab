@@ -1,6 +1,6 @@
-# merge_human_inputs
+# Archived merge_human_inputs bucket
 
-This bucket holds examples and docs for the human-input intake surface. Typed intake logic itself is not a Python module in this tree — it's an agent concern described by the `merge-human-inputs` skill.
+This archive preserves the former top-level `merge_human_inputs/` bucket. Typed intake logic itself is not a Python module in this tree; it is an agent concern described by the `merge-human-inputs` skill.
 
 ## What lives here
 
@@ -24,6 +24,6 @@ The agent reads the merge-human-inputs skill and partitions raw user input into 
 
 The runtime does not attempt to parse free text. If the skill returns ambiguous input, the agent asks a clarifying question before calling `hai`.
 
-## Why keep the bucket
+## Why this archive exists
 
-The eight-bucket mental model remains the project's organising frame even though physical Python modules moved under `src/health_agent_infra/`. `merge_human_inputs/` holds this README + examples so anyone navigating the repo or the controlling doctrine can find the intake bucket where it's expected. It is not a Python package.
+The eight-bucket mental model was the project's original organising frame, but physical runtime code now lives under `src/health_agent_infra/` and the active intake skill lives under `src/health_agent_infra/skills/merge-human-inputs/`. This archive keeps the old README + examples for doctrine navigation and historical context. It is not a Python package.

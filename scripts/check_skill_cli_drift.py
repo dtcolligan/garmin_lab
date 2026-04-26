@@ -19,7 +19,7 @@ This is the v0.1.6 W3 audit-driven safety net. Background:
     its own body examples.
 
 Drift accumulates silently between releases. This validator runs as
-a pytest test (``safety/tests/test_skill_cli_drift.py``) so any new
+a pytest test (``verification/tests/test_skill_cli_drift.py``) so any new
 divergence fails CI immediately.
 
 Run from repo root::

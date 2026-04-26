@@ -60,7 +60,7 @@ core/state/snapshot.py         # new block in build_snapshot output
 src/health_agent_infra/skills/<d>-readiness/SKILL.md
 ```
 
-…and tests + evals under `safety/`. Everything below is a
+…and tests + evals under `verification/`. Everything below is a
 walkthrough of these files in the order you'd write them.
 
 ### 1. Schemas
@@ -274,7 +274,7 @@ Hard constraints:
   deterministic work is leaking in; move it to `classify.py` or
   `signals.py`.
 - The skill never mutates `forced_action` or raises confidence above
-  `capped_confidence`. `safety/tests/test_<d>_skill_gates.py`
+  `capped_confidence`. `verification/tests/test_<d>_skill_gates.py`
   verifies this contract.
 - The skill may lower confidence below the cap (vendor-disagreement,
   missingness the classifier missed) but never raise it.
@@ -346,7 +346,7 @@ shape:
 - **First insert stamps `projected_at`; any rewrite stamps
   `corrected_at`**. This is the "hybrid correction grammar" —
   tests like
-  [`test_state_dual_write.py`](../../safety/tests/test_state_dual_write.py)
+  [`test_state_dual_write.py`](../../verification/tests/test_state_dual_write.py)
   pin it.
 
 `_V1_REQUIRED_FIELDS[<d>]` in `snapshot.py` must name the fields
@@ -378,20 +378,20 @@ change.
 
 Ship these test files with the domain:
 
-- `safety/tests/test_<d>_schemas.py` — proposal shape == field set,
+- `verification/tests/test_<d>_schemas.py` — proposal shape == field set,
   action enum membership, `bounded=True` invariants, rejection of
   `follow_up` / `daily_plan_id` / `recommendation_id` on proposals.
-- `safety/tests/test_<d>_classify.py` — one test per band boundary
+- `verification/tests/test_<d>_classify.py` — one test per band boundary
   per signal (the recovery/running tests are the reference — aim
   for that density).
-- `safety/tests/test_<d>_policy.py` — one firing + one non-firing
+- `verification/tests/test_<d>_policy.py` — one firing + one non-firing
   test per R-rule. Verify `forced_action`, `capped_confidence`,
   `policy_decisions` contents.
-- `safety/tests/test_<d>_skill_gates.py` — the skill-boundary
+- `verification/tests/test_<d>_skill_gates.py` — the skill-boundary
   contract: skill never raises confidence, never mutates
   forced_action, always copies policy_decisions verbatim. Mirrors
   `test_running_skill_gates.py`.
-- `safety/tests/test_cli_propose.py` — add the domain to the
+- `verification/tests/test_cli_propose.py` — add the domain to the
   existing parametrized coverage so `hai propose --domain <d>`
   accept/reject paths are pinned.
 
@@ -399,7 +399,7 @@ And eval scenarios:
 
 - `src/health_agent_infra/evals/scenarios/<d>/*.json` — at least three: a baseline
   "happy path," an R-rule firing case, and a coverage-gap case.
-  [`safety/tests/test_eval_scenarios.py`](../../safety/tests/test_eval_scenarios.py)
+  [`verification/tests/test_eval_scenarios.py`](../../verification/tests/test_eval_scenarios.py)
   parametrizes over `SUPPORTED_DOMAINS`, so the new domain is picked
   up automatically once its scenarios exist.
 

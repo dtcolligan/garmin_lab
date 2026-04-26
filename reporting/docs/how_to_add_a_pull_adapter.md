@@ -49,7 +49,7 @@ No inheritance is required. The Protocol is deliberately thin: the
 binding contract is the **shape of the dict** `load()` returns, not a
 second type declaration. Both Garmin adapters conform structurally
 and are exercised against the Protocol in
-[`safety/tests/test_pull_garmin_live.py`](../../safety/tests/test_pull_garmin_live.py).
+[`verification/tests/test_pull_garmin_live.py`](../../verification/tests/test_pull_garmin_live.py).
 
 Name: `source_name` must be stable across runs and identify the
 source in provenance. `"garmin"` and `"garmin_live"` are taken;
@@ -214,7 +214,7 @@ Whichever path you pick, preserve these invariants:
 
 A new adapter ships green when, at minimum:
 
-- `safety/tests/test_pull_<source>.py` (or the CSV/live split if the
+- `verification/tests/test_pull_<source>.py` (or the CSV/live split if the
   adapter has both) asserts:
   - the adapter conforms to
     `FlagshipPullAdapter` (Protocol `isinstance` check, mirroring
@@ -228,13 +228,13 @@ A new adapter ships green when, at minimum:
     column set with whatever projector will consume it.
 - At least one test exercises the full `pull → clean → project`
   path against the real projectors the adapter targets. Use
-  [`test_state_clean_projection.py`](../../safety/tests/test_state_clean_projection.py)
+  [`test_state_clean_projection.py`](../../verification/tests/test_state_clean_projection.py)
   as the pattern: seed a fake upstream, run `load`, run
   `clean_inputs`, project, and assert the accepted-state rows look
   right.
 - If the adapter introduces credentials, mirror the
-  [`test_pull_auth.py`](../../safety/tests/test_pull_auth.py) +
-  [`test_cli_pull_live_and_auth.py`](../../safety/tests/test_cli_pull_live_and_auth.py)
+  [`test_pull_auth.py`](../../verification/tests/test_pull_auth.py) +
+  [`test_cli_pull_live_and_auth.py`](../../verification/tests/test_cli_pull_live_and_auth.py)
   shapes: credential storage, missing-credential error path, live
   error surfacing.
 

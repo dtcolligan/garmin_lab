@@ -16,7 +16,7 @@ defer to a post-v1 release. The v1 enum is therefore the concrete
 macros-only collapse of those templates — no speculative
 nutrient-specific variants the data layer cannot support honestly.
 
-Invariants enforced by ``safety/tests/test_nutrition_schemas.py``:
+Invariants enforced by ``verification/tests/test_nutrition_schemas.py``:
 
   - ``NUTRITION_ACTION_KINDS`` is the v1 macros-only enum (6 values).
   - ``NutritionProposal`` field set == ``DOMAIN_PROPOSAL_FIELDS``.

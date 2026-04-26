@@ -17,16 +17,16 @@ for design context.
 ## Not part of normal CI
 
 Normal `hai eval` and `pytest` behaviour is unchanged. This harness
-lives under `safety/evals/skill_harness/` and is invoked directly:
+lives under `verification/evals/skill_harness/` and is invoked directly:
 
     # default mode — replay committed transcripts
-    python safety/evals/skill_harness/runner.py
+    python verification/evals/skill_harness/runner.py
 
     # single scenario
-    python safety/evals/skill_harness/runner.py --scenario-id rec_h01_rested_baseline
+    python verification/evals/skill_harness/runner.py --scenario-id rec_h01_rested_baseline
 
     # machine-readable
-    python safety/evals/skill_harness/runner.py --json
+    python verification/evals/skill_harness/runner.py --json
 
 Exit code is `0` when every scenario passes the correctness group,
 `1` otherwise, and `2` on a harness-level error (missing scenario,

@@ -7,7 +7,7 @@ conform byte-for-byte to the Phase-1 write-surface contracts in
 ``BOUNDED_RECOMMENDATION_FIELDS``). They narrow ``action`` to
 ``StrengthActionKind`` and default ``domain`` to ``"strength"``.
 
-Invariants enforced by ``safety/tests/test_strength_schemas.py``:
+Invariants enforced by ``verification/tests/test_strength_schemas.py``:
 
   - ``STRENGTH_ACTION_KINDS`` matches the plan §4 Phase 4 deliverable 5
     v1 enum exactly.

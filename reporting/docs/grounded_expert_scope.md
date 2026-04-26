@@ -140,7 +140,7 @@ This phase does *not*, under any circumstance:
 The scope in this doc is not aspirational. It is locked by focused
 tests:
 
-- `safety/tests/test_expert_research.py::test_every_source_origin_exists`
+- `verification/tests/test_expert_research.py::test_every_source_origin_exists`
   asserts every shipped source's `origin_path` resolves to a real file
   in the repo.
 - `...::test_every_source_excerpt_is_literal` asserts the excerpt

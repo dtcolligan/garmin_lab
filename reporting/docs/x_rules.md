@@ -165,7 +165,7 @@ Run ``hai config show`` to print the effective merged config
 
 Every Phase A rule above (X1a, X1b, X2, X3a, X3b, X6a, X7) plus the
 Phase B rule (X9) has at least one scenario under
-``safety/evals/scenarios/synthesis/``. ``safety/tests/test_eval_scenarios.py
+``verification/evals/scenarios/synthesis/``. ``verification/tests/test_eval_scenarios.py
 :: test_synthesis_scenarios_cover_key_x_rules`` is the floor-check
 that asserts this set is always exercised.
 

@@ -62,4 +62,4 @@ where = ["src"]
 ]
 
 [tool.pytest.ini_options]
-testpaths = ["safety/tests"]
+testpaths = ["verification/tests"]

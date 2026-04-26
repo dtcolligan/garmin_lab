@@ -13,7 +13,7 @@ is awaiting its own migration (folded into synthesis activation, step 4).
 Landing the new domain on the legacy shape would cost a second migration
 later for no gain.
 
-Contract invariants enforced by ``safety/tests/test_running_schemas.py``:
+Contract invariants enforced by ``verification/tests/test_running_schemas.py``:
 
   - ``RUNNING_ACTION_KINDS`` matches the plan §4 Phase 2 v1 enum exactly.
   - ``RunningProposal`` field set == ``DOMAIN_PROPOSAL_FIELDS``.

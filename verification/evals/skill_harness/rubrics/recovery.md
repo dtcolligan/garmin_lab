@@ -87,8 +87,8 @@ scenario. The harness also prints a corpus-level mean across scenarios.
   `classified_state → policy → action` in the right order? Not scored.
 - **Clinical safety beyond banned tokens.** The banned-tokens list is a
   narrow backstop against diagnosis-shaped language; real safety review
-  is covered by `safety/tests/test_core_schemas.py` and
-  `safety/tests/test_banned_tokens.py`.
+  is covered by `verification/tests/test_core_schemas.py` and
+  `verification/tests/test_banned_tokens.py`.
 
 The RFC documents how an LLM-judge axis could be added without
 restructuring the rubric: new axis id, same transcript format, same

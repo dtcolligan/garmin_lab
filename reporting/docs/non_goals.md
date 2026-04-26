@@ -76,7 +76,7 @@ and a re-gate passes strict top-1 ≥ 80%.
 
 Phase 2.5 Track B Condition 3 attached a skill-harness follow-up to
 Phase 3; Phase 6 inherits the gap rather than pretending to close
-it. See ``safety/evals/skill_harness_blocker.md`` for the explicit
+it. See ``verification/evals/skill_harness_blocker.md`` for the explicit
 blockers (live agent runtime, non-determinism + judge rubric, CI
 secret handling). Deterministic runtime evals (classify + policy +
 synthesis firings + mutations) are fully scored; skill-layer
@@ -150,5 +150,5 @@ Counterpoint for clarity — these ARE in v1:
 - Atomic SQLite transactions around daily_plan commits.
 - Review loop with per-domain counts.
 - Config-driven thresholds via platformdirs TOML.
-- Evaluation framework at ``safety/evals/`` covering domain
+- Evaluation framework at ``verification/evals/`` covering domain
   classify/policy + synthesis X-rules deterministically.

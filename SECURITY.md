@@ -20,7 +20,7 @@ The threat model assumes:
   `hai synthesize`, `hai review record`, `hai intake`, and user-gated
   `hai intent/target commit` paths.
 - An untrusted future maintainer: governance invariants are tested under
-  `safety/tests/`, not left as convention.
+  `verification/tests/`, not left as convention.
 
 Explicitly out of scope:
 

@@ -1,7 +1,7 @@
 # Skill-harness follow-up — status note
 
 **Status**: partially resolved by the Phase E pilot at
-`safety/evals/skill_harness/`. This note used to describe a fully
+`verification/evals/skill_harness/`. This note used to describe a fully
 deferred gap; it now records what the pilot closed, what remains
 open, and what is intentionally out of scope.
 
@@ -31,7 +31,7 @@ skill harness work inherits the shape once it is stable.
 
 ## What the Phase E pilot resolved
 
-1. **Live agent runtime.** `safety/evals/skill_harness/runner.py
+1. **Live agent runtime.** `verification/evals/skill_harness/runner.py
    --mode live` invokes `claude` as a subprocess with
    `recovery-readiness/SKILL.md` as the system prompt and a
    classifier-+-policy-derived snapshot as the user message. Opt-in
@@ -129,7 +129,7 @@ skill harness work inherits the shape once it is stable.
 Two meaningful next steps, either of which is independently useful:
 
 1. **Capture the first live transcripts.** Run the pilot with
-   `HAI_SKILL_HARNESS_LIVE=1 python safety/evals/skill_harness/
+   `HAI_SKILL_HARNESS_LIVE=1 python verification/evals/skill_harness/
    runner.py --mode live` for each recovery scenario, review the
    emitted transcripts by eye, and commit them alongside the
    existing reference transcripts. Mean rubric score then becomes

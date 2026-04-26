@@ -161,8 +161,8 @@ hai doctor
 The `daily_summary_export.csv` fixture that ships with the package is
 **synthetic**. See `src/health_agent_infra/data/garmin/export/README.md`
 for provenance and the regression test in
-`safety/tests/test_packaged_fixture_privacy.py` that scans for PII on
-every commit.
+`verification/tests/test_privacy_hardening.py` that scans for PII on every
+commit.
 
 ## What we will not do
 

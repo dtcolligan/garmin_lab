@@ -304,6 +304,6 @@ hai explain --daily-plan-id plan_2026-04-17_u_local_1_v2
 - `src/health_agent_infra/core/explain/render.py` — JSON shape and
   human-readable renderer.
 - `src/health_agent_infra/cli.py` — `hai explain` subcommand wiring.
-- `safety/tests/test_cli_explain.py` — end-to-end CLI tests covering
+- `verification/tests/test_cli_explain.py` — end-to-end CLI tests covering
   six-domain reconstruction, plan-id vs date/user equivalence, text
   output, supersession linkage, and read-only invariants.

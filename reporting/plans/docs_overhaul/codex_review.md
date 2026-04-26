@@ -4,6 +4,10 @@ Date: 2026-04-26
 Reviewer: Codex
 Scope: `reporting/plans/docs_overhaul/drafts/` plus the current root docs and release artifacts they reference.
 
+Post-rollout note: the `drafts/` tree was a staging artifact and was removed
+after the approved docs landed at the repo root. Paths below are retained as
+original review evidence, not live repo links.
+
 ## Verdict
 
 **REVISE_BEFORE_SHIP.**

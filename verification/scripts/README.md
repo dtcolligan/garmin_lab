@@ -1,4 +1,4 @@
-# safety/scripts/ (legacy / historical)
+# verification/scripts/ (legacy / historical)
 
 This directory holds **one legacy demo shim** retained as a marker
 of the pre-rebuild CLI chain.

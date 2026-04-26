@@ -6,7 +6,7 @@
 --      src/health_agent_infra/domains/strength/taxonomy_seed.csv.
 --      The CSV is the human-editable reference; this migration is the
 --      runtime source-of-truth. A test
---      (safety/tests/test_migration_005_taxonomy.py) locks them together
+--      (verification/tests/test_migration_005_taxonomy.py) locks them together
 --      so future edits cannot silently diverge.
 --   2. Expand accepted_resistance_training_state_daily with:
 --        - total_reps                       (INTEGER)

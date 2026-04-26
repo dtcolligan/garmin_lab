@@ -3,7 +3,7 @@
 Exercises the committed reference transcripts against the scorer, and
 checks the static sanity invariants (rubric doc present, every scenario
 has an `expected` block, every committed transcript parses). Lives in
-``safety/tests/`` so it runs under normal ``pytest`` but never triggers
+``verification/tests/`` so it runs under normal ``pytest`` but never triggers
 live mode — the harness's live backend is opt-in via an env flag that
 these tests deliberately never set.
 """

@@ -12,8 +12,7 @@ guided read.
 |---|---|---|
 | [`src/`](src/health_agent_infra/) | active runtime | The `health_agent_infra` Python package: CLI, core orchestration, per-domain logic, packaged skills, packaged eval framework, the committed Garmin CSV fixture. This is the shipped wheel. |
 | [`reporting/`](reporting/) | active docs + proof + plans + frozen prototypes | All non-runtime narrative material. See [`reporting/README.md`](reporting/README.md) for the four-subdir map. |
-| [`safety/`](safety/) | active tests + active evals + legacy scripts | All test and eval material plus a small set of legacy scripts. See [`safety/README.md`](safety/README.md) for the layout, including the symlinks into local generated data. |
-| [`merge_human_inputs/`](merge_human_inputs/) | docs + examples bucket (intentional historical anchor) | Not a Python module. Holds a README and example payloads for the human-input intake surface. The bucket name is preserved as a mental-model anchor from the original eight-bucket framing; the typed-intake logic itself is now an agent concern owned by the `merge-human-inputs` skill. See [`merge_human_inputs/README.md`](merge_human_inputs/README.md). |
+| [`verification/`](verification/) | active tests + active evals + legacy scripts | The repo verification surface: pytest suite, eval docs/scenarios, harnesses, drift checks, and legacy verification scripts. See [`verification/README.md`](verification/README.md) for the layout, including the symlinks into local generated data. |
 | [`README.md`](README.md) | active docs | Product overview, install, CLI surface, roadmap pointers. |
 | [`CHANGELOG.md`](CHANGELOG.md) | active docs | Public release history. |
 | [`AGENTS.md`](AGENTS.md) | active docs | Agent-facing operating contract for Codex, Claude Code, and similar coding agents. |
@@ -40,8 +39,8 @@ either ignored, generated, or environment-local:
 - `build/`, `dist/` — wheel/sdist build outputs (`uv run python -m build`).
 - `.claude/` — local Claude Code state (gitignored).
 - `data/`, `artifacts/` (root, untracked) — local runtime data the
-  `safety/data` and `safety/artifacts` symlinks point at when present.
-  See [`safety/README.md`](safety/README.md).
+  `verification/data` and `verification/artifacts` symlinks point at when
+  present. See [`verification/README.md`](verification/README.md).
 
 If `ls` shows one of these, it is a local artifact, not part of the
 checked-in repo shape.
@@ -71,25 +70,29 @@ checked-in repo shape.
   (including `agent_cli_contract.md` — generated from `hai
   capabilities --json`),
   `reporting/plans/multi_release_roadmap.md` (canonical forward
-  roadmap),
-  `reporting/plans/launch_notes.md`,
-  `reporting/plans/skill_harness_rfc.md`.
+  roadmap), `reporting/plans/v0_1_9/BACKLOG.md` (next-cycle
+  backlog).
 - **Active proof**:
   `reporting/artifacts/flagship_loop_proof/2026-04-18-multi-domain-evals/`.
-- **Active tests + evals**: `safety/tests/`, `safety/evals/` (the
+- **Active tests + evals**: `verification/tests/`, `verification/evals/` (the
   packaged eval runner lives at `src/health_agent_infra/evals/`;
-  `safety/evals/` retains dev-reference docs and the skill-harness
+  `verification/evals/` retains dev-reference docs and the skill-harness
   pilot).
 - **Historical / archived (still on disk, clearly labelled)**:
-  `reporting/docs/archive/doctrine/`, `reporting/artifacts/archive/`,
-  `reporting/artifacts/phase_0/`, `reporting/experiments/`,
+  `reporting/docs/archive/doctrine/`,
+  `reporting/docs/archive/merge_human_inputs/`,
+  `reporting/artifacts/archive/`, `reporting/artifacts/phase_0/`,
+  `reporting/experiments/`,
+  `reporting/plans/docs_overhaul/codex_review.md`,
+  `reporting/plans/launch_notes.md`,
+  `reporting/plans/skill_harness_rfc.md`,
   `reporting/plans/phase_0_findings.md`,
   `reporting/plans/phase_0_5_synthesis_prototype.md`,
   `reporting/plans/phase_2_5_retrieval_gate.md`,
   `reporting/plans/agent_operable_runtime_plan.md`,
   `reporting/plans/post_v0_1_roadmap.md`,
   `reporting/plans/phase_2_5_independent_eval.md`,
-  `safety/scripts/`.
+  `verification/scripts/`.
 
 If you find a path that is not classified above, treat it as
 suspect and check git log before trusting it.

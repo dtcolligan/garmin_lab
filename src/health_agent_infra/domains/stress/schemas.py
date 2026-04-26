@@ -7,7 +7,7 @@ byte-for-byte to the Phase-1 write-surface contracts in
 ``BOUNDED_RECOMMENDATION_FIELDS``). They narrow ``action`` to
 ``StressActionKind`` and default ``domain`` to ``"stress"``.
 
-Invariants enforced by ``safety/tests/test_stress_schemas.py``:
+Invariants enforced by ``verification/tests/test_stress_schemas.py``:
 
   - ``STRESS_ACTION_KINDS`` matches the plan §4 Phase 3 deliverable 4
     v1 enum exactly.

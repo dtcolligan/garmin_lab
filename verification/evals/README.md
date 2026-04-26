@@ -51,7 +51,7 @@ This directory retains only the dev-reference docs:
   is visible rather than silently green.
 
 - **Live Garmin pull.** Evals run on frozen evidence bundles; the
-  pull path is covered by `safety/tests/test_pull_garmin_live.py`
+  pull path is covered by `verification/tests/test_pull_garmin_live.py`
   with a mocked client.
 
 See `skill_harness_blocker.md` for the deferred skill-harness work.

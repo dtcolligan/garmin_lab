@@ -137,14 +137,14 @@ convention.
 ## Test Commands
 
 ```bash
-uv run pytest safety/tests -q
-uv run pytest safety/tests/test_<area>.py -q
+uv run pytest verification/tests -q
+uv run pytest verification/tests/test_<area>.py -q
 uv run python -m build --wheel --sdist     # if packaging changed
 uv run hai capabilities --json             # if CLI surface changed
 uv run hai doctor                          # if migrations/state changed
 ```
 
-CI runs `safety/tests/`. The suite includes docs and skill/CLI drift checks.
+CI runs `verification/tests/`. The suite includes docs and skill/CLI drift checks.
 
 ## Architectural Seams
 

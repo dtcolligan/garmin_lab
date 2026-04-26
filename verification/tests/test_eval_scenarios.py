@@ -23,7 +23,7 @@ from health_agent_infra.evals.runner import (
 def test_all_domain_scenarios_pass(domain: str) -> None:
     scenarios = load_scenarios("domain", domain=domain)
     assert scenarios, (
-        f"no domain scenarios registered under safety/evals/scenarios/{domain}/"
+        f"no domain scenarios registered under verification/evals/scenarios/{domain}/"
     )
     scores = run_scenarios(scenarios)
     failures = [s for s in scores if not s.passed]
@@ -39,7 +39,7 @@ def test_all_synthesis_scenarios_pass() -> None:
     scenarios = load_scenarios("synthesis")
     assert scenarios, (
         "no synthesis scenarios registered under "
-        "safety/evals/scenarios/synthesis/"
+        "verification/evals/scenarios/synthesis/"
     )
     scores = run_scenarios(scenarios)
     failures = [s for s in scores if not s.passed]

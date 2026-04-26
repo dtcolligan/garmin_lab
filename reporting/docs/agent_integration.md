@@ -250,6 +250,6 @@ hai eval run --synthesis
 ```
 
 The deterministic runtime layers are scored against frozen
-scenarios under ``safety/evals/scenarios/``. Skill-layer narration
-is NOT scored — see ``safety/evals/skill_harness_blocker.md`` for
+scenarios under ``verification/evals/scenarios/``. Skill-layer narration
+is NOT scored — see ``verification/evals/skill_harness_blocker.md`` for
 the deferred follow-up.

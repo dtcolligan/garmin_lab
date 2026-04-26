@@ -38,17 +38,17 @@ src/health_agent_infra/
 reporting/
     docs/                    # this tour + architecture + x_rules + ...
     artifacts/flagship_loop_proof/2026-04-18-multi-domain-evals/
-    plans/                   # rebuild plan + Phase 2.5 gates
+    plans/                   # roadmap + release/audit plans
     experiments/             # Phase 0.5 / 2.5 throwaway prototypes
-safety/
-    tests/                   # unit + contract + integration (1459)
+verification/
+    tests/                   # unit + contract + integration (2081 collected)
     evals/                   # Phase 6 eval framework (28 scenarios)
                              # + Phase E/M8 skill-harness pilot
 ```
 
 Rule of thumb: if the file is ``.py``, it's code; if it's
-``SKILL.md``, it's judgment; if it's under ``safety/tests/``, it
-locks an invariant; if it's under ``safety/evals/``, it scores
+``SKILL.md``, it's judgment; if it's under ``verification/tests/``, it
+locks an invariant; if it's under ``verification/evals/``, it scores
 deterministic runtime behaviour on frozen scenarios.
 
 ## 3. Where the thesis lives
@@ -131,11 +131,11 @@ The eval framework is **packaged inside the wheel** at
 authored scenarios, ``runner.py`` executes + scores them, and
 ``hai eval run`` is the CLI entry point. The dev-reference docs
 (``README.md``, ``skill_harness_blocker.md``) still live under
-``safety/evals/``.
+``verification/evals/``.
 
 Deterministic runtime coverage is full. Skill-narration coverage is
 explicitly NOT scored — see
-``safety/evals/skill_harness_blocker.md`` for the blockers.
+``verification/evals/skill_harness_blocker.md`` for the blockers.
 
 ## 7. How to use it
 
@@ -210,8 +210,8 @@ hai review summary --domain recovery
 | "How do I add a pull adapter?" | [how_to_add_a_pull_adapter.md](how_to_add_a_pull_adapter.md) |
 | "Why is feature X not included?" | [non_goals.md](non_goals.md) |
 | "How does an agent install this?" | [agent_integration.md](agent_integration.md) |
-| "Is it tested?" | ``safety/tests/`` (1200+ tests) |
-| "Does it have evals?" | ``safety/evals/`` + ``hai eval run --domain <d>`` |
+| "Is it tested?" | ``verification/tests/`` (2081 collected) |
+| "Does it have evals?" | ``verification/evals/`` + ``hai eval run --domain <d>`` |
 | "Does it run on real Garmin data?" | ``hai pull --live`` after ``hai auth garmin`` |
 | "How did we get here?" | Git log on ``rebuild`` branch |
 

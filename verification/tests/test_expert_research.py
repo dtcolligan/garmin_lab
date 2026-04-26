@@ -31,7 +31,7 @@ from health_agent_infra.core.research import (
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-SCENARIO_DIR = REPO_ROOT / "safety" / "evals" / "scenarios" / "expert"
+SCENARIO_DIR = REPO_ROOT / "verification" / "evals" / "scenarios" / "expert"
 
 
 # ---------------------------------------------------------------------------

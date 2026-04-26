@@ -2,7 +2,7 @@
 
 D3 test coverage #1–#6. Each test seeds a DB with a plan of a known
 shape and asserts against the rendered output. Not full snapshot files
-(those land in ``safety/tests/snapshot/`` under Workstream E) — these
+(those land in ``verification/tests/snapshot/`` under Workstream E) — these
 tests assert on substrings / structural invariants so the test file is
 self-contained.
 """

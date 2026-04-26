@@ -9,7 +9,7 @@ shared write-surface contracts (``BoundedRecommendation``, ``DomainProposal``,
 forward from the flagship loop. The frozen ``BoundedRecommendation`` in core is
 the Phase 2 target shape; ``TrainingRecommendation`` must match its field set
 (subclasses may narrow ``action`` to an enum but may not add or remove fields).
-The invariant tests in ``safety/tests/test_core_schemas.py`` enforce this.
+The invariant tests in ``verification/tests/test_core_schemas.py`` enforce this.
 """
 
 from __future__ import annotations

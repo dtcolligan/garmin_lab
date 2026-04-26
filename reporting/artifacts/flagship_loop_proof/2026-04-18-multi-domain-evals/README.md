@@ -14,7 +14,7 @@ pre-reshape single-domain bundles now archived under
 - ``rationale_quality`` is marked ``skipped_requires_agent_harness``
   on every scenario — the runner tests the deterministic runtime
   only, not the skill-layer narration. See
-  ``safety/evals/skill_harness_blocker.md`` for the deferred
+  ``verification/evals/skill_harness_blocker.md`` for the deferred
   follow-up.
 
 ## What this bundle proves
@@ -42,7 +42,7 @@ pre-reshape single-domain bundles now archived under
     .venv/bin/python -c "$(cat <<'PY'
     import json, sys; from pathlib import Path
     sys.path.insert(0, 'src'); sys.path.insert(0, '.')
-    from safety.evals.runner import (
+    from health_agent_infra.evals.runner import (
         SUPPORTED_DOMAINS, load_scenarios,
         run_domain_scenario, run_synthesis_scenario,
         score_domain_result, score_synthesis_result,
@@ -60,7 +60,7 @@ and redirect the ``--json`` output into per-surface files.
   non-contradictory. That requires the deferred skill-harness
   follow-up (Phase 2.5 Condition 3).
 - The live Garmin pull returns well-formed evidence. Covered
-  separately by ``safety/tests/test_pull_garmin_live.py`` with a
+  separately by ``verification/tests/test_pull_garmin_live.py`` with a
   mocked client.
 - Any intake CLI surface end-to-end. Covered by
-  ``safety/tests/test_intake_*.py``.
+  ``verification/tests/test_intake_*.py``.

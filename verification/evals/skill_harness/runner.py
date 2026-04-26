@@ -30,7 +30,7 @@ Three execution backends are supported:
   Code and paste the response back.
 
 Opt-in by design. No CI path depends on live invocation. See
-``safety/evals/skill_harness_blocker.md`` for what the pilot resolves
+``verification/evals/skill_harness_blocker.md`` for what the pilot resolves
 versus what remains out of scope.
 """
 

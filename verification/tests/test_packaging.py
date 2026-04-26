@@ -176,7 +176,7 @@ def test_pyproject_package_data_globs_cover_all_non_python_files():
 # ---------------------------------------------------------------------------
 #
 # The v0.1.0 release registered `hai eval` conditionally by walking for a
-# repo-local `safety/evals/` tree. In a wheel install outside a checkout,
+# repo-local `verification/evals/` tree. In a wheel install outside a checkout,
 # the subcommand was silently missing — a concrete shipped-truth gap
 # between docs and the installed package. The framework now lives inside
 # the wheel at `health_agent_infra.evals`, and these tests lock that

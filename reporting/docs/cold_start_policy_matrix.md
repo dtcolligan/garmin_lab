@@ -3,7 +3,7 @@
 > **Status.** Authored 2026-04-25 as v0.1.7 W24. Documents the
 > per-domain cold-start decisions; preserves the running/strength/stress
 > vs recovery/sleep/nutrition asymmetry per the Codex r3 verdict.
-> Ships alongside `safety/tests/test_cold_start_policy_matrix.py`
+> Ships alongside `verification/tests/test_cold_start_policy_matrix.py`
 > which pins each domain's decision against this doc.
 
 ---
@@ -94,7 +94,7 @@ relax. This is intentional — see the per-domain rationale below.
   uncertainty token. Once a wearable populates ``sleep_hours``,
   classification proceeds.
 
-### Nutrition — DOES NOT RELAX (`domains/nutrition/classify.py:162-188`; `safety/tests/test_nutrition_cold_start_non_relaxation.py`)
+### Nutrition — DOES NOT RELAX (`domains/nutrition/classify.py:162-188`; `verification/tests/test_nutrition_cold_start_non_relaxation.py`)
 
 - **Why no relaxation.** Nutrition is macros-only and entirely
   manual-intake-driven. ``insufficient`` means the day has no
@@ -143,6 +143,6 @@ moderate (or low, for stress) confidence.
 
 ## Testing contract
 
-`safety/tests/test_cold_start_policy_matrix.py` pins each row of
+`verification/tests/test_cold_start_policy_matrix.py` pins each row of
 the table above. Changing a domain's decision requires updating both
 this doc and the test in the same commit.

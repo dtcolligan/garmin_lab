@@ -10,7 +10,7 @@ classified by Python, bounded by policy rules, narrated by markdown skills,
 and committed atomically to a local SQLite database.
 
 [![PyPI](https://img.shields.io/pypi/v/health-agent-infra)](https://pypi.org/project/health-agent-infra/)
-[![Tests](https://img.shields.io/badge/tests-2081_collected-green)](safety/tests/)
+[![Tests](https://img.shields.io/badge/tests-2081_collected-green)](verification/tests/)
 [![Python](https://img.shields.io/badge/python-3.11+-blue)](pyproject.toml)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
