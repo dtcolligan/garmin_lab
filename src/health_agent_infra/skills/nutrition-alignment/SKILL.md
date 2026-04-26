@@ -1,7 +1,7 @@
 ---
 name: nutrition-alignment
 description: Produce a bounded NutritionProposal for today by consuming the runtime-computed `classified_state` + `policy_result` and applying judgment-only steps — action matrix, rationale prose, honest handling of micronutrient unavailability. The runtime already did every band, every score, and every R-rule; this skill does not re-derive them. Macros-only v1 per the Phase 2.5 retrieval-gate outcome.
-allowed-tools: Read, Bash(hai state snapshot *), Bash(hai state read *), Bash(hai propose *)
+allowed-tools: Read, Bash(hai state snapshot *), Bash(hai state read *), Bash(hai propose *), Bash(hai intent list *), Bash(hai target list *)
 disable-model-invocation: false
 ---
 

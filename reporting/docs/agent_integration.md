@@ -178,6 +178,43 @@ post (or whether to narrow ``--domains`` to scope the day).
 - Call ``hai`` subcommands outside the ``allowed-tools`` scope of
   whichever skill is currently active.
 
+## Snapshot schema v2 (v0.1.8 transition note)
+
+`snapshot.schema_version` was bumped from `state_snapshot.v1` to
+`state_snapshot.v2` in v0.1.8. The transition is purely additive —
+every v1 field is preserved unchanged in shape. v1 consumers that
+ignore unknown keys will continue to work without modification; v1
+consumers that strictly enforce a closed key set should bump their
+pinned version to v2 before upgrading.
+
+The new fields:
+
+- **`snapshot.<domain>.review_summary`** — code-owned per-domain
+  review summary (W48). Carries counts, rates, intensity-delta
+  distribution, source ids, and stable visibility-only tokens
+  (`outcome_pattern_recent_negative`,
+  `outcome_pattern_recent_positive`, `outcome_pattern_mixed`,
+  `outcome_pattern_insufficient_denominator`). Skills may narrate
+  these tokens but MUST NOT compute them or change actions from
+  them.
+- **`snapshot.<domain>.data_quality`** — per-domain data-quality
+  block (W51). Carries `coverage_band`, `missingness`,
+  `source_unavailable`, `user_input_pending`,
+  `cold_start_window_state`. Mirrors the rows in
+  `data_quality_daily` populated by the `hai clean` write path.
+- **`snapshot.intent`** — top-level array of active intent rows
+  whose `[scope_start, scope_end]` window covers `as_of_date`
+  (W49). Each row carries the intent_item shape from migration
+  019. Empty list pre-019 / when no active intent is set.
+- **`snapshot.target`** — top-level array of active target rows
+  whose effective window covers `as_of_date` (W50). Each row
+  carries the target shape from migration 020. Empty list
+  pre-020 / when no active target is set.
+
+No v1 field was removed or had its shape changed. A v1 consumer
+reading the v2 snapshot sees the same data it always saw, plus
+new sibling fields it can ignore.
+
 ## MCP
 
 No MCP server ships in v1. A future wrapper exposing CLI

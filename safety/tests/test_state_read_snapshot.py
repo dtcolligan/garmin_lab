@@ -486,7 +486,7 @@ def test_snapshot_envelope_has_expected_top_level_keys(tmp_path: Path):
         "sources",
     }
     assert expected.issubset(snap.keys())
-    assert snap["schema_version"] == "state_snapshot.v1"
+    assert snap["schema_version"] == "state_snapshot.v2"
     # Freshness block is present-but-empty on a DB with no sync rows.
     assert snap["sources"] == {}
 

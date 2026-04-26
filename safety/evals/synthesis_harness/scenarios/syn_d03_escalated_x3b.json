@@ -1,0 +1,34 @@
+{
+  "scenario_id": "syn_d03_escalated_x3b",
+  "description": "Escalated day — ACWR ratio at 1.6 triggers X3b (block any hard session). Synthesis must cite X3b and reflect the running action's escalate_for_user_review draft.",
+  "bundle": {
+    "snapshot": {
+      "running": {
+        "classified_state": {
+          "weekly_mileage_trend_band": "spiking",
+          "hard_session_load_band": "high",
+          "freshness_band": "fatigued",
+          "coverage_band": "full",
+          "running_readiness_status": "hold"
+        }
+      }
+    },
+    "proposals": [
+      {"domain": "running", "action": "proceed_with_planned_run", "draft_action": "escalate_for_user_review"}
+    ],
+    "phase_a_firings": [
+      {
+        "rule_id": "X3b",
+        "tier": "block",
+        "affected_domain": "running",
+        "recommended_mutation": {"action": "escalate_for_user_review"},
+        "source_signals": {"acwr_ratio": 1.6}
+      }
+    ]
+  },
+  "expected": {
+    "firing_summaries": {
+      "X3b": "block applied to running"
+    }
+  }
+}

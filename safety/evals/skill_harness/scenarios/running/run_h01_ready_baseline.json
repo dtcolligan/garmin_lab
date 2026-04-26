@@ -1,0 +1,49 @@
+{
+  "scenario_id": "run_h01_ready_baseline",
+  "domain": "running",
+  "description": "Well-rested ready day with a planned easy run. Skill should pick proceed_with_planned_run, name each contributing band, confidence high, no vendor-disagreement uncertainty.",
+  "input": {
+    "user_id": "u_eval",
+    "for_date": "2026-04-17",
+    "raw_summary": {
+      "as_of_date": "2026-04-17",
+      "user_id": "u_eval",
+      "training_load_baseline": 400.0,
+      "training_load_ratio_vs_baseline": 1.0,
+      "trailing_7d_training_load": 400.0,
+      "acwr_ratio": 1.0,
+      "training_readiness_pct": 80
+    },
+    "running_today": {
+      "as_of_date": "2026-04-17",
+      "total_distance_m": 5000.0,
+      "total_duration_s": 1500.0,
+      "moderate_intensity_min": 8,
+      "vigorous_intensity_min": 0
+    },
+    "running_history": [
+      {"as_of_date": "2026-04-16", "total_distance_m": 6000.0, "vigorous_intensity_min": 0, "total_duration_s": 1700},
+      {"as_of_date": "2026-04-15", "total_distance_m": 8000.0, "vigorous_intensity_min": 5, "total_duration_s": 2300},
+      {"as_of_date": "2026-04-14", "total_distance_m": 5000.0, "vigorous_intensity_min": 0, "total_duration_s": 1500},
+      {"as_of_date": "2026-04-13", "total_distance_m": 6000.0, "vigorous_intensity_min": 0, "total_duration_s": 1700},
+      {"as_of_date": "2026-04-12", "total_distance_m": 12000.0, "vigorous_intensity_min": 0, "total_duration_s": 3600},
+      {"as_of_date": "2026-04-11", "total_distance_m": 0.0, "vigorous_intensity_min": 0, "total_duration_s": 0}
+    ],
+    "recovery_today": {
+      "training_readiness_level": "High",
+      "training_readiness_component_mean_pct": 80
+    }
+  },
+  "expected": {
+    "action": "proceed_with_planned_run",
+    "confidence_at_or_below": "high",
+    "policy_decisions_preserved": true,
+    "rationale_must_reference_bands": [
+      "weekly_mileage_trend",
+      "freshness"
+    ],
+    "uncertainty_must_not_contain": [
+      "agent_vendor_acwr_disagreement"
+    ]
+  }
+}

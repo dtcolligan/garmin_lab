@@ -1,0 +1,23 @@
+{
+  "scenario_id": "run_h02_insufficient_defers",
+  "domain": "running",
+  "description": "Brand-new user with no running history. R-coverage forces defer_decision_insufficient_signal regardless of any planned session.",
+  "input": {
+    "user_id": "u_eval",
+    "for_date": "2026-04-17",
+    "raw_summary": {
+      "as_of_date": "2026-04-17",
+      "user_id": "u_eval"
+    },
+    "running_today": null,
+    "running_history": []
+  },
+  "expected": {
+    "action": "defer_decision_insufficient_signal",
+    "confidence_at_or_below": "low",
+    "policy_decisions_preserved": true,
+    "rationale_must_reference_bands": [
+      "coverage_band"
+    ]
+  }
+}

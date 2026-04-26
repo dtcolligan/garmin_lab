@@ -761,6 +761,46 @@ def _project_clean_into_state(
                     project_activity(
                         conn, activity=a, commit_after=False,
                     )
+            # v0.1.8 W51 — project data_quality_daily for as_of_date as
+            # part of the same atomic clean-write transaction. Codex P1-1
+            # fix: data-quality projection MUST live on a write path, not
+            # on `hai stats --data-quality` which is contractually
+            # read-only. We build an in-memory snapshot for the side
+            # effect (no second DB write) and let the projector upsert
+            # the per-(domain, source) rows.
+            try:
+                from health_agent_infra.core.data_quality.projector import (
+                    project_data_quality_for_date,
+                )
+                from health_agent_infra.core.state import build_snapshot
+
+                snapshot = build_snapshot(
+                    conn,
+                    as_of_date=as_of_date,
+                    user_id=user_id,
+                    now_local=datetime.now(),
+                )
+                project_data_quality_for_date(
+                    conn, snapshot=snapshot, commit_after=False,
+                )
+            except Exception as exc:  # noqa: BLE001 — see Codex R2-1
+                # Codex round-2 R2-1 fix: data-quality projection is
+                # best-effort (we never block the accepted-state clean
+                # commit on it), but failures must be visible — a
+                # silently-skipped projector means stats --data-quality
+                # returns empty without explanation. Surface to stderr
+                # while letting the outer transaction commit the
+                # accepted-state writes that already happened.
+                print(
+                    f"warning: data-quality projection failed for "
+                    f"as_of_date={as_of_date.isoformat()} "
+                    f"user_id={user_id}: {type(exc).__name__}: {exc}. "
+                    f"Accepted-state writes proceed; "
+                    f"`hai stats --data-quality` will report empty "
+                    f"rows for this date until the projection is "
+                    f"re-run.",
+                    file=sys.stderr,
+                )
             conn.commit()
         except Exception:
             conn.rollback()
@@ -2002,6 +2042,405 @@ def cmd_review_record(args: argparse.Namespace) -> int:
 
     _emit_json(outcome.to_dict())
     return exit_codes.OK
+
+
+# ---------------------------------------------------------------------------
+# v0.1.8 W49 — intent ledger commands (`hai intent ...`)
+# ---------------------------------------------------------------------------
+
+
+def _intent_open_db(args: argparse.Namespace):
+    from health_agent_infra.core.state import (
+        open_connection,
+        resolve_db_path,
+    )
+
+    db_path = resolve_db_path(args.db_path)
+    if not db_path.exists():
+        return None, db_path
+    return open_connection(db_path), db_path
+
+
+def _intent_record_to_dict(record) -> dict[str, Any]:
+    """Project an IntentRecord to the JSON shape the CLI emits."""
+
+    return record.to_row()
+
+
+def _add_intent_common(args: argparse.Namespace, *, defaults: dict[str, Any]) -> int:
+    """Shared body for `hai intent training add-session` /
+    `hai intent sleep set-window` / generic `hai intent add`. Resolves
+    flags, calls add_intent, emits the persisted row as JSON."""
+
+    from datetime import date as _date
+
+    from health_agent_infra.core.intent import add_intent
+    from health_agent_infra.core.intent.store import IntentValidationError
+
+    conn, db_path = _intent_open_db(args)
+    if conn is None:
+        sys.stderr.write(
+            f"hai intent: no state DB at {db_path}. Run `hai init` first.\n"
+        )
+        return exit_codes.USER_INPUT
+
+    try:
+        scope_start = _date.fromisoformat(args.scope_start)
+        scope_end = (
+            _date.fromisoformat(args.scope_end) if args.scope_end else None
+        )
+        payload: dict[str, Any] = {}
+        if getattr(args, "payload_json", None):
+            payload = json.loads(args.payload_json)
+
+        try:
+            record = add_intent(
+                conn,
+                user_id=args.user_id,
+                domain=defaults.get("domain", args.domain),
+                intent_type=defaults.get("intent_type", args.intent_type),
+                scope_start=scope_start,
+                scope_end=scope_end,
+                scope_type=getattr(args, "scope_type", "day"),
+                status=getattr(args, "status", "active"),
+                priority=getattr(args, "priority", "normal"),
+                flexibility=getattr(args, "flexibility", "flexible"),
+                payload=payload,
+                reason=args.reason or "",
+                source=args.source,
+                ingest_actor=args.ingest_actor,
+            )
+        except IntentValidationError as exc:
+            sys.stderr.write(f"hai intent: {exc}\n")
+            return exit_codes.USER_INPUT
+
+        _emit_json(_intent_record_to_dict(record))
+        return exit_codes.OK
+    finally:
+        conn.close()
+
+
+def cmd_intent_training_add_session(args: argparse.Namespace) -> int:
+    """`hai intent training add-session` — convenience alias for
+    domain=running/strength training_session intent. Defaults the
+    domain to ``running`` (the most common session-level intent in
+    v0.1.8); override via ``--domain strength`` for a strength
+    session."""
+
+    return _add_intent_common(
+        args,
+        defaults={"intent_type": "training_session"},
+    )
+
+
+def cmd_intent_sleep_set_window(args: argparse.Namespace) -> int:
+    """`hai intent sleep set-window` — convenience alias for
+    domain=sleep sleep_window intent."""
+
+    return _add_intent_common(
+        args,
+        defaults={"domain": "sleep", "intent_type": "sleep_window"},
+    )
+
+
+def cmd_intent_list(args: argparse.Namespace) -> int:
+    """`hai intent list` — list intent rows. Defaults to active rows
+    that cover today; ``--all`` returns every row."""
+
+    from datetime import date as _date
+
+    from health_agent_infra.core.intent import (
+        list_active_intent,
+        list_intent,
+    )
+
+    conn, db_path = _intent_open_db(args)
+    if conn is None:
+        sys.stderr.write(
+            f"hai intent: no state DB at {db_path}. Run `hai init` first.\n"
+        )
+        return exit_codes.USER_INPUT
+
+    try:
+        if getattr(args, "all", False):
+            records = list_intent(
+                conn,
+                user_id=args.user_id,
+                domain=getattr(args, "domain", None),
+                status=getattr(args, "status", None),
+            )
+        else:
+            as_of = (
+                _date.fromisoformat(args.as_of)
+                if getattr(args, "as_of", None)
+                else _date.today()
+            )
+            records = list_active_intent(
+                conn,
+                user_id=args.user_id,
+                as_of_date=as_of,
+                domain=getattr(args, "domain", None),
+            )
+        _emit_json([_intent_record_to_dict(r) for r in records])
+        return exit_codes.OK
+    finally:
+        conn.close()
+
+
+def cmd_intent_training_list(args: argparse.Namespace) -> int:
+    """`hai intent training list` — alias for `hai intent list
+    --domain running`."""
+
+    args.domain = "running"
+    return cmd_intent_list(args)
+
+
+def cmd_intent_commit(args: argparse.Namespace) -> int:
+    """`hai intent commit --intent-id ID` — promote a `proposed`
+    intent row to `active`. The W57-required user-gated commit path
+    for agent-proposed rows."""
+
+    from health_agent_infra.core.intent import commit_intent
+
+    conn, db_path = _intent_open_db(args)
+    if conn is None:
+        sys.stderr.write(
+            f"hai intent: no state DB at {db_path}. Run `hai init` first.\n"
+        )
+        return exit_codes.USER_INPUT
+
+    try:
+        ok = commit_intent(
+            conn, intent_id=args.intent_id, user_id=args.user_id,
+        )
+        if not ok:
+            sys.stderr.write(
+                f"hai intent commit: no proposed intent_id={args.intent_id} "
+                f"for user_id={args.user_id} (already active, archived, or "
+                f"missing).\n"
+            )
+            return exit_codes.USER_INPUT
+        _emit_json({"intent_id": args.intent_id, "status": "active"})
+        return exit_codes.OK
+    finally:
+        conn.close()
+
+
+def cmd_intent_archive(args: argparse.Namespace) -> int:
+    """`hai intent archive --intent-id ID` — flip a row to
+    ``status='archived'``."""
+
+    from health_agent_infra.core.intent import archive_intent
+
+    conn, db_path = _intent_open_db(args)
+    if conn is None:
+        sys.stderr.write(
+            f"hai intent: no state DB at {db_path}. Run `hai init` first.\n"
+        )
+        return exit_codes.USER_INPUT
+
+    try:
+        ok = archive_intent(
+            conn,
+            intent_id=args.intent_id,
+            user_id=args.user_id,
+        )
+        if not ok:
+            sys.stderr.write(
+                f"hai intent archive: no intent_id={args.intent_id} "
+                f"for user_id={args.user_id}.\n"
+            )
+            return exit_codes.USER_INPUT
+        _emit_json({"intent_id": args.intent_id, "status": "archived"})
+        return exit_codes.OK
+    finally:
+        conn.close()
+
+
+# ---------------------------------------------------------------------------
+# v0.1.8 W50 — target ledger commands (`hai target ...`)
+# ---------------------------------------------------------------------------
+
+
+def cmd_target_set(args: argparse.Namespace) -> int:
+    """`hai target set` — insert a target row (no implicit archive).
+
+    Replacement of an existing target should go through an explicit
+    `supersede_target` path; the simple `set` path appends rather than
+    replaces, matching the W50 archive/supersession discipline.
+    """
+
+    from datetime import date as _date
+
+    from health_agent_infra.core.target import add_target
+    from health_agent_infra.core.target.store import TargetValidationError
+
+    conn, db_path = _intent_open_db(args)  # same DB-open helper
+    if conn is None:
+        sys.stderr.write(
+            f"hai target: no state DB at {db_path}. Run `hai init` first.\n"
+        )
+        return exit_codes.USER_INPUT
+
+    try:
+        try:
+            value: Any
+            if args.value_json is not None:
+                decoded = json.loads(args.value_json)
+                value = decoded.get("value", decoded) if isinstance(decoded, dict) else decoded
+            else:
+                value = args.value
+                # Convert numeric values when callers passed --value with a
+                # number-shaped string. JSON-decoding the bare value gives
+                # us int/float/bool when applicable; falls back to the
+                # original string on parse failure.
+                try:
+                    value = json.loads(args.value)
+                except (ValueError, TypeError):
+                    pass
+
+            effective_from = _date.fromisoformat(args.effective_from)
+            effective_to = (
+                _date.fromisoformat(args.effective_to)
+                if args.effective_to else None
+            )
+            review_after = (
+                _date.fromisoformat(args.review_after)
+                if args.review_after else None
+            )
+
+            record = add_target(
+                conn,
+                user_id=args.user_id,
+                domain=args.domain,
+                target_type=args.target_type,
+                value=value,
+                unit=args.unit,
+                effective_from=effective_from,
+                effective_to=effective_to,
+                review_after=review_after,
+                lower_bound=args.lower_bound,
+                upper_bound=args.upper_bound,
+                status=args.status,
+                reason=args.reason or "",
+                source=args.source,
+                ingest_actor=args.ingest_actor,
+            )
+        except TargetValidationError as exc:
+            sys.stderr.write(f"hai target: {exc}\n")
+            return exit_codes.USER_INPUT
+        except json.JSONDecodeError as exc:
+            sys.stderr.write(f"hai target: --value-json malformed: {exc}\n")
+            return exit_codes.USER_INPUT
+
+        _emit_json(record.to_row())
+        return exit_codes.OK
+    finally:
+        conn.close()
+
+
+def cmd_target_list(args: argparse.Namespace) -> int:
+    """`hai target list` — list active rows that cover today (default)
+    or every row when ``--all`` is set."""
+
+    from datetime import date as _date
+
+    from health_agent_infra.core.target import (
+        list_active_target,
+        list_target,
+    )
+
+    conn, db_path = _intent_open_db(args)
+    if conn is None:
+        sys.stderr.write(
+            f"hai target: no state DB at {db_path}. Run `hai init` first.\n"
+        )
+        return exit_codes.USER_INPUT
+
+    try:
+        if getattr(args, "all", False):
+            records = list_target(
+                conn,
+                user_id=args.user_id,
+                domain=getattr(args, "domain", None),
+                status=getattr(args, "status", None),
+                target_type=getattr(args, "target_type", None),
+            )
+        else:
+            as_of = (
+                _date.fromisoformat(args.as_of)
+                if getattr(args, "as_of", None)
+                else _date.today()
+            )
+            records = list_active_target(
+                conn,
+                user_id=args.user_id,
+                as_of_date=as_of,
+                domain=getattr(args, "domain", None),
+            )
+        _emit_json([r.to_row() for r in records])
+        return exit_codes.OK
+    finally:
+        conn.close()
+
+
+def cmd_target_commit(args: argparse.Namespace) -> int:
+    """`hai target commit --target-id ID` — promote a `proposed`
+    target row to `active`. The W57-required user-gated commit path
+    for agent-proposed rows."""
+
+    from health_agent_infra.core.target import commit_target
+
+    conn, db_path = _intent_open_db(args)
+    if conn is None:
+        sys.stderr.write(
+            f"hai target: no state DB at {db_path}. Run `hai init` first.\n"
+        )
+        return exit_codes.USER_INPUT
+
+    try:
+        ok = commit_target(
+            conn, target_id=args.target_id, user_id=args.user_id,
+        )
+        if not ok:
+            sys.stderr.write(
+                f"hai target commit: no proposed target_id={args.target_id} "
+                f"for user_id={args.user_id} (already active, archived, or "
+                f"missing).\n"
+            )
+            return exit_codes.USER_INPUT
+        _emit_json({"target_id": args.target_id, "status": "active"})
+        return exit_codes.OK
+    finally:
+        conn.close()
+
+
+def cmd_target_archive(args: argparse.Namespace) -> int:
+    """`hai target archive --target-id ID` — flip status to archived."""
+
+    from health_agent_infra.core.target import archive_target
+
+    conn, db_path = _intent_open_db(args)
+    if conn is None:
+        sys.stderr.write(
+            f"hai target: no state DB at {db_path}. Run `hai init` first.\n"
+        )
+        return exit_codes.USER_INPUT
+
+    try:
+        ok = archive_target(
+            conn, target_id=args.target_id, user_id=args.user_id,
+        )
+        if not ok:
+            sys.stderr.write(
+                f"hai target archive: no target_id={args.target_id} "
+                f"for user_id={args.user_id}.\n"
+            )
+            return exit_codes.USER_INPUT
+        _emit_json({"target_id": args.target_id, "status": "archived"})
+        return exit_codes.OK
+    finally:
+        conn.close()
 
 
 def cmd_review_summary(args: argparse.Namespace) -> int:
@@ -3375,6 +3814,280 @@ def cmd_config_show(args: argparse.Namespace) -> int:
     return exit_codes.OK
 
 
+# ---------------------------------------------------------------------------
+# v0.1.8 W39 — config validate / diff / set
+# ---------------------------------------------------------------------------
+
+
+def _walk_keys(d: dict, prefix: tuple = ()) -> list[tuple[tuple, Any]]:
+    """Flatten a nested dict into ``(path_tuple, leaf_value)`` pairs.
+
+    Lists are treated as leaves (matches `_deep_merge` semantics).
+    """
+
+    out: list[tuple[tuple, Any]] = []
+    for k, v in d.items():
+        if isinstance(v, dict):
+            out.extend(_walk_keys(v, prefix + (k,)))
+        else:
+            out.append((prefix + (k,), v))
+    return out
+
+
+def _lookup(d: dict, path: tuple) -> Any:
+    cur: Any = d
+    for k in path:
+        if not isinstance(cur, dict) or k not in cur:
+            return _MISSING
+        cur = cur[k]
+    return cur
+
+
+_MISSING = object()
+
+
+def _review_summary_range_issues(user_overrides: dict) -> list[dict[str, Any]]:
+    """Per-key local range checks for [policy.review_summary] keys.
+
+    Returns a list of issue dicts with kind='range_violation' that the
+    main validator concatenates to its other findings. Range violations
+    are always blocking (not gated on --strict) — they would produce
+    misbehaving W48 tokens at use time, not just an unknown surface.
+    """
+
+    block = (
+        user_overrides.get("policy", {}).get("review_summary", {})
+        if isinstance(user_overrides.get("policy"), dict)
+        else {}
+    )
+    if not isinstance(block, dict):
+        return []
+
+    out: list[dict[str, Any]] = []
+
+    def _flag(path: str, detail: str) -> None:
+        out.append({
+            "path": path, "kind": "range_violation", "detail": detail,
+        })
+
+    # Codex R2-3 helper: bool is a subclass of int in Python, so a
+    # naked `isinstance(v, (int, float))` accepts True/False. Range
+    # checks must reject bools as range-violation candidates so they
+    # surface via the upstream `type_mismatch` path instead.
+    def _is_real_number(v: Any) -> bool:
+        return isinstance(v, (int, float)) and not isinstance(v, bool)
+
+    if "window_days" in block:
+        v = block["window_days"]
+        if _is_real_number(v) and v < 1:
+            _flag(
+                "policy.review_summary.window_days",
+                f"must be >= 1; got {v}",
+            )
+    if "min_denominator" in block:
+        v = block["min_denominator"]
+        if _is_real_number(v) and v < 0:
+            _flag(
+                "policy.review_summary.min_denominator",
+                f"must be >= 0; got {v}",
+            )
+    for key in ("recent_negative_threshold", "recent_positive_threshold"):
+        if key in block:
+            v = block[key]
+            if _is_real_number(v) and v < 0:
+                _flag(
+                    f"policy.review_summary.{key}",
+                    f"must be >= 0; got {v}",
+                )
+    lower = block.get("mixed_token_lower_bound")
+    upper = block.get("mixed_token_upper_bound")
+    for key, val in (
+        ("mixed_token_lower_bound", lower),
+        ("mixed_token_upper_bound", upper),
+    ):
+        if _is_real_number(val) and not (0 <= val <= 1):
+            _flag(
+                f"policy.review_summary.{key}",
+                f"must be in [0, 1]; got {val}",
+            )
+    if (
+        _is_real_number(lower)
+        and _is_real_number(upper)
+        and lower > upper
+    ):
+        _flag(
+            "policy.review_summary.mixed_token_lower_bound",
+            f"must be <= mixed_token_upper_bound ({upper}); got {lower}",
+        )
+    return out
+
+
+def cmd_config_validate(args: argparse.Namespace) -> int:
+    """`hai config validate` — parse the user's TOML and report
+    structural / type problems against ``DEFAULT_THRESHOLDS``.
+
+    Exit code mapping:
+
+      - OK: file is clean (or doesn't exist — not an error).
+      - USER_INPUT: file exists but is malformed, or has unknown leaf
+        keys when ``--strict`` is set, or has a leaf type that doesn't
+        match the corresponding default.
+    """
+
+    from health_agent_infra.core.config import DEFAULT_THRESHOLDS
+
+    path = Path(args.path).expanduser() if args.path else user_config_path()
+    if not path.exists():
+        _emit_json({
+            "source_path": str(path),
+            "source_exists": False,
+            "status": "ok",
+            "issues": [],
+        })
+        return exit_codes.OK
+
+    import tomllib
+    try:
+        with path.open("rb") as fh:
+            user_overrides = tomllib.load(fh)
+    except tomllib.TOMLDecodeError as exc:
+        sys.stderr.write(f"hai config validate: malformed TOML at {path}: {exc}\n")
+        _emit_json({
+            "source_path": str(path),
+            "source_exists": True,
+            "status": "malformed",
+            "issues": [{"path": "<root>", "kind": "toml_parse_error", "detail": str(exc)}],
+        })
+        return exit_codes.USER_INPUT
+
+    issues: list[dict[str, Any]] = []
+    for path_tuple, value in _walk_keys(user_overrides):
+        default_value = _lookup(DEFAULT_THRESHOLDS, path_tuple)
+        dotted = ".".join(path_tuple)
+        if default_value is _MISSING:
+            issues.append({
+                "path": dotted,
+                "kind": "unknown_key",
+                "detail": "key not present in DEFAULT_THRESHOLDS",
+            })
+            continue
+        # Compare scalar leaf types. Both being numeric (int/float) is
+        # allowed because TOML's integer/float distinction shouldn't
+        # break a user who wrote `0` instead of `0.0`.
+        # Codex R2-3 fix: `bool` is a subclass of `int` in Python, so
+        # `isinstance(True, (int, float))` is True. Without the explicit
+        # bool guard a user could land `window_days = true` and have it
+        # silently coerced to `1`. Bools must only match bool defaults.
+        if isinstance(default_value, bool) and not isinstance(value, bool):
+            issues.append({
+                "path": dotted,
+                "kind": "type_mismatch",
+                "detail": f"expected bool; got {type(value).__name__}",
+            })
+        elif (
+            isinstance(default_value, (int, float))
+            and not isinstance(default_value, bool)
+            and (
+                not isinstance(value, (int, float))
+                or isinstance(value, bool)
+            )
+        ):
+            issues.append({
+                "path": dotted,
+                "kind": "type_mismatch",
+                "detail": f"expected number; got {type(value).__name__}",
+            })
+        elif isinstance(default_value, str) and not isinstance(value, str):
+            issues.append({
+                "path": dotted,
+                "kind": "type_mismatch",
+                "detail": f"expected str; got {type(value).__name__}",
+            })
+        elif isinstance(default_value, list) and not isinstance(value, list):
+            issues.append({
+                "path": dotted,
+                "kind": "type_mismatch",
+                "detail": f"expected list; got {type(value).__name__}",
+            })
+
+    # v0.1.8 W39 / Codex P2-3 fix: per-key local range checks for
+    # the [policy.review_summary] block. PLAN.md § 2 W39 promised
+    # "numeric values satisfy local range checks where possible";
+    # the v0.1.8 ship omitted these. Add the obvious bounds for the
+    # W48 token thresholds so a user can't land window_days=-7 or
+    # mixed_token_lower_bound > mixed_token_upper_bound silently.
+    issues.extend(_review_summary_range_issues(user_overrides))
+
+    strict = bool(getattr(args, "strict", False))
+    has_blocking = any(
+        i["kind"] in ("toml_parse_error", "type_mismatch", "range_violation")
+        or (strict and i["kind"] == "unknown_key")
+        for i in issues
+    )
+
+    _emit_json({
+        "source_path": str(path),
+        "source_exists": True,
+        "status": "issues" if issues else "ok",
+        "issues": issues,
+        "strict": strict,
+    })
+    return exit_codes.USER_INPUT if has_blocking else exit_codes.OK
+
+
+def cmd_config_diff(args: argparse.Namespace) -> int:
+    """`hai config diff` — list user-overridden keys with default vs
+    user vs effective values."""
+
+    from health_agent_infra.core.config import DEFAULT_THRESHOLDS
+
+    path = Path(args.path).expanduser() if args.path else user_config_path()
+    try:
+        merged = load_thresholds(path=path)
+    except ConfigError as exc:
+        sys.stderr.write(f"hai config diff: {exc}\n")
+        return exit_codes.USER_INPUT
+
+    if not path.exists():
+        _emit_json({
+            "source_path": str(path),
+            "source_exists": False,
+            "diffs": [],
+        })
+        return exit_codes.OK
+
+    import tomllib
+    try:
+        with path.open("rb") as fh:
+            user_overrides = tomllib.load(fh)
+    except tomllib.TOMLDecodeError as exc:
+        sys.stderr.write(f"hai config diff: malformed TOML at {path}: {exc}\n")
+        return exit_codes.USER_INPUT
+
+    diffs: list[dict[str, Any]] = []
+    for path_tuple, override_value in _walk_keys(user_overrides):
+        default_value = _lookup(DEFAULT_THRESHOLDS, path_tuple)
+        effective_value = _lookup(merged, path_tuple)
+        diffs.append({
+            "path": ".".join(path_tuple),
+            "default": (
+                None if default_value is _MISSING else default_value
+            ),
+            "override": override_value,
+            "effective": (
+                None if effective_value is _MISSING else effective_value
+            ),
+            "key_known": default_value is not _MISSING,
+        })
+
+    _emit_json({
+        "source_path": str(path),
+        "source_exists": True,
+        "diffs": diffs,
+    })
+    return exit_codes.OK
+
+
 def cmd_exercise_search(args: argparse.Namespace) -> int:
     """Rank top taxonomy hits for a free-text exercise name.
 
@@ -3727,12 +4440,42 @@ def _run_daily(
             conn, as_of_date=as_of, user_id=user_id, lookback_days=14,
             evidence_bundle=evidence_bundle,
         )
+        # v0.1.8 W43 / Codex P2-1 fix: populate the snapshot stage
+        # block with the per-domain bands + missingness +
+        # review_summary tokens so the `--auto --explain` block has
+        # the W48 signal it was supposed to surface. Reads
+        # already-built snapshot data; no recomputation.
+        _domains_present = sorted(
+            k for k in snapshot.keys() if k in _DAILY_SUPPORTED_DOMAINS
+        )
+        _missingness_per_domain = {
+            d: (snapshot.get(d, {}) or {}).get("missingness")
+            for d in _domains_present
+        }
+        _classified_bands_per_domain: dict[str, dict[str, Any]] = {}
+        _review_summary_tokens_per_domain: dict[str, list[str]] = {}
+        for d in _domains_present:
+            block = snapshot.get(d, {}) or {}
+            classified = block.get("classified_state") or {}
+            if isinstance(classified, dict):
+                _classified_bands_per_domain[d] = {
+                    k: v for k, v in classified.items()
+                    if isinstance(k, str) and k.endswith("_band")
+                }
+            review_summary = block.get("review_summary") or {}
+            if isinstance(review_summary, dict):
+                _review_summary_tokens_per_domain[d] = list(
+                    review_summary.get("tokens") or []
+                )
         report["stages"]["snapshot"] = {
             "status": "ran",
-            "domains_in_bundle": sorted(
-                k for k in snapshot.keys() if k in _DAILY_SUPPORTED_DOMAINS
-            ),
+            "domains_present": _domains_present,
+            # Backward-compatible alias for any pre-W43 consumer.
+            "domains_in_bundle": _domains_present,
             "full_bundle": evidence_bundle is not None,
+            "missingness_per_domain": _missingness_per_domain,
+            "classified_bands_per_domain": _classified_bands_per_domain,
+            "review_summary_tokens_per_domain": _review_summary_tokens_per_domain,
         }
 
         # Stage 3b: intake gaps — the agent reads this to compose one
@@ -3826,6 +4569,8 @@ def _run_daily(
                     missing_domains=missing_expected,
                     intake_gaps=gaps_for_manifest,
                 )
+            if getattr(args, "auto", False) and getattr(args, "explain", False):
+                report["explain"] = _build_daily_explain_block(report)
             _emit_json(report)
             return exit_codes.OK
 
@@ -3889,6 +4634,8 @@ def _run_daily(
             missing_domains=[],
             intake_gaps=[],
         )
+    if getattr(args, "auto", False) and getattr(args, "explain", False):
+        report["explain"] = _build_daily_explain_block(report)
     _emit_json(report)
     # D3 §hai daily hint — when stderr is an interactive TTY, surface
     # `hai today` as the next step so new users discover the user
@@ -4391,6 +5138,48 @@ def cmd_stats(args: argparse.Namespace) -> int:
     user_id = getattr(args, "user_id", "u_local_1")
     limit = max(1, int(getattr(args, "limit", 7) or 7))
 
+    # v0.1.8 W38 — early branch when --outcomes is set. Returns the
+    # code-owned review-outcome summary (W48) and skips the default
+    # sync/events report entirely. No CLI-side arithmetic — every
+    # field comes from build_review_summary, which is the single
+    # source of truth for outcome aggregation.
+    if getattr(args, "outcomes", False):
+        return _emit_outcomes_stats(
+            db_path=db_path,
+            user_id=user_id,
+            domain=getattr(args, "domain", None),
+            since_days=getattr(args, "since", None),
+            as_json=getattr(args, "json", False),
+        )
+
+    # v0.1.8 W51 — `hai stats --data-quality`.
+    if getattr(args, "data_quality", False):
+        return _emit_data_quality_stats(
+            db_path=db_path,
+            user_id=user_id,
+            domain=getattr(args, "domain", None),
+            since_days=getattr(args, "since", None) or 7,
+            as_json=getattr(args, "json", False),
+        )
+
+    # v0.1.8 W40 — `hai stats --baselines`.
+    if getattr(args, "baselines", False):
+        return _emit_baselines_stats(
+            db_path=db_path,
+            user_id=user_id,
+            domain=getattr(args, "domain", None),
+            as_json=getattr(args, "json", False),
+        )
+
+    # v0.1.8 W46 — `hai stats --funnel`.
+    if getattr(args, "funnel", False):
+        return _emit_funnel_stats(
+            db_path=db_path,
+            user_id=user_id,
+            since_days=getattr(args, "since", None) or 14,
+            as_json=getattr(args, "json", False),
+        )
+
     conn = open_connection(db_path)
     try:
         freshness = latest_successful_sync_per_source(conn, user_id=user_id)
@@ -4461,6 +5250,487 @@ def cmd_stats(args: argparse.Namespace) -> int:
     else:
         sys.stdout.write(_render_stats_text(report))
     return exit_codes.OK
+
+
+def _build_daily_explain_block(report: dict[str, Any]) -> dict[str, Any]:
+    """v0.1.8 W43 — derive a per-stage explain block from a `hai daily`
+    report dict. Reads what the stages already populated; never
+    recomputes or fabricates fields.
+
+    The explain block is intentionally a thin re-shaping of
+    ``report["stages"]`` so consumers don't have to reach into the
+    nested stage dicts to answer common questions. Every value is
+    sourced from the corresponding stage dict.
+    """
+
+    stages = report.get("stages") or {}
+
+    def _stage(name: str) -> dict[str, Any]:
+        return stages.get(name) or {}
+
+    pull = _stage("pull")
+    clean = _stage("clean")
+    snapshot = _stage("snapshot")
+    gaps = _stage("gaps")
+    proposal_gate = _stage("proposal_gate")
+    synthesize = _stage("synthesize")
+
+    return {
+        "schema_version": "daily_explain.v1",
+        "as_of_date": report.get("as_of_date"),
+        "user_id": report.get("user_id"),
+        "overall_status": report.get("overall_status"),
+        "pull": {
+            "status": pull.get("status"),
+            "source": pull.get("source"),
+            "auth_reason": pull.get("auth_reason"),
+            "freshness_hours": pull.get("freshness_hours"),
+        },
+        "clean": {
+            "status": clean.get("status"),
+            "evidence_rows": clean.get("evidence_rows"),
+            "sources_merged": clean.get("sources_merged"),
+        },
+        "snapshot": {
+            "status": snapshot.get("status"),
+            "domains_present": snapshot.get("domains_present"),
+            "missingness_per_domain": snapshot.get("missingness_per_domain"),
+            "classified_bands_per_domain": snapshot.get(
+                "classified_bands_per_domain"
+            ),
+            "review_summary_tokens_per_domain": snapshot.get(
+                "review_summary_tokens_per_domain"
+            ),
+        },
+        "gaps": {
+            "status": gaps.get("status"),
+            "gap_tokens": [
+                g.get("token") for g in (gaps.get("gaps") or [])
+            ],
+            "intake_commands": [
+                g.get("intake_command") for g in (gaps.get("gaps") or [])
+                if g.get("intake_command")
+            ],
+        },
+        "proposal_gate": {
+            "status": proposal_gate.get("status"),
+            "expected": proposal_gate.get("expected"),
+            "present": proposal_gate.get("present"),
+            "missing": proposal_gate.get("missing"),
+        },
+        "synthesize": {
+            "status": synthesize.get("status"),
+            "phase_a_firings": synthesize.get("phase_a_firings"),
+            "phase_b_mutations": synthesize.get("phase_b_mutations"),
+        },
+    }
+
+
+def _emit_outcomes_stats(
+    *,
+    db_path: Path,
+    user_id: str,
+    domain: Optional[str],
+    since_days: Optional[int],
+    as_json: bool,
+) -> int:
+    """v0.1.8 W38 — emit the `hai stats --outcomes` view.
+
+    Wraps the W48 ``build_review_summary`` builder so the CLI can serve
+    the same dict to JSON and to a human-readable markdown table. Pure
+    visibility — never mutates state and never recomputes anything the
+    builder owns.
+    """
+
+    from health_agent_infra.core.review.summary import build_review_summary
+    from health_agent_infra.core.state import open_connection
+
+    today = datetime.now(timezone.utc).date()
+    conn = open_connection(db_path)
+    try:
+        if domain is not None:
+            payload = build_review_summary(
+                conn,
+                as_of_date=today,
+                user_id=user_id,
+                domain=domain,
+                window_days=since_days,
+            )
+            payload = {
+                "as_of_date": today.isoformat(),
+                "user_id": user_id,
+                "window_days": payload["window"]["days"],
+                "domain": domain,
+                "summary": payload,
+            }
+        else:
+            bundle = build_review_summary(
+                conn,
+                as_of_date=today,
+                user_id=user_id,
+                window_days=since_days,
+            )
+            payload = {
+                "as_of_date": today.isoformat(),
+                "user_id": user_id,
+                "window_days": bundle["window_days"],
+                "domains": bundle["domains"],
+                "aggregate": bundle["aggregate"],
+            }
+    finally:
+        conn.close()
+
+    if as_json:
+        _emit_json(payload)
+    else:
+        sys.stdout.write(_render_outcomes_text(payload))
+    return exit_codes.OK
+
+
+def _render_outcomes_text(payload: dict[str, Any]) -> str:
+    """Markdown table view for ``hai stats --outcomes`` on a TTY."""
+
+    lines: list[str] = []
+    lines.append(
+        f"# Review outcome summary — as of {payload['as_of_date']} "
+        f"(window: {payload['window_days']} days, user: {payload['user_id']})"
+    )
+    lines.append("")
+
+    def _row_for(name: str, summary: dict[str, Any]) -> str:
+        rate_followed = summary.get("followed_recommendation_rate")
+        rate_improved = summary.get("self_reported_improvement_rate")
+        rate_followed_str = (
+            f"{rate_followed:.0%}" if rate_followed is not None else "—"
+        )
+        rate_improved_str = (
+            f"{rate_improved:.0%}" if rate_improved is not None else "—"
+        )
+        tokens = summary.get("tokens", []) or ["—"]
+        return (
+            f"| {name} | {summary['recorded_outcome_count']} "
+            f"| {summary['followed_count']} "
+            f"| {rate_followed_str} | {rate_improved_str} "
+            f"| {summary['relinked_outcome_count']} "
+            f"| {', '.join(tokens)} |"
+        )
+
+    lines.append(
+        "| Domain | Recorded | Followed | Followed rate | Improved rate | Re-linked | Tokens |"
+    )
+    lines.append(
+        "|---|---:|---:|---:|---:|---:|---|"
+    )
+
+    if "summary" in payload:
+        lines.append(_row_for(payload["domain"], payload["summary"]))
+    else:
+        for domain_name in (
+            "recovery", "running", "sleep", "stress", "strength", "nutrition",
+        ):
+            lines.append(_row_for(domain_name, payload["domains"][domain_name]))
+        lines.append(_row_for("aggregate", payload["aggregate"]))
+
+    lines.append("")
+    return "\n".join(lines) + "\n"
+
+
+def _emit_funnel_stats(
+    *,
+    db_path: Path,
+    user_id: str,
+    since_days: int,
+    as_json: bool,
+) -> int:
+    """v0.1.8 W46 — emit `hai stats --funnel`.
+
+    Reads ``runtime_event_log`` for the last ``since_days`` of `hai
+    daily` invocations and aggregates the proposal-gate context that
+    `cmd_daily` persists (overall_status / missing_domains).
+    """
+
+    from datetime import timedelta as _td
+
+    from health_agent_infra.core.state import open_connection
+
+    today = datetime.now(timezone.utc).date()
+    since = today - _td(days=max(0, since_days - 1))
+
+    conn = open_connection(db_path)
+    try:
+        rows = conn.execute(
+            "SELECT event_id, started_at, completed_at, status, exit_code, "
+            "       duration_ms, context_json "
+            "FROM runtime_event_log "
+            "WHERE command = 'daily' "
+            "  AND substr(started_at, 1, 10) >= ? "
+            "  AND substr(started_at, 1, 10) <= ? "
+            "ORDER BY started_at",
+            (since.isoformat(), today.isoformat()),
+        ).fetchall()
+    finally:
+        conn.close()
+
+    daily_run_count = len(rows)
+    overall_status_histogram: dict[str, int] = {}
+    missing_domain_freq: dict[str, int] = {}
+    blocking_action_count = 0
+    awaiting_proposals = 0
+    incomplete = 0
+    complete = 0
+
+    for r in rows:
+        ctx_text = r["context_json"]
+        ctx = {}
+        if ctx_text:
+            try:
+                ctx = json.loads(ctx_text)
+            except (TypeError, ValueError):
+                ctx = {}
+        status = ctx.get("overall_status") or r["status"] or "unknown"
+        overall_status_histogram[status] = overall_status_histogram.get(status, 0) + 1
+        if status == "awaiting_proposals":
+            awaiting_proposals += 1
+            blocking_action_count += 1
+        elif status == "incomplete":
+            incomplete += 1
+            blocking_action_count += 1
+        elif status == "complete":
+            complete += 1
+        for missing in (ctx.get("missing_domains") or []):
+            missing_domain_freq[missing] = missing_domain_freq.get(missing, 0) + 1
+
+    payload = {
+        "as_of_date": today.isoformat(),
+        "user_id": user_id,
+        "since_days": since_days,
+        "daily_run_count": daily_run_count,
+        "overall_status_histogram": overall_status_histogram,
+        "complete_count": complete,
+        "incomplete_count": incomplete,
+        "awaiting_proposals_count": awaiting_proposals,
+        "blocking_action_count": blocking_action_count,
+        "missing_domain_frequency": missing_domain_freq,
+    }
+
+    if as_json:
+        _emit_json(payload)
+    else:
+        sys.stdout.write(_render_funnel_text(payload))
+    return exit_codes.OK
+
+
+def _render_funnel_text(payload: dict[str, Any]) -> str:
+    lines = [
+        f"# Daily-pipeline funnel — last {payload['since_days']} days "
+        f"(user: {payload['user_id']})",
+        "",
+        f"- Total `hai daily` invocations: {payload['daily_run_count']}",
+        f"- Complete (synthesis ready): {payload['complete_count']}",
+        f"- Incomplete (blocked): {payload['incomplete_count']}",
+        f"- Awaiting proposals: {payload['awaiting_proposals_count']}",
+        f"- Blocking-action runs: {payload['blocking_action_count']}",
+        "",
+        "## overall_status histogram",
+    ]
+    for status, n in sorted(payload["overall_status_histogram"].items()):
+        lines.append(f"- {status}: {n}")
+    if payload["missing_domain_frequency"]:
+        lines.append("")
+        lines.append("## Missing domain frequency")
+        for domain, n in sorted(payload["missing_domain_frequency"].items()):
+            lines.append(f"- {domain}: {n}")
+    lines.append("")
+    return "\n".join(lines) + "\n"
+
+
+def _emit_baselines_stats(
+    *,
+    db_path: Path,
+    user_id: str,
+    domain: Optional[str],
+    as_json: bool,
+) -> int:
+    """v0.1.8 W40 — emit `hai stats --baselines`.
+
+    Reads the snapshot for ``today``, plus ``thresholds.toml`` for the
+    threshold-source paths. Output groups per-domain blocks so the user
+    can inspect: observed value(s), threshold values, band, coverage,
+    missingness, cold-start state.
+
+    No arithmetic happens in the CLI — every band is the snapshot's
+    classification; every threshold is whatever ``load_thresholds()``
+    returned. The CLI is a renderer, not a computer.
+    """
+
+    from health_agent_infra.core.config import load_thresholds, user_config_path
+    from health_agent_infra.core.state import build_snapshot, open_connection
+
+    today = datetime.now(timezone.utc).date()
+    thresholds = load_thresholds()
+    threshold_path = str(user_config_path())
+
+    conn = open_connection(db_path)
+    try:
+        snap = build_snapshot(
+            conn,
+            as_of_date=today,
+            user_id=user_id,
+            now_local=datetime.now(),
+        )
+    finally:
+        conn.close()
+
+    domains_iter = (domain,) if domain else (
+        "recovery", "running", "sleep", "stress", "strength", "nutrition",
+    )
+    domain_payloads: dict[str, dict[str, Any]] = {}
+    for d in domains_iter:
+        block = snap.get(d) or {}
+        classified = block.get("classified_state") or {}
+        today_row = block.get("today") or {}
+        domain_payloads[d] = {
+            "today": today_row,
+            "classified_state": classified,
+            "missingness": block.get("missingness"),
+            "cold_start": block.get("cold_start", False),
+            "history_days": block.get("history_days"),
+            "data_quality": block.get("data_quality"),
+            # Thresholds for this domain — both classify + policy + synthesis
+            # surfaces. The user can inspect what numbers the runtime is
+            # actually using to draw band boundaries.
+            "thresholds": {
+                "classify": thresholds.get("classify", {}).get(d, {}),
+                "policy": thresholds.get("policy", {}).get(d, {}),
+            },
+        }
+
+    payload = {
+        "as_of_date": today.isoformat(),
+        "user_id": user_id,
+        "threshold_source": threshold_path,
+        "domains": domain_payloads,
+    }
+
+    if as_json:
+        _emit_json(payload)
+    else:
+        sys.stdout.write(_render_baselines_text(payload))
+    return exit_codes.OK
+
+
+def _render_baselines_text(payload: dict[str, Any]) -> str:
+    lines: list[str] = [
+        f"# Baselines — as of {payload['as_of_date']} "
+        f"(user: {payload['user_id']})",
+        f"_Threshold source: `{payload['threshold_source']}`_",
+        "",
+    ]
+    for domain, block in payload["domains"].items():
+        classified = block.get("classified_state") or {}
+        bands = {
+            k: v for k, v in classified.items()
+            if k.endswith("_band") or k in ("coverage_band", "recovery_status",
+                                             "running_readiness_status",
+                                             "sleep_status",
+                                             "stress_state",
+                                             "strength_status",
+                                             "nutrition_status")
+        }
+        lines.append(f"## {domain}")
+        if not bands:
+            lines.append("_No classified state — domain bundle not loaded._")
+        for k, v in sorted(bands.items()):
+            lines.append(f"- **{k}**: {v}")
+        if block.get("cold_start"):
+            lines.append(
+                f"- _cold-start window — history_days: {block.get('history_days')}_"
+            )
+        missing = block.get("missingness")
+        if missing:
+            lines.append(f"- _missingness_: {missing}")
+        lines.append("")
+    return "\n".join(lines) + "\n"
+
+
+def _emit_data_quality_stats(
+    *,
+    db_path: Path,
+    user_id: str,
+    domain: Optional[str],
+    since_days: int,
+    as_json: bool,
+) -> int:
+    """v0.1.8 W51 — emit `hai stats --data-quality`.
+
+    Strictly read-only per the capability manifest annotation
+    (`mutation: read-only`). Reads from ``data_quality_daily`` only;
+    never invokes the projector and never writes a row. If no rows
+    exist for the requested window (e.g. ``hai clean`` has not run
+    for the user yet), returns an empty rows list — surface that
+    honestly rather than triggering a hidden write. Codex round-1
+    P1-1 + round-2 R2-4 confirmed this is the correct contract.
+    """
+
+    from datetime import date as _date, timedelta as _td
+
+    from health_agent_infra.core.data_quality import read_data_quality_rows
+    from health_agent_infra.core.state import open_connection
+
+    today = datetime.now(timezone.utc).date()
+    since = today - _td(days=max(0, since_days - 1))
+
+    # v0.1.8 Codex P1-1 fix: this surface is contractually `read-only`
+    # (capability manifest annotation). The previous lazy-projection
+    # path was a contract violation. Data-quality rows are populated
+    # by the `hai clean` write path; an empty result here means
+    # `hai clean` hasn't run for the requested window yet — surface
+    # that honestly rather than triggering a hidden write.
+    conn = open_connection(db_path)
+    try:
+        rows = read_data_quality_rows(
+            conn,
+            user_id=user_id,
+            since_date=since,
+            until_date=today,
+            domain=domain,
+        )
+    finally:
+        conn.close()
+
+    payload = {
+        "as_of_date": today.isoformat(),
+        "user_id": user_id,
+        "since_days": since_days,
+        "rows": rows,
+    }
+
+    if as_json:
+        _emit_json(payload)
+    else:
+        sys.stdout.write(_render_data_quality_text(payload))
+    return exit_codes.OK
+
+
+def _render_data_quality_text(payload: dict[str, Any]) -> str:
+    lines: list[str] = [
+        f"# Data quality — last {payload['since_days']} days "
+        f"(user: {payload['user_id']})",
+        "",
+        "| Date | Domain | Source | Coverage | Missingness | Cold-start | Source unavail | User pending |",
+        "|---|---|---|---|---|---|---:|---:|",
+    ]
+    for row in payload["rows"]:
+        lines.append(
+            f"| {row['as_of_date']} | {row['domain']} | {row['source']} "
+            f"| {row.get('coverage_band') or '—'} "
+            f"| {row.get('missingness') or '—'} "
+            f"| {row.get('cold_start_window_state') or '—'} "
+            f"| {row['source_unavailable']} "
+            f"| {row['user_input_pending']} |"
+        )
+    lines.append("")
+    return "\n".join(lines) + "\n"
 
 
 def _daily_streak_from_events(conn: sqlite3.Connection) -> int:
@@ -5346,6 +6616,328 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
 
+    # ---------------------------------------------------------------------
+    # v0.1.8 W49 — `hai intent ...` ledger commands.
+    #
+    # Subparser layout matches PLAN.md § 2 W49:
+    #   hai intent training add-session
+    #   hai intent training list
+    #   hai intent sleep set-window
+    #   hai intent list
+    #   hai intent archive
+    # ---------------------------------------------------------------------
+    p_intent = sub.add_parser(
+        "intent",
+        help="User-authored intent ledger (training plans, sleep windows, rest days, travel, constraints).",
+    )
+    intent_sub = p_intent.add_subparsers(dest="intent_command", required=True)
+
+    def _intent_common_flags(p) -> None:
+        p.add_argument("--db-path", default=None,
+                       help="Override state DB path (default: $HAI_STATE_DB or platform default).")
+        p.add_argument("--user-id", default="u_local_1",
+                       help="User scope (default: u_local_1).")
+
+    def _intent_add_flags(p) -> None:
+        _intent_common_flags(p)
+        p.add_argument("--scope-start", required=True,
+                       help="ISO civil date the intent's window starts on.")
+        p.add_argument("--scope-end", default=None,
+                       help="ISO civil date the window ends on (defaults to scope-start for day-scoped intent).")
+        p.add_argument("--scope-type", choices=("day", "week", "date_range"), default="day",
+                       help="Window type. Default: day.")
+        p.add_argument("--status", choices=("proposed", "active"), default="active",
+                       help="Initial row status. Agent-proposed rows MUST land as 'proposed' and require explicit user confirm before flipping to 'active'.")
+        p.add_argument("--priority", choices=("low", "normal", "high"), default="normal")
+        p.add_argument("--flexibility", choices=("fixed", "flexible", "optional"), default="flexible")
+        p.add_argument("--reason", default="",
+                       help="Why this intent exists (free text; goes into the audit trail).")
+        p.add_argument("--source", default="user_authored",
+                       help="Provenance: 'user_authored' (default) or 'agent_proposed'.")
+        p.add_argument("--ingest-actor", default="cli",
+                       help="What inserted the row (default: cli).")
+        p.add_argument("--payload-json", default=None,
+                       help="Optional JSON-encoded structured detail (action, distance, weights, etc.).")
+
+    # hai intent training {add-session, list}
+    p_intent_training = intent_sub.add_parser(
+        "training", help="Training-session intent shortcuts."
+    )
+    intent_training_sub = p_intent_training.add_subparsers(
+        dest="intent_training_command", required=True,
+    )
+
+    p_it_add = intent_training_sub.add_parser(
+        "add-session",
+        help="Record a planned training session (running by default; pass --domain strength for strength).",
+    )
+    _intent_add_flags(p_it_add)
+    p_it_add.add_argument("--domain", choices=("running", "strength"), default="running",
+                          help="Training domain (default: running).")
+    p_it_add.add_argument(
+        "--intent-type", default="training_session",
+        help="Override intent_type (default: training_session).",
+    )
+    p_it_add.set_defaults(func=cmd_intent_training_add_session)
+    annotate_contract(
+        p_it_add,
+        mutation="writes-state",
+        idempotent="no",  # one row per call
+        json_output="default",
+        exit_codes=("OK", "USER_INPUT"),
+        agent_safe=True,
+        description="Insert a user-authored training-session intent into the W49 intent ledger.",
+    )
+
+    p_it_list = intent_training_sub.add_parser(
+        "list",
+        help="List training-domain intent rows (active by default; --all returns every row).",
+    )
+    _intent_common_flags(p_it_list)
+    p_it_list.add_argument("--as-of", default=None,
+                           help="Civil date to test active-window membership against (default: today).")
+    p_it_list.add_argument("--all", action="store_true",
+                           help="Return every training intent row, not just active.")
+    p_it_list.add_argument("--status", default=None,
+                           help="When --all is set, filter by status.")
+    p_it_list.set_defaults(func=cmd_intent_training_list)
+    annotate_contract(
+        p_it_list,
+        mutation="read-only",
+        idempotent="n/a",
+        json_output="default",
+        exit_codes=("OK", "USER_INPUT"),
+        agent_safe=True,
+        description="List training intent rows from the W49 ledger.",
+    )
+
+    # hai intent sleep set-window
+    p_intent_sleep = intent_sub.add_parser(
+        "sleep", help="Sleep-window intent shortcuts."
+    )
+    intent_sleep_sub = p_intent_sleep.add_subparsers(
+        dest="intent_sleep_command", required=True,
+    )
+    p_isw = intent_sleep_sub.add_parser(
+        "set-window",
+        help="Record a planned sleep window (e.g. 22:30 → 06:30).",
+    )
+    _intent_add_flags(p_isw)
+    p_isw.add_argument("--domain", default="sleep",
+                       help="Defaults to sleep; override only if you really mean it.")
+    p_isw.add_argument(
+        "--intent-type", default="sleep_window",
+        help="Override intent_type (default: sleep_window).",
+    )
+    p_isw.set_defaults(func=cmd_intent_sleep_set_window)
+    annotate_contract(
+        p_isw,
+        mutation="writes-state",
+        idempotent="no",
+        json_output="default",
+        exit_codes=("OK", "USER_INPUT"),
+        agent_safe=True,
+        description="Insert a sleep-window intent into the W49 intent ledger.",
+    )
+
+    # hai intent list
+    p_il = intent_sub.add_parser(
+        "list",
+        help="List intent rows (default: active rows whose scope window covers today).",
+    )
+    _intent_common_flags(p_il)
+    p_il.add_argument("--as-of", default=None,
+                      help="Civil date to test active-window membership against (default: today).")
+    p_il.add_argument("--domain", default=None,
+                      help="Restrict to a single v1 domain.")
+    p_il.add_argument("--all", action="store_true",
+                      help="Return every intent row, not just active.")
+    p_il.add_argument("--status", default=None,
+                      help="When --all is set, filter by status.")
+    p_il.set_defaults(func=cmd_intent_list)
+    annotate_contract(
+        p_il,
+        mutation="read-only",
+        idempotent="n/a",
+        json_output="default",
+        exit_codes=("OK", "USER_INPUT"),
+        agent_safe=True,
+        description="List intent rows from the W49 ledger; default-active.",
+    )
+
+    # hai intent commit (W57 / Codex P1-2 fix)
+    p_ic = intent_sub.add_parser(
+        "commit",
+        help="Promote a 'proposed' intent row to 'active'. The W57-required user-gated path for agent-proposed rows.",
+    )
+    _intent_common_flags(p_ic)
+    p_ic.add_argument("--intent-id", required=True,
+                      help="Intent id to promote (must currently be 'proposed').")
+    p_ic.set_defaults(func=cmd_intent_commit)
+    annotate_contract(
+        p_ic,
+        mutation="writes-state",
+        idempotent="yes-with-supersede",
+        json_output="default",
+        exit_codes=("OK", "USER_INPUT"),
+        agent_safe=False,
+        description=(
+            "Promote a proposed intent row to active. Marked NOT "
+            "agent-safe: agents that proposed the row must NOT auto-"
+            "promote it; only an explicit user invocation may run "
+            "this command."
+        ),
+    )
+
+    # hai intent archive
+    p_ia = intent_sub.add_parser(
+        "archive",
+        help="Archive an intent row (status='archived'). Non-destructive; the row remains visible to the audit chain.",
+    )
+    _intent_common_flags(p_ia)
+    p_ia.add_argument("--intent-id", required=True,
+                      help="Intent id to archive.")
+    p_ia.set_defaults(func=cmd_intent_archive)
+    annotate_contract(
+        p_ia,
+        mutation="writes-state",
+        idempotent="yes-with-supersede",
+        json_output="default",
+        exit_codes=("OK", "USER_INPUT"),
+        agent_safe=True,
+        description="Mark a W49 intent row as archived. Non-destructive.",
+    )
+
+    # ---------------------------------------------------------------------
+    # v0.1.8 W50 — `hai target ...` ledger commands.
+    # ---------------------------------------------------------------------
+    p_target = sub.add_parser(
+        "target",
+        help="User-authored target ledger (hydration, protein, calories, sleep, training-load aims).",
+    )
+    target_sub = p_target.add_subparsers(dest="target_command", required=True)
+
+    def _target_common_flags(p) -> None:
+        p.add_argument("--db-path", default=None,
+                       help="Override state DB path.")
+        p.add_argument("--user-id", default="u_local_1",
+                       help="User scope (default: u_local_1).")
+
+    p_ts = target_sub.add_parser(
+        "set",
+        help="Persist a new target row. Replacements use supersede; this command always appends.",
+    )
+    _target_common_flags(p_ts)
+    p_ts.add_argument("--domain", required=True,
+                      help="Wellness domain the target belongs to (e.g. nutrition, sleep, running).")
+    p_ts.add_argument("--target-type", required=True,
+                      choices=("hydration_ml", "protein_g", "calories_kcal",
+                               "sleep_duration_h", "sleep_window", "training_load",
+                               "other"),
+                      help="One of the v1 target types.")
+    p_ts.add_argument("--value", default=None,
+                      help="Scalar target value (number or string). Use --value-json for richer structures.")
+    p_ts.add_argument("--value-json", default=None,
+                      help="JSON-encoded structured value (overrides --value when both are present).")
+    p_ts.add_argument("--unit", required=True,
+                      help="Unit string (e.g. 'ml', 'g', 'kcal', 'h').")
+    p_ts.add_argument("--lower-bound", type=float, default=None,
+                      help="Optional lower acceptable bound.")
+    p_ts.add_argument("--upper-bound", type=float, default=None,
+                      help="Optional upper acceptable bound.")
+    p_ts.add_argument("--effective-from", required=True,
+                      help="ISO civil date the target becomes active.")
+    p_ts.add_argument("--effective-to", default=None,
+                      help="ISO civil date the target stops being active (open-ended when omitted).")
+    p_ts.add_argument("--review-after", default=None,
+                      help="ISO civil date the target should be reviewed.")
+    p_ts.add_argument("--status", choices=("proposed", "active"), default="active",
+                      help="Initial row status. Agent-proposed rows MUST land as 'proposed'.")
+    p_ts.add_argument("--reason", default="",
+                      help="Why this target exists.")
+    p_ts.add_argument("--source", default="user_authored",
+                      help="'user_authored' (default) or 'agent_proposed'.")
+    p_ts.add_argument("--ingest-actor", default="cli",
+                      help="What inserted the row (default: cli).")
+    p_ts.set_defaults(func=cmd_target_set)
+    annotate_contract(
+        p_ts,
+        mutation="writes-state",
+        idempotent="no",
+        json_output="default",
+        exit_codes=("OK", "USER_INPUT"),
+        agent_safe=True,
+        description="Insert a wellness target into the W50 target ledger. Wellness support, not a medical prescription.",
+    )
+
+    p_tl = target_sub.add_parser(
+        "list",
+        help="List target rows (default: active rows that cover today).",
+    )
+    _target_common_flags(p_tl)
+    p_tl.add_argument("--as-of", default=None,
+                      help="Civil date to test active-window membership against (default: today).")
+    p_tl.add_argument("--domain", default=None,
+                      help="Restrict to a single wellness domain.")
+    p_tl.add_argument("--target-type", default=None,
+                      help="Restrict to a single target_type.")
+    p_tl.add_argument("--status", default=None,
+                      help="When --all is set, filter by status.")
+    p_tl.add_argument("--all", action="store_true",
+                      help="Return every target row, not just active.")
+    p_tl.set_defaults(func=cmd_target_list)
+    annotate_contract(
+        p_tl,
+        mutation="read-only",
+        idempotent="n/a",
+        json_output="default",
+        exit_codes=("OK", "USER_INPUT"),
+        agent_safe=True,
+        description="List target rows from the W50 ledger; default-active.",
+    )
+
+    # hai target commit (W57 / Codex P1-2 fix)
+    p_tc = target_sub.add_parser(
+        "commit",
+        help="Promote a 'proposed' target row to 'active'. The W57-required user-gated path for agent-proposed rows.",
+    )
+    _target_common_flags(p_tc)
+    p_tc.add_argument("--target-id", required=True,
+                      help="Target id to promote (must currently be 'proposed').")
+    p_tc.set_defaults(func=cmd_target_commit)
+    annotate_contract(
+        p_tc,
+        mutation="writes-state",
+        idempotent="yes-with-supersede",
+        json_output="default",
+        exit_codes=("OK", "USER_INPUT"),
+        agent_safe=False,
+        description=(
+            "Promote a proposed target row to active. Marked NOT "
+            "agent-safe: agents that proposed the row must NOT auto-"
+            "promote it; only an explicit user invocation may run "
+            "this command."
+        ),
+    )
+
+    p_ta = target_sub.add_parser(
+        "archive",
+        help="Archive a target row (status='archived'). Non-destructive.",
+    )
+    _target_common_flags(p_ta)
+    p_ta.add_argument("--target-id", required=True,
+                      help="Target id to archive.")
+    p_ta.set_defaults(func=cmd_target_archive)
+    annotate_contract(
+        p_ta,
+        mutation="writes-state",
+        idempotent="yes-with-supersede",
+        json_output="default",
+        exit_codes=("OK", "USER_INPUT"),
+        agent_safe=True,
+        description="Mark a W50 target row as archived.",
+    )
+
     p_intake = sub.add_parser("intake", help="Typed human-input intake surfaces")
     intake_sub = p_intake.add_subparsers(dest="intake_command", required=True)
 
@@ -5780,7 +7372,7 @@ def build_parser() -> argparse.ArgumentParser:
                          help="Civil date to orchestrate for, ISO-8601. "
                               "Default: today UTC.")
     p_daily.add_argument("--user-id", default="u_local_1",
-                         help="User whose plan to generate.")
+                         help="User whose daily pipeline to orchestrate.")
     p_daily.add_argument("--db-path", default=None,
                          help="State DB path (default: `$HAI_STATE_DB` or "
                               "`~/.local/share/health_agent_infra/state.db`).")
@@ -5838,6 +7430,17 @@ def build_parser() -> argparse.ArgumentParser:
                               "without consulting the intent-router "
                               "skill prose. Schema is "
                               "next_actions.v1.")
+    # v0.1.8 W43 — `--explain` adds a per-stage explain block to the
+    # JSON output without mutating any default behaviour.
+    p_daily.add_argument(
+        "--explain", action="store_true",
+        help=(
+            "v0.1.8 W43: with --auto, attach a per-stage explain block "
+            "to the JSON output (pull / clean / snapshot / gaps / "
+            "proposal_gate / synthesize). Reads already-computed data; "
+            "never recomputes, mutates, or fabricates fields."
+        ),
+    )
     p_daily.set_defaults(func=cmd_daily)
     annotate_contract(
         p_daily,
@@ -6016,6 +7619,73 @@ def build_parser() -> argparse.ArgumentParser:
     p_stats.add_argument("--json", action="store_true",
                          help="Emit the structured report dict as JSON "
                               "instead of the human-readable text view.")
+    # v0.1.8 W38 — opt into the code-owned outcome summary view (W48).
+    # Mutually exclusive with the default sync/events report. ``--domain``
+    # narrows to one of the six v1 domains; omit to receive the per-
+    # domain breakdown plus aggregate roll-up. ``--since`` overrides the
+    # configured rolling window (``policy.review_summary.window_days``).
+    p_stats.add_argument(
+        "--outcomes",
+        action="store_true",
+        help=(
+            "Mode: emit the code-owned review-outcome summary (W48) "
+            "instead of the default sync/events report. Combine with "
+            "--domain and --since to narrow the window."
+        ),
+    )
+    p_stats.add_argument(
+        "--domain",
+        choices=("recovery", "running", "sleep", "stress", "strength", "nutrition"),
+        default=None,
+        help=(
+            "Restrict --outcomes view to a single v1 domain. Omit to "
+            "receive the per-domain breakdown plus aggregate roll-up."
+        ),
+    )
+    p_stats.add_argument(
+        "--since",
+        type=int,
+        default=None,
+        help=(
+            "Override the rolling window for --outcomes / --data-quality "
+            "(days). Default: 7 for outcomes; for data-quality, the most "
+            "recent N days are returned."
+        ),
+    )
+    # v0.1.8 W51 — `hai stats --data-quality` reads from the
+    # data_quality_daily ledger (or projects from snapshot for today
+    # when missing).
+    p_stats.add_argument(
+        "--data-quality",
+        action="store_true",
+        help=(
+            "Mode: emit the data-quality ledger view (W51). Combine "
+            "with --domain and --since to narrow."
+        ),
+    )
+    # v0.1.8 W40 — `hai stats --baselines`. Mode: emit the snapshot's
+    # observed-vs-threshold/band view per domain so the user can sanity-
+    # check what the runtime is looking at without reading SQL.
+    p_stats.add_argument(
+        "--baselines",
+        action="store_true",
+        help=(
+            "Mode: emit observed values, configured thresholds, "
+            "resulting bands, coverage, missingness, and cold-start "
+            "state for each v1 domain (W40)."
+        ),
+    )
+    # v0.1.8 W46 — `hai stats --funnel` reads runtime_event_log
+    # context_json to surface daily-pipeline outcomes over a window.
+    p_stats.add_argument(
+        "--funnel",
+        action="store_true",
+        help=(
+            "Mode: emit the daily-pipeline funnel — per-day "
+            "overall_status, missing-domain frequency, and proposal-"
+            "gate counts (W46)."
+        ),
+    )
     p_stats.set_defaults(func=cmd_stats)
     annotate_contract(
         p_stats,
@@ -6027,7 +7697,9 @@ def build_parser() -> argparse.ArgumentParser:
         description=(
             "Summarise sync_run_log (last pull per source) + "
             "runtime_event_log (recent commands, daily streak) from the "
-            "user's local DB. No telemetry leaves the device."
+            "user's local DB. With --outcomes, emits the code-owned "
+            "review-outcome summary (W48) instead. No telemetry leaves "
+            "the device."
         ),
     )
 
@@ -6074,6 +7746,43 @@ def build_parser() -> argparse.ArgumentParser:
         exit_codes=("OK", "USER_INPUT"),
         agent_safe=True,
         description="Print the effective merged threshold configuration (defaults + overrides).",
+    )
+
+    # v0.1.8 W39 — config validate / diff.
+    p_cv = config_sub.add_parser(
+        "validate",
+        help="Parse the user thresholds TOML and report unknown / mistyped keys.",
+    )
+    p_cv.add_argument("--path", default=None,
+                      help="Override source path.")
+    p_cv.add_argument("--strict", action="store_true",
+                      help="Treat unknown leaf keys as blocking errors.")
+    p_cv.set_defaults(func=cmd_config_validate)
+    annotate_contract(
+        p_cv,
+        mutation="read-only",
+        idempotent="n/a",
+        json_output="default",
+        exit_codes=("OK", "USER_INPUT"),
+        agent_safe=True,
+        description="Validate user thresholds.toml against DEFAULT_THRESHOLDS shape.",
+    )
+
+    p_cd = config_sub.add_parser(
+        "diff",
+        help="Show user overrides vs defaults vs effective values, leaf by leaf.",
+    )
+    p_cd.add_argument("--path", default=None,
+                      help="Override source path.")
+    p_cd.set_defaults(func=cmd_config_diff)
+    annotate_contract(
+        p_cd,
+        mutation="read-only",
+        idempotent="n/a",
+        json_output="default",
+        exit_codes=("OK", "USER_INPUT"),
+        agent_safe=True,
+        description="Diff user thresholds.toml against DEFAULT_THRESHOLDS, leaf by leaf.",
     )
 
     p_exercise = sub.add_parser(
