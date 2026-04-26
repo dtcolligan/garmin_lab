@@ -19,35 +19,40 @@ something you'd say out loud.
 ## Framing A — Personal testimonial (recommended for Show HN)
 
 ### Title
-`Show HN: A local governed agent runtime for my wearable data`
+`Show HN: A local health-agent runtime for my wearable data`
 
-*Alt title (shorter):* `Show HN: Governed agent runtime over my own health data`
+*Alt title (governance-led):* `Show HN: Governed agent runtime over my own health data`
 
 ### First comment
 
 I got tired of health apps that give me opaque recommendations I can't
 audit and that phone home with data I'd rather keep local. So I built
 the thing I wanted: a single-user runtime where I talk to a Claude Code
-agent in natural language, the agent operates a local CLI, and the runtime
-commits recommendations to a SQLite file on my own machine. The package has
-no telemetry or hosted backend; live pulls only call the source I configure.
+agent in natural language, the agent operates a local CLI, and Python owns
+the rules, state, validation, and commits. The package has no telemetry or
+hosted backend; live pulls only call the source I configure.
+
+I don't use it by memorizing commands. I tell the agent what I want, it reads
+the `hai capabilities` contract, and it invokes the validated command path the
+runtime exposes.
 
 The interesting idea for me was the **skill/code split**. Python owns
 every mechanical decision — classification bands, policy rules,
 atomicity, schema validation. Markdown skills (the Claude Code kind)
 own *only* judgment: picking from an already-constrained action set,
-composing rationale, surfacing uncertainty. Skills never change an
-action; code never writes prose. That split is what makes the agent
+composing rationale, surfacing uncertainty. Skills never mutate actions;
+code never improvises coaching prose. That split is what makes the agent
 recommendations auditable instead of hand-wavy — every rule firing
 lands in a typed table you can SELECT against.
 
-Six domains in v1: recovery, running, sleep, stress, strength, and
-(macros-only) nutrition. Each has its own state projection, rule
-set, and readiness skill; a synthesis pass reconciles them via
-codified cross-domain rules (e.g., "if yesterday was a hard session
-and HRV is suppressed, downgrade today's planned run"). `hai daily`
-runs the full loop in one command. `hai explain` reconstructs the
-audit chain — proposals → rule firings → final recommendation.
+What ships today: six domains, 14 packaged skills, 52 annotated CLI
+commands, 21 SQLite migrations, 10 cross-domain X-rule evaluators, 28
+packaged deterministic eval scenarios, and 2081 collected tests. Each domain
+has its own state projection, rule set, and readiness skill; synthesis
+reconciles them via codified cross-domain rules. `hai daily` runs the morning
+loop.
+`hai explain` reconstructs the audit chain - proposals -> rule firings ->
+final recommendation - from persisted rows.
 
 It's not an MLOps project, not a wearable API, not clinical. It's
 agent-native infrastructure: the user talks to the agent, the agent invokes
@@ -76,9 +81,9 @@ boundary, or why I think local-first agents need to look like this.
 ### First comment
 
 Most "AI health" projects lean hard on model capability and very
-little on constraints. Health Agent Infra is the opposite: the model
-(a Claude Code agent) operates inside a deterministic frame of Python
-tools, with judgment limited to composing rationale over an
+little on constraints. Health Agent Infra is the opposite: the user talks to
+a Claude Code agent, but the agent operates inside a deterministic frame of
+Python tools, with judgment limited to composing rationale over an
 already-bounded action set.
 
 Architecture in one paragraph: a local SQLite DB holds cross-domain
@@ -94,8 +99,8 @@ recommendations and scheduled reviews. `hai explain` reconstructs
 the chain for any day.
 
 The invariants that matter:
-- Python code never writes prose. Markdown skills never change an
-  action. The boundary is enforced by `agent-safe` CLI annotations.
+- Python code never improvises coaching prose. Markdown skills never mutate
+  actions. The boundary is enforced by `agent-safe` CLI annotations.
 - All mutations are atomic. A partial failure rolls back; there's no
   "half-applied plan" state.
 - Every read surface (`hai state snapshot`, `hai explain`, `hai stats`,
@@ -105,8 +110,8 @@ The invariants that matter:
   credentials in the OS keyring.
 
 It's MIT-licensed, runs on macOS and Linux, requires Python 3.11+
-and Claude Code. 2081 collected tests, 28 eval scenarios, atomic audit chain
-end-to-end.
+and Claude Code. Current shape: 52 annotated CLI commands, 14 packaged skills,
+2081 collected tests, 28 packaged eval scenarios, atomic audit chain end-to-end.
 
 Install: `pipx install health-agent-infra && hai init && hai auth
 intervals-icu`.
@@ -139,8 +144,8 @@ The pattern I found worked:
   policy rules, atomicity, schema validation).
 - Markdown skills own only judgment (picking from a constrained
   action set, composing rationale, surfacing uncertainty).
-- The boundary is tight and enforced. Skills never change an action;
-  code never writes prose. Every CLI command is annotated agent-safe
+- The boundary is tight and enforced. Skills never mutate actions;
+  code never improvises coaching prose. Every CLI command is annotated agent-safe
   or interactive; the agent only calls the agent-safe surface.
 
 I applied this to personal health data because it's a domain with
@@ -148,7 +153,7 @@ enough mechanical structure to formalize (HRV bands, training load,
 sleep stages, X-rules across domains) and enough judgment to make the
 skill layer pull its weight (which proposal to surface, what
 uncertainty to flag, how much rationale to write). Six v1 domains,
-ten cross-domain X-rules, 28 eval scenarios, full audit chain.
+ten cross-domain X-rules, 28 packaged eval scenarios, full audit chain.
 
 The artifact I'd most value feedback on: `reporting/docs/architecture.md`
 and `reporting/docs/agent_cli_contract.md`. The first documents the

@@ -165,9 +165,10 @@ Run ``hai config show`` to print the effective merged config
 
 Every Phase A rule above (X1a, X1b, X2, X3a, X3b, X6a, X7) plus the
 Phase B rule (X9) has at least one scenario under
-``verification/evals/scenarios/synthesis/``. ``verification/tests/test_eval_scenarios.py
-:: test_synthesis_scenarios_cover_key_x_rules`` is the floor-check
-that asserts this set is always exercised.
+``src/health_agent_infra/evals/scenarios/synthesis/``.
+``verification/tests/test_eval_scenarios.py ::
+test_synthesis_scenarios_cover_key_x_rules`` is the floor-check that asserts
+this set is always exercised.
 
 X4 and X5 currently have Phase A evaluators but no dedicated
 scenario — they require proposals for strength and running on

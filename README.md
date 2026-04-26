@@ -1,14 +1,14 @@
 # Health Agent Infra
 
-Health Agent Infra is an agent-native governance runtime for personal-health
-agents. The user talks to an LLM in natural language; the agent operates the
-local `hai` CLI; deterministic code owns the rules, state, and commit path.
-It combines policy, typed state ledgers, packaged skills, and a review loop
-so health-data work stays local, auditable, and bounded by code.
+Health Agent Infra is a local governance runtime for agentic personal-health
+software. It turns a natural-language health agent into a bounded operator:
+you talk to the agent, the agent invokes the local `hai` CLI, and
+deterministic Python owns rules, validation, state, and commits.
 
-Six domains - recovery, running, sleep, stress, strength, nutrition - are
-classified by Python, bounded by policy rules, narrated by markdown skills,
-and committed atomically to a local SQLite database.
+It is both a working single-user package and a reference architecture for
+the code/skill split. It is not a chatbot or a hosted coaching app; it is the
+boundary that lets an LLM work over health data without owning the policy
+engine, the database, or the final write path.
 
 [![PyPI](https://img.shields.io/pypi/v/health-agent-infra)](https://pypi.org/project/health-agent-infra/)
 [![Tests](https://img.shields.io/badge/tests-2081_collected-green)](verification/tests/)
@@ -17,15 +17,19 @@ and committed atomically to a local SQLite database.
 
 ## What this is
 
-A Claude Code agent is the intended operator. You ask in natural language:
-check readiness, log a gym session, explain yesterday's recommendation, or
-record how the day went. The agent maps that intent onto validated `hai`
-commands, reads governed snapshots of wearable and intake data, emits
-per-domain proposals bounded by code-owned rules, and commits auditable
-recommendations you review the next day. The runtime owns mechanical
-decisions: classification bands, R-rules, X-rules, validation, and
-transactional commits. Skills own rationale, uncertainty, and clarification.
-**Skills never change an action; code never writes prose.**
+A Claude Code agent is the intended operator. You ask it to check readiness,
+log a gym session, explain yesterday's recommendation, or record how the day
+went. The agent maps that request onto validated `hai` commands, reads a
+governed snapshot, posts one bounded proposal per domain, and lets the runtime
+commit the final plan atomically to local SQLite.
+
+The core rule:
+
+> Skills never mutate actions; code never improvises coaching prose.
+
+Python owns classification bands, R-rules, X-rules, schema validation,
+supersession, review linkage, and transactions. Markdown skills own rationale,
+uncertainty, clarification, and natural-language handoff back to the user.
 
 The package stores state locally and has no telemetry path. Pull commands
 only call the configured data source, currently intervals.icu or Garmin
@@ -33,12 +37,27 @@ Connect. If you drive the runtime with a hosted LLM agent, any context you
 send to that host is governed by that host's data policy; Health Agent Infra
 does not control the model provider.
 
-**For** technical users who want to talk to an agent in natural language
-while keeping the health-data runtime local, deterministic, auditable, and
-CLI-bounded.
+**For** technical users who want the convenience of a conversational health
+agent without handing the model unchecked authority over personal health data.
 
+## What ships today
+
+| Surface | Shipped shape |
+|---|---|
+| Domains | 6: recovery, running, sleep, stress, strength, nutrition |
+| Skills | 14 packaged markdown skills, including `intent-router` and `expert-explainer` |
+| CLI contract | 52 annotated `hai` commands with mutation class, idempotency, JSON mode, exit codes, and agent-safety metadata |
+| State | 21 SQLite migrations, local-only by default |
+| Synthesis | 10 X-rule evaluators across two phases, committed in one transaction |
+| Verification | 2081 collected tests, 28 packaged deterministic eval scenarios |
+
+## Why it is different
+
+- **Natural-language front end, deterministic write path.** The normal
+  product loop is conversational, but every mutation routes through validated
+  CLI commands and local transactions.
 - **Local-first runtime.** State lives in SQLite under your home directory.
-  No account, no daemon, no hosted backend.
+  No Health Agent Infra account, no daemon, no hosted backend.
 - **Governed, not generative.** Python owns deterministic policy; skills
   only narrate and ask for clarification over already-constrained actions.
 - **Agent-native by contract.** `hai capabilities --json` exposes every
@@ -54,6 +73,18 @@ CLI-bounded.
 
 v0.1.8 closed four structured Codex audit rounds before release. The
 release-by-release audit index is in [AUDIT.md](AUDIT.md).
+
+## What the loop looks like
+
+```text
+User:  "Plan today, but I slept badly and my legs feel heavy."
+Agent: Reads `hai capabilities`, logs the readiness note, runs `hai daily`.
+Runtime: Pulls evidence, projects state, classifies six domains, applies R-rules.
+Agent: Invokes domain skills and posts `DomainProposal` rows with `hai propose`.
+Runtime: Applies X-rules, commits the plan atomically, schedules review.
+User:  Reads `hai today`; asks "why did you soften the run?"
+Agent: Runs `hai explain --operator` and answers from persisted rows.
+```
 
 ## Install
 

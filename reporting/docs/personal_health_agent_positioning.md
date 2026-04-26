@@ -53,7 +53,7 @@ processes, and only the first two have runtime surface today.
 Two rules hold across the map:
 
 1. **The runtime analyst is the only role that mutates state.** Coach
-   skills never change an action and never run arithmetic the runtime
+   skills never mutate actions and never run arithmetic the runtime
    already ran. Memory is written by the runtime as a side effect of
    `propose` / `synthesize` / `review` / `intake`.
 2. **Memory is inspectable.** Everything the memory role holds is a

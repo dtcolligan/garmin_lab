@@ -43,8 +43,7 @@ reporting/
     experiments/             # Phase 0.5 / 2.5 throwaway prototypes
 verification/
     tests/                   # unit + contract + integration (2081 collected)
-    evals/                   # Phase 6 eval framework (28 scenarios)
-                             # + Phase E/M8 skill-harness pilot
+    evals/                   # dev-reference docs + Phase E skill-harness pilot
 ```
 
 Rule of thumb: if the file is ``.py``, it's code; if it's
@@ -133,14 +132,17 @@ Pre-rebuild artifacts live under
 
 The eval framework is **packaged inside the wheel** at
 ``src/health_agent_infra/evals/``: ``scenarios/<d>/*.json`` are the
-authored scenarios, ``runner.py`` executes + scores them, and
+28 authored scenarios, ``runner.py`` executes + scores them, and
 ``hai eval run`` is the CLI entry point. The dev-reference docs
 (``README.md``, ``skill_harness_blocker.md``) still live under
 ``verification/evals/``.
 
-Deterministic runtime coverage is full. Skill-narration coverage is
-explicitly NOT scored — see
-``verification/evals/skill_harness_blocker.md`` for the blockers.
+Deterministic runtime coverage is full. Skill coverage is partial and lives
+outside packaged ``hai eval``: ``verification/evals/skill_harness/`` covers
+recovery + running readiness replay/live paths, and
+``verification/evals/synthesis_harness/`` scores synthesis-skill output
+fixtures. See ``verification/evals/skill_harness_blocker.md`` for the
+remaining live-capture and LLM-judge gaps.
 
 ## 7. How to use it
 
@@ -202,8 +204,9 @@ hai review summary --domain recovery
 - No mobile / voice / hosted UI.
 - No multi-user (schema has ``user_id`` but always resolves to one
   local user).
-- No skill-narration eval harness (Phase 2.5 Track B Condition 3
-  remains deferred).
+- No complete skill-narration eval harness across all domains or live CI.
+  Current coverage is the recovery/running pilot plus the synthesis-output
+  scorer under ``verification/evals/``.
 
 ## 9. Reading paths by question
 

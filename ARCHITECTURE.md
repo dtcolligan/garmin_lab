@@ -15,7 +15,7 @@ The project has two surfaces:
 - **Markdown skills** (`src/health_agent_infra/skills/`) - judgment. Own
   rationale prose, uncertainty surfacing, and clarification.
 
-> Skills never change an action; code never writes prose.
+> Skills never mutate actions; code never improvises coaching prose.
 
 ## Daily Loop
 

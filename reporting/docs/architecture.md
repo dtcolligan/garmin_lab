@@ -139,7 +139,7 @@ The line is tight and intentionally simple. Short form:
 - Joint-rationale reconciliation during synthesis when multiple
   domains' firings share a signal.
 
-Skills never change an action. Skills never run arithmetic the
+Skills never mutate actions. Skills never run arithmetic the
 runtime already ran. A skill that tries to compute a band has
 regressed into code's territory and should be rewritten.
 

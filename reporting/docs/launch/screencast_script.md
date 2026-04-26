@@ -93,7 +93,7 @@ seam: the runtime is asking Claude Code to post proposals.
 
 **Voiceover:** *"The runtime pulled today, projected state, snapshotted
 the cross-domain bundle, and paused at the agent seam. Skills are
-judgment-only; code never writes prose."*
+judgment-only; code never improvises coaching prose."*
 
 **4b (1:25–1:45)** — Switch to Claude Code. Show the agent invoking
 domain skills, posting proposals via `hai propose`. *(If live agent use

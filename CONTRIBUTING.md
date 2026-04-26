@@ -38,8 +38,8 @@ The rebuild's central rule is simple:
 
 Never:
 - Import from `skills/` inside Python runtime code.
-- Put rationale prose generation in Python when the action is already
-  fixed.
+- Put free-form rationale prose generation in Python when the action is
+  already fixed.
 - Break the local-state invariant: the SQLite state DB is the source of
   truth, not chat memory.
 

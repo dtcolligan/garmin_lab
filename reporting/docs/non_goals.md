@@ -72,16 +72,17 @@ structural failure classes flagged in the gate findings (aliasing,
 composite decomposition, canonical-generic preference) are fixed
 and a re-gate passes strict top-1 ≥ 80%.
 
-## Not a skill-narration eval harness (yet)
+## Not a complete skill-narration eval harness yet
 
 Phase 2.5 Track B Condition 3 attached a skill-harness follow-up to
-Phase 3; Phase 6 inherits the gap rather than pretending to close
-it. See ``verification/evals/skill_harness_blocker.md`` for the explicit
-blockers (live agent runtime, non-determinism + judge rubric, CI
-secret handling). Deterministic runtime evals (classify + policy +
-synthesis firings + mutations) are fully scored; skill-layer
-rationale prose is marked ``skipped_requires_agent_harness`` per
-scenario until the harness lands.
+Phase 3. v0.1.8 partially closes it with ``verification/evals/skill_harness/``
+for recovery + running readiness outputs and
+``verification/evals/synthesis_harness/`` for synthesis-skill output fixtures.
+That is useful evidence, but not a complete skill-eval story: live transcript
+capture is still operator-driven, no LLM-judge axis ships, four domain skills
+remain uncovered, and live runs do not belong in normal CI. Deterministic
+runtime evals (classify + policy + synthesis firings + mutations) remain the
+fully scored packaged surface.
 
 ## Not a coach, a clinician, or a replacement for informed user
 judgment

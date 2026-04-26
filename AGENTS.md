@@ -5,8 +5,8 @@ first; it is the project-specific operating contract.
 
 ## What This Project Is
 
-Health Agent Infra is an agent-native governance runtime for personal-health
-agents. A user talks to a host agent in natural language; the agent operates
+Health Agent Infra is a local governance runtime for agentic personal-health
+software. A user talks to a host agent in natural language; the agent operates
 the local `hai` CLI, reads governed snapshots, uses packaged skills to compose
 bounded proposals, and relies on the Python runtime to validate, reconcile,
 and commit decisions to local SQLite state.
@@ -39,7 +39,7 @@ The project has two surfaces. Every contribution lands in exactly one:
 
 The invariant:
 
-> Skills never change an action; code never writes prose.
+> Skills never mutate actions; code never improvises coaching prose.
 
 If it must be reproducible across model moods, it belongs in Python. If it
 is phrasing, framing, or honest uncertainty, it belongs in a skill.

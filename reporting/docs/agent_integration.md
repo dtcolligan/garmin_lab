@@ -245,14 +245,22 @@ subcommands as MCP tools is tracked as Phase 7 scope.
 
 ## Evaluating changes
 
-After modifying a domain classifier, policy, or skill:
+After modifying a domain classifier or policy:
 
 ```bash
 hai eval run --domain recovery
 hai eval run --synthesis
 ```
 
-The deterministic runtime layers are scored against frozen
-scenarios under ``verification/evals/scenarios/``. Skill-layer narration
-is NOT scored — see ``verification/evals/skill_harness_blocker.md`` for
-the deferred follow-up.
+The deterministic runtime layers are scored against packaged frozen
+scenarios under ``src/health_agent_infra/evals/scenarios/``.
+
+If you touched a skill, ``hai eval`` is not enough. Use the opt-in harnesses
+under ``verification/evals/``:
+
+- ``skill_harness/`` scores replay/live outputs for recovery and running
+  readiness skills.
+- ``synthesis_harness/`` scores ``daily-plan-synthesis`` output fixtures.
+
+These harnesses are partial and not normal live CI. See
+``verification/evals/skill_harness_blocker.md`` for what remains open.
