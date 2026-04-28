@@ -42,6 +42,7 @@ side. One function — :func:`run_synthesis` — is called by
 
 from __future__ import annotations
 
+import json
 import sqlite3
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
@@ -389,6 +390,81 @@ def _overlay_skill_drafts(
 # Plan id supersession helpers
 # ---------------------------------------------------------------------------
 
+def _compute_state_fingerprint(
+    *,
+    proposals: list[dict[str, Any]],
+    phase_a_firings: list[dict[str, Any]],
+) -> str:
+    """Deterministic SHA-256 hex digest of the synthesis inputs.
+
+    v0.1.11 W-E. Used to detect re-runs of `hai daily` /
+    `hai synthesize` against unchanged state. Inputs:
+
+    - Each proposal's ``payload_json`` (canonical leaf snapshot of
+      classified_state + policy_result + rationale + uncertainty).
+    - Phase A firings (the X-rule mutations the synthesizer would
+      apply).
+
+    Excludes ``produced_at`` / ``validated_at`` from the proposal
+    payload — those wall-clock fields would change every reload
+    even when the substantive content is identical. We hash the
+    payload's content-bearing keys only.
+
+    The fingerprint is stored on the daily_plan row at commit time;
+    a subsequent run_synthesis call compares against the canonical's
+    fingerprint to choose between no-op (match) and auto-supersede
+    (mismatch).
+    """
+    import hashlib
+
+    # Stable hash domain: sorted by (domain, proposal_id) for
+    # deterministic ordering.
+    sorted_proposals = sorted(
+        proposals, key=lambda p: (p.get("domain"), p.get("proposal_id"))
+    )
+
+    parts: list[str] = []
+    for p in sorted_proposals:
+        # Pull the content-bearing fields, skipping wall-clock.
+        canonical = {
+            "domain": p.get("domain"),
+            "schema_version": p.get("schema_version"),
+            "action": p.get("action"),
+            "action_detail": p.get("action_detail"),
+            "rationale": p.get("rationale"),
+            "confidence": p.get("confidence"),
+            "uncertainty": p.get("uncertainty"),
+            "policy_decisions": p.get("policy_decisions"),
+        }
+        parts.append(json.dumps(canonical, sort_keys=True, default=str))
+
+    parts.append("phase_a")
+    # Phase-A firings are XRuleFiring dataclasses (or dicts in legacy
+    # test scaffolds). Coerce to dict for stable sorting + JSON.
+    from dataclasses import asdict, is_dataclass
+
+    def _firing_dict(f):
+        if is_dataclass(f):
+            return asdict(f)
+        if isinstance(f, dict):
+            return f
+        return {"repr": repr(f)}
+
+    firing_dicts = [_firing_dict(f) for f in phase_a_firings]
+    sorted_firings = sorted(
+        firing_dicts,
+        key=lambda f: (f.get("rule_id", ""), str(f.get("affected_domain", ""))),
+    )
+    for f in sorted_firings:
+        parts.append(json.dumps(f, sort_keys=True, default=str))
+
+    h = hashlib.sha256()
+    for part in parts:
+        h.update(part.encode("utf-8"))
+        h.update(b"\n")
+    return h.hexdigest()
+
+
 def _next_superseded_plan_id(
     conn: sqlite3.Connection,
     *,
@@ -567,6 +643,19 @@ def run_synthesis(
     # Phase A
     phase_a_firings = evaluate_phase_a(snapshot, proposals, thresholds)
 
+    # v0.1.11 W-E: compute a state fingerprint from the proposal
+    # payloads + snapshot's manual-readiness slice. The fingerprint
+    # is the synthesis-input identity; if a canonical plan exists
+    # for this (for_date, user_id) with a matching fingerprint, the
+    # re-run is a no-op (return the existing plan id). If the
+    # fingerprint differs and `supersede=False`, auto-supersede
+    # semantics fire — write `_v<N>` rather than overwriting the
+    # canonical row in place.
+    state_fingerprint = _compute_state_fingerprint(
+        proposals=proposals,
+        phase_a_firings=phase_a_firings,
+    )
+
     canonical_id = canonical_daily_plan_id(for_date, user_id)
     if supersede:
         # v0.1.11 W-F (Codex F-DEMO-05 + maintainer Q-A: option b):
@@ -587,9 +676,42 @@ def run_synthesis(
             )
         daily_plan_id = _next_superseded_plan_id(conn, canonical_id=canonical_id)
         plan_version_suffix = daily_plan_id[len(canonical_id):]  # e.g. "_v2"
+        auto_superseded = False
     else:
-        daily_plan_id = canonical_id
-        plan_version_suffix = ""
+        # v0.1.11 W-E: state-fingerprint short-circuit. If a canonical
+        # plan exists with a fingerprint matching the current synthesis
+        # inputs, the re-run is a no-op — return the existing plan id.
+        # If a canonical exists with a *different* fingerprint, fall
+        # through to auto-supersede semantics (write `_v<N>`) rather
+        # than overwriting the canonical row in place. NULL-fingerprint
+        # rows (legacy v0.1.10 plans pre-migration-022) always
+        # auto-supersede so the chain integrity holds.
+        canonical_row = conn.execute(
+            "SELECT state_fingerprint FROM daily_plan WHERE daily_plan_id = ?",
+            (canonical_id,),
+        ).fetchone()
+        if canonical_row is not None:
+            existing_fp = canonical_row["state_fingerprint"]
+            if existing_fp is not None and existing_fp == state_fingerprint:
+                # No-op: state hasn't materially changed.
+                return SynthesisResult(
+                    daily_plan_id=canonical_id,
+                    proposal_ids=tuple(p["proposal_id"] for p in proposals),
+                    recommendation_ids=tuple(),
+                    phase_a_firings=tuple(phase_a_firings),
+                    phase_b_firings=tuple(),
+                    superseded_prior=None,
+                )
+            # Fingerprint mismatch (or NULL on legacy row) → auto-supersede.
+            daily_plan_id = _next_superseded_plan_id(
+                conn, canonical_id=canonical_id
+            )
+            plan_version_suffix = daily_plan_id[len(canonical_id):]
+            auto_superseded = True
+        else:
+            daily_plan_id = canonical_id
+            plan_version_suffix = ""
+            auto_superseded = False
 
     # Phase 1 (agent-operable runtime plan §1) — capture the
     # pre-X-rule aggregate BEFORE apply_phase_a mutates anything. Each
@@ -689,6 +811,10 @@ def run_synthesis(
             "supersede": supersede,
         },
         "agent_version": agent_version,
+        # v0.1.11 W-E: persisted with the row so a subsequent
+        # run_synthesis call can detect re-runs against unchanged
+        # state and either no-op (match) or auto-supersede (mismatch).
+        "state_fingerprint": state_fingerprint,
     }
 
     superseded_prior: Optional[str] = None
@@ -696,11 +822,16 @@ def run_synthesis(
     # Atomic commit.
     conn.execute("BEGIN EXCLUSIVE")
     try:
-        if supersede:
+        if supersede or auto_superseded:
             # D1: --supersede marks the canonical *leaf* at time of
             # synthesis (not the chain head) so v1→v2→v3 + another
             # supersede produces v3.superseded_by=v4, preserving the
             # v1→v2 link that would otherwise be overwritten.
+            #
+            # v0.1.11 W-E: auto_superseded=True branches share the same
+            # mark-old-as-superseded path so the canonical row stays
+            # alive. Otherwise the canonical's content would survive
+            # only on the new _v<N> row, breaking audit-chain integrity.
             leaf_id = _resolve_canonical_leaf_plan_id(
                 conn, canonical_id=canonical_id,
             )

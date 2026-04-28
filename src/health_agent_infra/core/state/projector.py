@@ -2165,6 +2165,10 @@ def project_daily_plan(
     a prior canonical plan before calling this for replacement semantics.
     """
 
+    # v0.1.11 W-E: state_fingerprint column added in migration 022.
+    # Allows run_synthesis to detect re-runs against unchanged state
+    # and no-op rather than minting a fresh plan id with byte-
+    # identical content.
     conn.execute(
         """
         INSERT INTO daily_plan (
@@ -2172,8 +2176,9 @@ def project_daily_plan(
             recommendation_ids_json, proposal_ids_json, x_rules_fired_json,
             synthesis_meta_json,
             source, ingest_actor, agent_version,
-            validated_at, projected_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            validated_at, projected_at,
+            state_fingerprint
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             plan["daily_plan_id"],
@@ -2189,6 +2194,7 @@ def project_daily_plan(
             plan.get("agent_version"),
             _now_iso(),
             _now_iso(),
+            plan.get("state_fingerprint"),
         ),
     )
     if commit_after:

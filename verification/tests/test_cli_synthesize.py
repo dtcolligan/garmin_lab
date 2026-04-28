@@ -238,7 +238,13 @@ def test_synthesize_x1a_firing_mutates_draft_and_persists_firing_row(tmp_path):
 # Idempotency — canonical rerun replaces atomically
 # ---------------------------------------------------------------------------
 
-def test_synthesize_rerun_on_same_key_replaces_prior_plan(tmp_path):
+def test_synthesize_rerun_on_changed_state_auto_supersedes_prior_plan(tmp_path):
+    """v0.1.11 W-E (revised contract): re-running synthesize against
+    materially different inputs (different snapshot here) AUTO-SUPERSEDES
+    the canonical with a `_v<N>` row rather than overwriting it. The
+    canonical row stays alive so the audit-chain integrity invariant
+    holds. Pre-W-E the canonical was deleted + recreated, losing the
+    history of what was originally committed."""
     db_path = _fresh_db(tmp_path)
     proposal = _running_proposal()
     _insert_proposal(db_path, proposal)
@@ -257,7 +263,8 @@ def test_synthesize_rerun_on_same_key_replaces_prior_plan(tmp_path):
         ).fetchone()["c"]
         assert first_firing_count == 0
 
-        # Second run: X1a snapshot → 1 firing.
+        # Second run: X1a snapshot → 1 firing. Different inputs →
+        # auto-supersede.
         run_synthesis(
             conn,
             for_date=date(2026, 4, 17),
@@ -270,21 +277,25 @@ def test_synthesize_rerun_on_same_key_replaces_prior_plan(tmp_path):
             "WHERE for_date = ? AND user_id = ?",
             ("2026-04-17", "u_local_1"),
         ).fetchone()["c"]
-        # Replacement, not duplication.
-        assert plan_count == 1
+        # Both plans persist (canonical + _v2). Audit-chain integrity.
+        assert plan_count == 2
 
-        rec_count = conn.execute(
-            "SELECT COUNT(*) AS c FROM recommendation_log "
-            "WHERE for_date = ? AND user_id = ?",
-            ("2026-04-17", "u_local_1"),
-        ).fetchone()["c"]
-        assert rec_count == 1
+        # Canonical preserved + flagged as superseded.
+        canonical = conn.execute(
+            "SELECT superseded_by_plan_id FROM daily_plan "
+            "WHERE daily_plan_id = ?",
+            ("plan_2026-04-17_u_local_1",),
+        ).fetchone()
+        assert canonical is not None
+        assert canonical["superseded_by_plan_id"] == "plan_2026-04-17_u_local_1_v2"
 
-        firing_count = conn.execute(
-            "SELECT COUNT(*) AS c FROM x_rule_firing"
+        # New _v2 row carries the X1a firing.
+        v2_firing_count = conn.execute(
+            "SELECT COUNT(*) AS c FROM x_rule_firing "
+            "WHERE daily_plan_id = ?",
+            ("plan_2026-04-17_u_local_1_v2",),
         ).fetchone()["c"]
-        # Prior plan's 0 firings replaced by the X1a firing.
-        assert firing_count == 1
+        assert v2_firing_count == 1
     finally:
         conn.close()
 
