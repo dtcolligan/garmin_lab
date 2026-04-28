@@ -140,18 +140,55 @@ write a cycle proposal in `reporting/plans/`; do not act unilaterally.
   runtime must use `core.config.coerce_*` helpers.** Bool-as-int silent
   coercion is the highest-impact silent bug class. New code referencing
   thresholds without going through the helpers is a bug.
+- **(D14, v0.1.11) Pre-cycle Codex plan-audit is permanent pattern for
+  substantive PLAN.md revisions.** Before Phase 0 (D11) bug-hunt opens,
+  Codex reviews PLAN.md against a `codex_plan_audit_prompt.md` and
+  returns one of `PLAN_COHERENT` / `PLAN_COHERENT_WITH_REVISIONS` /
+  `PLAN_INCOHERENT`. Maintainer responds; PLAN.md revises until verdict
+  is positive. **Multiple rounds are normal** — round 2 typically catches
+  second-order contradictions introduced by round-1 revisions. Phase 0
+  (D11) runs against the final plan-audited PLAN, with an explicit
+  pre-implementation gate after `audit_findings.md` consolidates —
+  Phase 0 findings tagged `revises-scope` may revise the plan further;
+  findings tagged `aborts-cycle` may end the cycle. Implementation does
+  not start until that gate fires. Doc-only and small-scope releases may
+  skip D14 (same threshold as D11). Origin: v0.1.11 cycle. Round 1
+  caught 10 substantive findings (including 2 fail-open correctness
+  bugs and a wrong file path) before any code changed; round 2 caught
+  5 second-order contradictions from round-1 revisions (W-Vb deferral
+  not propagating, demo archive vs byte-identical-tree gate,
+  refused-and-required `--deep`, JSONL row-drop bug, frozen-schema
+  wording); round 3 caught 3 stale propagation clauses from round-2
+  revisions (W-Z catalogue/sequencing hard-deps on W-Vb stale,
+  W-Vb acceptance archive path stale, top-level ship gate frozen-
+  schema wording stale); round 4 verdict was `PLAN_COHERENT` with no
+  findings. **Empirically, 4 rounds was the full settling time for a
+  substantive PLAN.md** (14 → 20 workstream growth + cross-cutting
+  demo-isolation + audit-chain-integrity work). Future cycles should
+  budget 2-4 rounds rather than expecting one-shot coherence. All
+  four rounds were cheap relative to catching the same bugs during
+  implementation.
 
 ## Release Cycle Expectation
 
 Substantive releases run structured Codex audit/response rounds under
 `reporting/plans/v0_1_X/`. v0.1.8 stabilized the four-round pattern;
-v0.1.10 added the pre-PLAN bug-hunt phase (D11):
+v0.1.10 added the pre-PLAN bug-hunt phase (D11); v0.1.11 added the
+pre-cycle plan-audit phase (D14):
 
-0. **Pre-PLAN bug hunt** (v0.1.10+). Internal sweep + audit-chain probe
-   + persona matrix + Codex external audit. Findings consolidate to
-   `audit_findings.md`. Optional for doc-only or small-scope releases;
-   required for substantive ones.
-1. `PLAN.md` names the release scope, derived from `audit_findings.md`.
+-1. **Pre-cycle Codex plan-audit** (v0.1.11+, D14). Codex reviews
+    PLAN.md against `codex_plan_audit_prompt.md`. Maintainer responds;
+    PLAN.md revises until verdict is `PLAN_COHERENT`.
+0. **Pre-PLAN bug hunt** (v0.1.10+, D11). Internal sweep + audit-chain
+   probe + persona matrix + Codex external audit run against the
+   plan-audited PLAN.md. Findings consolidate to `audit_findings.md`
+   with `cycle_impact` tags. Optional for doc-only / small-scope
+   releases; required for substantive ones.
+0a. **Pre-implementation gate.** Maintainer reads `audit_findings.md`.
+    `revises-scope` findings may revise PLAN.md (loop back to D14 if
+    the revision is large). `aborts-cycle` findings may end the cycle.
+    Implementation does not start until this gate fires.
+1. `PLAN.md` (now plan-audited and bug-hunted) names the release scope.
 2. `codex_audit_prompt.md` -> `codex_audit_response.md` records round 1.
 3. Maintainer response files address findings with code changes, deferrals,
    or explicit disagreement.
