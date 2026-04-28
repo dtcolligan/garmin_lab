@@ -307,7 +307,13 @@ class HttpIntervalsIcuClient:
             },
         )
         try:
-            with urllib.request.urlopen(req, timeout=self.timeout_seconds) as resp:
+            # B310: URL scheme is fixed to https via the hardcoded
+            # DEFAULT_BASE_URL constant; base_url has no user-input
+            # flow path (the dataclass default is the only production
+            # source). Path is built from a hardcoded template with
+            # urllib-quoted athlete_id; query is iso-date strings. No
+            # user-controlled scheme can reach this site.
+            with urllib.request.urlopen(req, timeout=self.timeout_seconds) as resp:  # nosec B310
                 body = resp.read().decode("utf-8")
         except urllib.error.HTTPError as exc:
             raise IntervalsIcuError(
