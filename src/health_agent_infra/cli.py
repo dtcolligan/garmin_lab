@@ -29,7 +29,7 @@ from typing import Any, Optional
 
 from health_agent_infra import __version__ as _PACKAGE_VERSION
 from health_agent_infra.core import exit_codes
-from health_agent_infra.core.paths import DEFAULT_BASE_DIR, resolve_base_dir
+from health_agent_infra.core.paths import resolve_base_dir
 from health_agent_infra.core.capabilities import (
     annotate_contract,
     build_manifest,
@@ -41,10 +41,6 @@ from health_agent_infra.core.config import (
     load_thresholds,
     scaffold_thresholds_toml,
     user_config_path,
-)
-from health_agent_infra.domains.recovery import (
-    classify_recovery_state,
-    evaluate_recovery_policy,
 )
 from health_agent_infra.core.pull.auth import (
     CredentialStore,
@@ -69,7 +65,6 @@ from health_agent_infra.core.review.outcomes import (
     persist_review_event,
     record_review_outcome,
     resolve_review_relink,
-    schedule_review,
     summarize_review_history,
 )
 from health_agent_infra.core.schemas import (
@@ -567,7 +562,6 @@ def _intervals_icu_configured() -> bool:
 # ---------------------------------------------------------------------------
 
 def cmd_clean(args: argparse.Namespace) -> int:
-    from health_agent_infra.core.state import aggregate_activities_to_daily_rollup
 
     pulled, err = _load_json_arg(
         args.evidence_json,
@@ -803,6 +797,43 @@ def _project_clean_into_state(
                 source_row_ids=[source_row_id],
                 commit_after=False,
             )
+            # v0.1.10 W-D / F-C-03 fix: merge per-activity aggregates for
+            # as_of_date into raw_row before projecting daily running
+            # state. Without this, intervals.icu users see "running
+            # deferred — insufficient signal" every day even when they
+            # have logged activities, because the daily summary CSV
+            # lacks total_distance_m + intensity minutes. The aggregator
+            # was already implemented (running_activity.aggregate_*) but
+            # never wired into the clean flow.
+            from health_agent_infra.core.state import (
+                aggregate_activities_to_daily_rollup,
+            )
+
+            # Aggregator output → projector's raw_row key names.
+            # The projector reads `raw_row.get("distance_m")` not
+            # `total_distance_m`. Map field names so the merged keys
+            # actually flow through the projection.
+            _ROLLUP_TO_RAW = {
+                "total_distance_m": "distance_m",
+                "moderate_intensity_min": "moderate_intensity_min",
+                "vigorous_intensity_min": "vigorous_intensity_min",
+            }
+
+            today_activities = [
+                a for a in activities or []
+                if a.get("as_of_date") == as_of_date.isoformat()
+            ]
+            if today_activities:
+                rollup = aggregate_activities_to_daily_rollup(today_activities)
+                # Merge non-None rollup fields into raw_row. Don't
+                # overwrite values that were already populated by the
+                # daily summary — trust the upstream daily totals when
+                # both sources exist.
+                for rollup_key, raw_key in _ROLLUP_TO_RAW.items():
+                    value = rollup.get(rollup_key)
+                    if value is not None and raw_row.get(raw_key) in (None, 0):
+                        raw_row[raw_key] = value
+
             project_accepted_running_state_daily(
                 conn,
                 as_of_date=as_of_date,
@@ -811,6 +842,49 @@ def _project_clean_into_state(
                 source_row_ids=[source_row_id],
                 commit_after=False,
             )
+
+            # v0.1.10 W-D extension: also backfill accepted_running_state_daily
+            # rows for historical dates present in `activities`. Otherwise
+            # `running.history` stays empty and the running classifier sees
+            # cold_start: True even after logging weeks of runs. Each
+            # historical date gets an isolated rollup → projection.
+            if activities:
+                by_date: dict[str, list[dict[str, Any]]] = {}
+                for a in activities:
+                    d = a.get("as_of_date")
+                    if not d or d == as_of_date.isoformat():
+                        continue
+                    by_date.setdefault(d, []).append(a)
+                for hist_date_iso, hist_acts in by_date.items():
+                    try:
+                        from datetime import date as _date_cls
+                        hist_date = _date_cls.fromisoformat(hist_date_iso)
+                    except (TypeError, ValueError):
+                        continue
+                    rollup = aggregate_activities_to_daily_rollup(hist_acts)
+                    hist_raw_row: dict[str, Any] = {}
+                    for rollup_key, raw_key in _ROLLUP_TO_RAW.items():
+                        value = rollup.get(rollup_key)
+                        if value is not None:
+                            hist_raw_row[raw_key] = value
+                    if not hist_raw_row:
+                        continue
+                    # Synthetic source_row_id for historical activity
+                    # backfill — distinguishes from the today-summary
+                    # source row.
+                    hist_source_row_id = (
+                        f"running_activity_rollup:{hist_date_iso}:"
+                        f"{user_id}"
+                    )
+                    project_accepted_running_state_daily(
+                        conn,
+                        as_of_date=hist_date,
+                        user_id=user_id,
+                        raw_row=hist_raw_row,
+                        source_row_ids=[hist_source_row_id],
+                        ingest_actor="intervals_icu_activity_rollup",
+                        commit_after=False,
+                    )
             project_accepted_sleep_state_daily(
                 conn,
                 as_of_date=as_of_date,
@@ -3732,7 +3806,7 @@ def cmd_state_read(args: argparse.Namespace) -> int:
                 until=until,
                 user_id=args.user_id,
             )
-        except ValueError as exc:
+        except ValueError:
             print(
                 f"unknown domain: {args.domain!r}. known: {available_domains()}",
                 file=sys.stderr,
@@ -5898,7 +5972,7 @@ def _emit_data_quality_stats(
     P1-1 + round-2 R2-4 confirmed this is the correct contract.
     """
 
-    from datetime import date as _date, timedelta as _td
+    from datetime import timedelta as _td
 
     from health_agent_infra.core.data_quality import read_data_quality_rows
     from health_agent_infra.core.state import open_connection

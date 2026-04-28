@@ -126,9 +126,18 @@ def parse_bulk_session_json(payload: dict) -> dict:
     for idx, s in enumerate(sets):
         if not isinstance(s, dict):
             raise ValueError(f"sets[{idx}] must be an object")
+        # v0.1.10 W-G: accept "exercise" as alias for "exercise_name"
+        # since the per-set CLI flag is named --exercise (singular)
+        # and users mirror that key when authoring --session-json.
+        # Documented in the F-C-08 finding.
+        if "exercise" in s and "exercise_name" not in s:
+            s["exercise_name"] = s.pop("exercise")
         for k in ("set_number", "exercise_name"):
             if k not in s:
-                raise ValueError(f"sets[{idx}] missing required key: {k!r}")
+                raise ValueError(
+                    f"sets[{idx}] missing required key: {k!r} "
+                    f"(also accepts 'exercise' as an alias)"
+                )
         if not isinstance(s["set_number"], int):
             raise ValueError(f"sets[{idx}].set_number must be an integer")
         if not isinstance(s["exercise_name"], str) or not s["exercise_name"].strip():

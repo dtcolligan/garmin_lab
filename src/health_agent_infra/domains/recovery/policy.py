@@ -24,7 +24,7 @@ same `raw_summary` to `evaluate_recovery_policy`. The returned
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Optional
 
 from health_agent_infra.core.config import load_thresholds

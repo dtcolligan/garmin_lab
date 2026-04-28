@@ -34,12 +34,10 @@ from __future__ import annotations
 
 import json
 import sqlite3
-from dataclasses import asdict
 from datetime import date, datetime
 from typing import Optional
 
 from health_agent_infra.core.schemas import (
-    PolicyDecision,
     ReviewEvent,
     ReviewOutcome,
 )
@@ -49,7 +47,6 @@ from health_agent_infra.core.state.projectors._shared import (
     _is_stress_submission_id,
     _now_iso,
     _opt_bool_to_int,
-    _replace_dimension_in_derived_from,
 )
 from health_agent_infra.core.state.projectors.recovery import (
     project_accepted_recovery_state_daily,

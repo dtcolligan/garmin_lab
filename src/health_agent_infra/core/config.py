@@ -39,6 +39,108 @@ class ConfigError(RuntimeError):
     """Raised on malformed user thresholds.toml."""
 
 
+class ConfigCoerceError(RuntimeError):
+    """Raised when a threshold value cannot be safely coerced to its expected
+    numeric type. The most common cause is a boolean appearing where an int or
+    float is expected — Python's `int(True) == 1` would silently coerce the
+    intent away, so we reject explicitly.
+
+    v0.1.10 W-A introduced these helpers and `ConfigCoerceError`. Earlier
+    code paths used bare ``int()`` / ``float()`` / ``bool()`` against config
+    leaves; v0.1.9 closed the bool-as-int leak only at the
+    ``policy.review_summary`` runtime resolver. v0.1.10 closes it across
+    every threshold consumer (≥22 sites identified in
+    ``reporting/plans/v0_1_10/audit_findings.md`` F-A-01).
+    """
+
+
+def coerce_int(value: Any, *, name: str) -> int:
+    """Strict int coercion. Booleans are rejected — `int(True)` is a bug.
+
+    Accepts: actual ints, numeric strings, float values that are
+    whole numbers (e.g. ``5.0``).
+    Rejects: bools, non-numeric strings, fractional floats.
+    """
+
+    if isinstance(value, bool):
+        raise ConfigCoerceError(
+            f"threshold {name!r} got bool {value!r}; expected int"
+        )
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float):
+        if not value.is_integer():
+            raise ConfigCoerceError(
+                f"threshold {name!r} got fractional float {value!r}; "
+                f"expected int"
+            )
+        return int(value)
+    if isinstance(value, str):
+        try:
+            return int(value)
+        except ValueError as exc:
+            raise ConfigCoerceError(
+                f"threshold {name!r} got non-numeric string {value!r}; "
+                f"expected int"
+            ) from exc
+    raise ConfigCoerceError(
+        f"threshold {name!r} got {type(value).__name__} {value!r}; "
+        f"expected int"
+    )
+
+
+def coerce_float(value: Any, *, name: str) -> float:
+    """Strict float coercion. Booleans are rejected.
+
+    Accepts: ints, floats, numeric strings.
+    Rejects: bools, non-numeric strings.
+    """
+
+    if isinstance(value, bool):
+        raise ConfigCoerceError(
+            f"threshold {name!r} got bool {value!r}; expected float"
+        )
+    if isinstance(value, (int, float)):
+        return float(value)
+    if isinstance(value, str):
+        try:
+            return float(value)
+        except ValueError as exc:
+            raise ConfigCoerceError(
+                f"threshold {name!r} got non-numeric string {value!r}; "
+                f"expected float"
+            ) from exc
+    raise ConfigCoerceError(
+        f"threshold {name!r} got {type(value).__name__} {value!r}; "
+        f"expected float"
+    )
+
+
+def coerce_bool(value: Any, *, name: str) -> bool:
+    """Strict bool. No truthy coercion — booleans only.
+
+    Accepts: actual bools, "true"/"false" strings (case-insensitive).
+    Rejects: integers, floats, other strings.
+    """
+
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        lower = value.strip().lower()
+        if lower in {"true", "1"}:
+            return True
+        if lower in {"false", "0"}:
+            return False
+        raise ConfigCoerceError(
+            f"threshold {name!r} got non-boolean string {value!r}; "
+            f"expected bool"
+        )
+    raise ConfigCoerceError(
+        f"threshold {name!r} got {type(value).__name__} {value!r}; "
+        f"expected bool"
+    )
+
+
 APP_NAME = "hai"
 CONFIG_FILENAME = "thresholds.toml"
 
@@ -358,6 +460,21 @@ DEFAULT_THRESHOLDS: dict[str, Any] = {
             # R-rule and the X-rule read the same numeric boundaries.
             "r_extreme_deficiency_min_calorie_deficit_kcal": 500.0,
             "r_extreme_deficiency_max_protein_ratio": 0.7,
+            # v0.1.10 W-C: partial-day gate. Block escalation when fewer
+            # than `r_extreme_deficiency_min_meals_count` meals have been
+            # logged and the caller has not asserted is_end_of_day=True.
+            # 2 is permissive enough to evaluate a single-meal day with
+            # a snack, but blocks the breakfast-only false positive
+            # surfaced by the morning-briefing dogfood (B1 in project
+            # memory).
+            "r_extreme_deficiency_min_meals_count": 2,
+            # v0.1.10 W-C wire: when build_snapshot is computing for
+            # today, we declare end-of-day at this local-clock hour. Past
+            # dates are always treated as end-of-day (the day is closed).
+            # 21 is late enough that a one-meal log is genuinely a
+            # deficiency worth escalating, early enough for the user to
+            # act before sleep.
+            "r_extreme_deficiency_end_of_day_local_hour": 21,
         },
         # v0.1.8 W48 — code-owned review summary tokens. Tunes the
         # `outcome_pattern_*` tokens emitted by
@@ -483,6 +600,130 @@ def _deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any
     return out
 
 
+def _is_strict_bool(value: Any) -> bool:
+    """``True`` only when the value is *exactly* a Python bool.
+
+    ``isinstance(True, int)`` is ``True`` because ``bool`` subclasses
+    ``int`` — that's the silent-coercion hazard D12 was minted to
+    close. The validator below uses this helper so a TOML override
+    of ``true`` against a numeric default never sneaks through as
+    ``1``.
+    """
+
+    return type(value) is bool
+
+
+def _validate_threshold_types(
+    *,
+    merged: Any,
+    default: Any,
+    path: tuple[str, ...] = (),
+) -> None:
+    """Walk the merged thresholds tree and reject overrides whose type
+    is incompatible with the default's type.
+
+    Closes F-CDX-IR-R2-01 (Codex round 2). The W-A coercer helpers
+    protect threshold reads at the call site, but consumers can also
+    read leaves directly via comparison or arithmetic
+    (``protein_ratio < cfg["low_max_ratio"]``); since ``True`` is
+    numerically ``1``, a TOML override of ``low_max_ratio = true``
+    would still flow through silently. Validating types at load time
+    means *every* consumer — coercer, comparison, arithmetic, dict
+    indexing — sees a well-typed value.
+
+    Rules:
+
+    - bool default ⇒ override must be bool (not int).
+    - int default ⇒ override must be int and not bool.
+    - float default ⇒ override must be int or float and not bool.
+      (TOML allows ``1`` and ``1.0`` as the same surface; we accept
+      both for float defaults but always reject bools.)
+    - str / list / None / dict defaults ⇒ override must match
+      kind exactly. Dicts recurse; lists are leaves and replace
+      wholesale.
+    - None defaults are unvalidated — overrides may legitimately
+      provide any type since the default expressed no preference.
+
+    Raises:
+        ConfigCoerceError: with the dotted path and offending value.
+    """
+
+    # None defaults are policy-free; allow any override.
+    if default is None:
+        return
+
+    location = ".".join(path) if path else "<root>"
+
+    # Dict: must remain a dict and recurse.
+    if isinstance(default, dict):
+        if not isinstance(merged, dict):
+            raise ConfigCoerceError(
+                f"threshold {location!r} got {type(merged).__name__}; "
+                f"expected mapping"
+            )
+        for key, default_value in default.items():
+            if key in merged:
+                _validate_threshold_types(
+                    merged=merged[key],
+                    default=default_value,
+                    path=path + (str(key),),
+                )
+        return
+
+    # bool default: override must be strict bool.
+    if _is_strict_bool(default):
+        if not _is_strict_bool(merged):
+            raise ConfigCoerceError(
+                f"threshold {location!r} got "
+                f"{type(merged).__name__} {merged!r}; expected bool"
+            )
+        return
+
+    # int default: override must be int (and NOT bool).
+    if isinstance(default, int):
+        if _is_strict_bool(merged) or not isinstance(merged, int):
+            raise ConfigCoerceError(
+                f"threshold {location!r} got "
+                f"{type(merged).__name__} {merged!r}; expected int"
+            )
+        return
+
+    # float default: override must be numeric and NOT bool.
+    if isinstance(default, float):
+        if _is_strict_bool(merged) or not isinstance(merged, (int, float)):
+            raise ConfigCoerceError(
+                f"threshold {location!r} got "
+                f"{type(merged).__name__} {merged!r}; expected float"
+            )
+        return
+
+    # str default: override must be str.
+    if isinstance(default, str):
+        if not isinstance(merged, str):
+            raise ConfigCoerceError(
+                f"threshold {location!r} got "
+                f"{type(merged).__name__} {merged!r}; expected str"
+            )
+        return
+
+    # list default: override must be list (contents not type-checked).
+    if isinstance(default, list):
+        if not isinstance(merged, list):
+            raise ConfigCoerceError(
+                f"threshold {location!r} got "
+                f"{type(merged).__name__} {merged!r}; expected list"
+            )
+        return
+
+    # Fallback: require exact type match.
+    if type(merged) is not type(default):
+        raise ConfigCoerceError(
+            f"threshold {location!r} got "
+            f"{type(merged).__name__} {merged!r}; "
+            f"expected {type(default).__name__}"
+        )
+
+
 def load_thresholds(path: Optional[Path] = None) -> dict[str, Any]:
     """Return merged thresholds: defaults + user TOML (if present).
 
@@ -493,6 +734,12 @@ def load_thresholds(path: Optional[Path] = None) -> dict[str, Any]:
 
     Raises:
         ConfigError: the TOML was present but malformed.
+        ConfigCoerceError: the TOML was structurally valid but a leaf
+            override changed the type expected by ``DEFAULT_THRESHOLDS``
+            (e.g. bool override against a numeric default). v0.1.10
+            round-2 hardening (F-CDX-IR-R2-01) — load-time validation
+            prevents bool-as-int silent coercion across every consumer
+            site, including direct comparisons and arithmetic.
     """
 
     effective_path = path if path is not None else user_config_path()
@@ -507,7 +754,9 @@ def load_thresholds(path: Optional[Path] = None) -> dict[str, Any]:
             f"malformed thresholds TOML at {effective_path}: {exc}"
         ) from exc
 
-    return _deep_merge(DEFAULT_THRESHOLDS, user_overrides)
+    merged = _deep_merge(DEFAULT_THRESHOLDS, user_overrides)
+    _validate_threshold_types(merged=merged, default=DEFAULT_THRESHOLDS)
+    return merged
 
 
 SCAFFOLD_THRESHOLDS_TOML = """\

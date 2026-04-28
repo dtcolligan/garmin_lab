@@ -56,7 +56,10 @@ checked-in repo shape.
 | See how `hai explain` works (three-state audit) | [`reporting/docs/explainability.md`](reporting/docs/explainability.md) |
 | Read the agent CLI contract | [`reporting/docs/agent_cli_contract.md`](reporting/docs/agent_cli_contract.md) |
 | Add runtime code or a skill | [`CONTRIBUTING.md`](CONTRIBUTING.md) |
-| See the forward roadmap | [`ROADMAP.md`](ROADMAP.md) and [`reporting/plans/multi_release_roadmap.md`](reporting/plans/multi_release_roadmap.md) |
+| See the forward roadmap | [`reporting/plans/README.md`](reporting/plans/README.md) (reading-order index for the planning tree) |
+| Read the strategic plan | [`reporting/plans/strategic_plan_v1.md`](reporting/plans/strategic_plan_v1.md) |
+| Read the tactical plan (next 6-8 releases) | [`reporting/plans/tactical_plan_v0_1_x.md`](reporting/plans/tactical_plan_v0_1_x.md) |
+| Run the persona dogfood harness | [`verification/dogfood/README.md`](verification/dogfood/README.md) |
 | Inspect proof / eval captures | [`reporting/artifacts/`](reporting/artifacts/) |
 | See what was tried and discarded before v1 | [`reporting/experiments/`](reporting/experiments/) |
 
@@ -69,15 +72,25 @@ checked-in repo shape.
   everything directly under `reporting/docs/`
   (including `agent_cli_contract.md` — generated from `hai
   capabilities --json`),
-  `reporting/plans/multi_release_roadmap.md` (canonical forward
-  roadmap), `reporting/plans/v0_1_9/BACKLOG.md` (next-cycle
-  backlog).
+  `reporting/plans/README.md` (reading-order index, NEW
+  v0.1.10), `reporting/plans/strategic_plan_v1.md` (NEW v0.1.10,
+  canonical strategic plan), `reporting/plans/tactical_plan_v0_1_x.md`
+  (NEW v0.1.10, canonical tactical plan), `reporting/plans/eval_strategy/`
+  (NEW v0.1.10), `reporting/plans/success_framework_v1.md` (NEW
+  v0.1.10), `reporting/plans/risks_and_open_questions.md` (NEW
+  v0.1.10), `reporting/plans/v0_1_10/`, `reporting/plans/v0_1_11/`
+  (next cycle scaffolded).
+- **SUPERSEDED 2026-04-27**: `reporting/plans/multi_release_roadmap.md` —
+  preserved as historical provenance; do not act on its release
+  schedule. Use the strategic + tactical plans above.
 - **Active proof**:
   `reporting/artifacts/flagship_loop_proof/2026-04-18-multi-domain-evals/`.
-- **Active tests + evals**: `verification/tests/`, `verification/evals/` (the
+- **Active tests + evals**: `verification/tests/`, `verification/evals/`,
+  `verification/dogfood/` (the persona harness, NEW v0.1.10) — the
   packaged eval runner lives at `src/health_agent_infra/evals/`;
   `verification/evals/` retains dev-reference docs and the skill-harness
-  pilot).
+  pilot; `verification/dogfood/` drives synthetic personas through the
+  full pipeline as permanent regression infrastructure.
 - **Historical / archived (still on disk, clearly labelled)**:
   `reporting/docs/archive/doctrine/`,
   `reporting/docs/archive/merge_human_inputs/`,

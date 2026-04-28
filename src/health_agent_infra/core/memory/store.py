@@ -24,8 +24,6 @@ from datetime import datetime, timezone
 from typing import Optional
 
 from health_agent_infra.core.memory.schemas import (
-    USER_MEMORY_CATEGORIES,
-    UserMemoryCategory,
     UserMemoryEntry,
     validate_category,
     validate_domain,

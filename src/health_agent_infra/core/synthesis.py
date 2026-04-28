@@ -42,11 +42,9 @@ side. One function — :func:`run_synthesis` — is called by
 
 from __future__ import annotations
 
-import json
 import sqlite3
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
-from pathlib import Path
 from typing import Any, Optional
 
 from health_agent_infra.core.config import load_thresholds
@@ -71,7 +69,6 @@ from health_agent_infra.core.state.projector import (
 from health_agent_infra.core.state.snapshot import build_snapshot
 from health_agent_infra.core.synthesis_policy import (
     XRuleFiring,
-    XRuleWriteSurfaceViolation,
     apply_phase_a,
     apply_phase_b,
     evaluate_phase_a,

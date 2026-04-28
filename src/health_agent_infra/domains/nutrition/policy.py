@@ -120,10 +120,30 @@ def _r_sparse_confidence_cap(
 def _r_extreme_deficiency(
     classified: ClassifiedNutritionState,
     t: dict[str, Any],
+    *,
+    meals_count: Optional[int] = None,
+    is_end_of_day: Optional[bool] = None,
 ) -> tuple[PolicyDecision, Optional[str], Optional[dict[str, Any]]]:
+    from health_agent_infra.core.config import coerce_float, coerce_int
+
     cfg = t["policy"]["nutrition"]
-    min_deficit = float(cfg["r_extreme_deficiency_min_calorie_deficit_kcal"])
-    max_protein_ratio = float(cfg["r_extreme_deficiency_max_protein_ratio"])
+    min_deficit = coerce_float(
+        cfg["r_extreme_deficiency_min_calorie_deficit_kcal"],
+        name="r_extreme_deficiency_min_calorie_deficit_kcal",
+    )
+    max_protein_ratio = coerce_float(
+        cfg["r_extreme_deficiency_max_protein_ratio"],
+        name="r_extreme_deficiency_max_protein_ratio",
+    )
+    # v0.1.10 W-C: partial-day gate. The rule must not fire on a
+    # single-meal logged total because that mis-reads breakfast as
+    # the day's full intake. Either meals_count >= min OR caller
+    # passed is_end_of_day=True must hold; otherwise the rule yields
+    # `partial_day_caveat`.
+    min_meals = coerce_int(
+        cfg.get("r_extreme_deficiency_min_meals_count", 2),
+        name="r_extreme_deficiency_min_meals_count",
+    )
 
     deficit = classified.calorie_deficit_kcal
     protein_ratio = classified.protein_ratio
@@ -131,6 +151,31 @@ def _r_extreme_deficiency(
     deficit_triggers = deficit is not None and deficit >= min_deficit
     protein_triggers = protein_ratio is not None and protein_ratio < max_protein_ratio
 
+    # Partial-day gate evaluation. If the rule's preconditions WOULD fire
+    # but partial-day signals are present, suppress the firing and emit
+    # an explicit caveat decision.
+    if deficit_triggers and protein_triggers:
+        meals_logged = meals_count if meals_count is not None else 0
+        partial_day = (
+            (meals_count is not None and meals_logged < min_meals)
+            and (is_end_of_day is not True)
+        )
+        if partial_day:
+            return (
+                PolicyDecision(
+                    rule_id="extreme_deficiency_escalation",
+                    decision="allow",
+                    note=(
+                        f"partial_day_caveat: meals_count={meals_logged} "
+                        f"< {min_meals} and not end_of_day; suppressing "
+                        f"extreme-deficiency escalation. "
+                        f"calorie_deficit_kcal={deficit:.0f}, "
+                        f"protein_ratio={protein_ratio:.2f}."
+                    ),
+                ),
+                None,
+                None,
+            )
     if deficit_triggers and protein_triggers:
         detail = {
             "reason_token": "extreme_deficiency_detected",
@@ -178,6 +223,9 @@ def _r_extreme_deficiency(
 def evaluate_nutrition_policy(
     classified: ClassifiedNutritionState,
     thresholds: Optional[dict[str, Any]] = None,
+    *,
+    meals_count: Optional[int] = None,
+    is_end_of_day: Optional[bool] = None,
 ) -> NutritionPolicyResult:
     """Apply nutrition R-rules to a classified nutrition state.
 
@@ -199,7 +247,9 @@ def evaluate_nutrition_policy(
     if cov_forced is not None:
         forced_action = cov_forced
 
-    extreme_dec, extreme_forced, extreme_detail = _r_extreme_deficiency(classified, t)
+    extreme_dec, extreme_forced, extreme_detail = _r_extreme_deficiency(
+        classified, t, meals_count=meals_count, is_end_of_day=is_end_of_day,
+    )
     decisions.append(extreme_dec)
     if extreme_forced is not None:
         # Extreme deficiency is the louder signal — mirrors strength's

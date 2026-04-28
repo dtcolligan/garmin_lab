@@ -74,6 +74,40 @@ _INSERT_COLUMNS = (
 )
 
 
+class ActivityProjectorInputError(ValueError):
+    """Raised when an activity payload is missing keys the projector
+    requires via direct dict access. v0.1.10 W-D introduced typed
+    validation so the failure surface is explicit rather than a bare
+    ``KeyError`` that bubbles up as a generic transaction rollback.
+    """
+
+
+_ACTIVITY_REQUIRED_KEYS = ("activity_id", "user_id", "as_of_date", "raw_json")
+
+
+def _validate_activity_payload(activity: dict) -> None:
+    """v0.1.10 W-D: enforce the implicit projector contract explicitly.
+
+    The ``project_activity`` body uses direct subscript on
+    ``activity_id``, ``user_id``, and ``raw_json`` — anything missing
+    raises ``KeyError`` which the cmd_clean handler wraps in a generic
+    "rolled back: 'user_id'" warning. That message hides the contract
+    from users; this validator raises a typed error with the full
+    missing-key set up front.
+    """
+
+    if not isinstance(activity, dict):
+        raise ActivityProjectorInputError(
+            f"activity must be a dict, got {type(activity).__name__}"
+        )
+    missing = [k for k in _ACTIVITY_REQUIRED_KEYS if k not in activity]
+    if missing:
+        raise ActivityProjectorInputError(
+            f"activity missing required keys: {missing}. "
+            f"Required: {list(_ACTIVITY_REQUIRED_KEYS)}"
+        )
+
+
 def project_activity(
     conn: sqlite3.Connection,
     *,
@@ -89,7 +123,14 @@ def project_activity(
     serialised to JSON text for SQLite storage; reads rehydrate them.
 
     Returns ``True`` on insert, ``False`` on replace.
+
+    Raises ``ActivityProjectorInputError`` if the payload is missing
+    a key the projector requires via direct dict access. v0.1.10 W-D
+    introduced this validation surface so contract violations are
+    explicit rather than presenting as generic ``KeyError`` rollbacks.
     """
+
+    _validate_activity_payload(activity)
 
     now_iso = _now_iso()
     activity_id = activity["activity_id"]

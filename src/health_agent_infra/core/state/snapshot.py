@@ -22,6 +22,8 @@ import sqlite3
 from datetime import date, datetime, time, timedelta, timezone
 from typing import Any, Optional
 
+from health_agent_infra.core.config import coerce_int, load_thresholds
+
 
 # ---------------------------------------------------------------------------
 # D4 — Cold-start window. A user is in cold-start mode for a domain
@@ -872,7 +874,37 @@ def build_snapshot(
             goal_domain=(goals_active[0]["domain"] if goals_active else None),
         )
         nutrition_classified = classify_nutrition_state(nutrition_signals)
-        nutrition_policy = evaluate_nutrition_policy(nutrition_classified)
+        # v0.1.10 W-C wire (F-CDX-IR-01): plumb the partial-day gate
+        # through the runtime call. The policy function has accepted
+        # ``meals_count`` and ``is_end_of_day`` since v0.1.10, but the
+        # snapshot path was passing neither — so the breakfast-only
+        # false-positive escalation that W-C was meant to close still
+        # fired in normal ``hai daily`` flow. The gate now activates
+        # whenever the snapshot is computed for today before the
+        # end-of-day local-clock threshold; past dates are always
+        # treated as end-of-day because the day is closed.
+        _nutrition_meals_count = (
+            (nutrition_today or {}).get("meals_count")
+        )
+        _eod_hour = coerce_int(
+            load_thresholds()
+            .get("policy", {})
+            .get("nutrition", {})
+            .get("r_extreme_deficiency_end_of_day_local_hour", 21),
+            name="r_extreme_deficiency_end_of_day_local_hour",
+        )
+        if as_of_date < now_local.date():
+            _is_end_of_day: Optional[bool] = True
+        elif as_of_date == now_local.date():
+            _is_end_of_day = now_local.hour >= _eod_hour
+        else:
+            # Future-dated snapshot — defensive; treat as not-end-of-day.
+            _is_end_of_day = False
+        nutrition_policy = evaluate_nutrition_policy(
+            nutrition_classified,
+            meals_count=_nutrition_meals_count,
+            is_end_of_day=_is_end_of_day,
+        )
         nutrition_block["signals"] = nutrition_signals
         nutrition_block["classified_state"] = _nutrition_classified_to_dict(nutrition_classified)
         nutrition_block["policy_result"] = _policy_to_dict(nutrition_policy)

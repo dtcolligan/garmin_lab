@@ -24,7 +24,7 @@ Contract invariants enforced by ``verification/tests/test_running_schemas.py``:
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, field
+from dataclasses import dataclass
 from datetime import date, datetime
 from typing import Any, Literal, Optional
 

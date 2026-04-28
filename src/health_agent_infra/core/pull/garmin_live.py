@@ -155,12 +155,26 @@ class RetryConfig:
 def retry_config_from_thresholds(thresholds: Optional[dict[str, Any]]) -> RetryConfig:
     """Derive a :class:`RetryConfig` from a merged thresholds dict."""
 
+    from health_agent_infra.core.config import coerce_bool, coerce_float, coerce_int
+
     cfg = ((thresholds or {}).get("pull") or {}).get("garmin_live") or {}
     return RetryConfig(
-        max_attempts=int(cfg.get("max_attempts", 3)),
-        base_delay_seconds=float(cfg.get("base_delay_seconds", 1.0)),
-        max_delay_seconds=float(cfg.get("max_delay_seconds", 4.0)),
-        retry_on_rate_limit=bool(cfg.get("retry_on_rate_limit", True)),
+        max_attempts=coerce_int(
+            cfg.get("max_attempts", 3),
+            name="pull.garmin_live.max_attempts",
+        ),
+        base_delay_seconds=coerce_float(
+            cfg.get("base_delay_seconds", 1.0),
+            name="pull.garmin_live.base_delay_seconds",
+        ),
+        max_delay_seconds=coerce_float(
+            cfg.get("max_delay_seconds", 4.0),
+            name="pull.garmin_live.max_delay_seconds",
+        ),
+        retry_on_rate_limit=coerce_bool(
+            cfg.get("retry_on_rate_limit", True),
+            name="pull.garmin_live.retry_on_rate_limit",
+        ),
     )
 
 

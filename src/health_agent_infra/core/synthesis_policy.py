@@ -33,7 +33,7 @@ application.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Iterable, Literal, Optional
 
 
@@ -379,10 +379,19 @@ def _stress_band(
         score = int(value)
     except (TypeError, ValueError):
         return None
+    from health_agent_infra.core.config import coerce_int
+
     x7_cfg = _get(thresholds, "synthesis", "x_rules", "x7") or {}
-    very_high_min = int(x7_cfg.get("very_high_min_score", 80))
-    high_min = int(x7_cfg.get("high_min_score", 60))
-    moderate_min = int(x7_cfg.get("moderate_min_score", 40))
+    very_high_min = coerce_int(
+        x7_cfg.get("very_high_min_score", 80),
+        name="x7.very_high_min_score",
+    )
+    high_min = coerce_int(
+        x7_cfg.get("high_min_score", 60), name="x7.high_min_score"
+    )
+    moderate_min = coerce_int(
+        x7_cfg.get("moderate_min_score", 40), name="x7.moderate_min_score"
+    )
     if score >= very_high_min:
         return "very_high"
     if score >= high_min:
@@ -565,9 +574,15 @@ def evaluate_x2(
     the rule.
     """
 
+    from health_agent_infra.core.config import coerce_float
+
     cfg = _get(thresholds, "synthesis", "x_rules", "x2") or {}
-    deficit_min = float(cfg.get("deficit_kcal_min", 500.0))
-    protein_ratio_max = float(cfg.get("protein_ratio_max", 0.7))
+    deficit_min = coerce_float(
+        cfg.get("deficit_kcal_min", 500.0), name="x2.deficit_kcal_min"
+    )
+    protein_ratio_max = coerce_float(
+        cfg.get("protein_ratio_max", 0.7), name="x2.protein_ratio_max"
+    )
 
     deficit, protein_ratio = _nutrition_deficit_and_protein(snapshot)
 
@@ -652,9 +667,11 @@ def evaluate_x3a(
 ) -> list[XRuleFiring]:
     """X3a (soften): 1.3 ≤ acwr_ratio < 1.5 → downgrade hard sessions."""
 
+    from health_agent_infra.core.config import coerce_float
+
     cfg = _get(thresholds, "synthesis", "x_rules", "x3a") or {}
-    lower = float(cfg.get("acwr_ratio_lower", 1.3))
-    upper = float(cfg.get("acwr_ratio_upper", 1.5))
+    lower = coerce_float(cfg.get("acwr_ratio_lower", 1.3), name="x3a.acwr_ratio_lower")
+    upper = coerce_float(cfg.get("acwr_ratio_upper", 1.5), name="x3a.acwr_ratio_upper")
     acwr = _acwr_ratio(snapshot)
     if acwr is None or not (lower <= acwr < upper):
         return []
@@ -695,8 +712,10 @@ def evaluate_x3b(
 ) -> list[XRuleFiring]:
     """X3b (block): acwr_ratio ≥ 1.5 → escalate hard sessions."""
 
+    from health_agent_infra.core.config import coerce_float
+
     cfg = _get(thresholds, "synthesis", "x_rules", "x3b") or {}
-    minimum = float(cfg.get("acwr_ratio_min", 1.5))
+    minimum = coerce_float(cfg.get("acwr_ratio_min", 1.5), name="x3b.acwr_ratio_min")
     acwr = _acwr_ratio(snapshot)
     if acwr is None or acwr < minimum:
         return []
@@ -788,8 +807,13 @@ def evaluate_x4(
     downgrade action).
     """
 
+    from health_agent_infra.core.config import coerce_float
+
     cfg = _get(thresholds, "synthesis", "x_rules", "x4") or {}
-    threshold = float(cfg.get("heavy_lower_body_min_volume", 2000.0))
+    threshold = coerce_float(
+        cfg.get("heavy_lower_body_min_volume", 2000.0),
+        name="x4.heavy_lower_body_min_volume",
+    )
 
     vol_by_group = _yesterday_strength_volume_by_group(snapshot)
     if not vol_by_group:
@@ -856,9 +880,17 @@ def evaluate_x5(
     not heavier loading).
     """
 
+    from health_agent_infra.core.config import coerce_int
+
     cfg = _get(thresholds, "synthesis", "x_rules", "x5") or {}
-    min_vigorous_min = int(cfg.get("vigorous_intensity_min", 20))
-    min_long_run_s = int(cfg.get("long_run_min_duration_s", 4500))
+    min_vigorous_min = coerce_int(
+        cfg.get("vigorous_intensity_min", 20),
+        name="x5.vigorous_intensity_min",
+    )
+    min_long_run_s = coerce_int(
+        cfg.get("long_run_min_duration_s", 4500),
+        name="x5.long_run_min_duration_s",
+    )
 
     yrow = _yesterday_running_row(snapshot)
     if yrow is None:
@@ -915,8 +947,13 @@ def evaluate_x6a(
 ) -> list[XRuleFiring]:
     """X6a (soften): body_battery < 30 → downgrade every hard proposal."""
 
+    from health_agent_infra.core.config import coerce_int
+
     cfg = _get(thresholds, "synthesis", "x_rules", "x6a") or {}
-    ceiling = int(cfg.get("body_battery_max", 30))
+    ceiling = coerce_int(
+        cfg.get("body_battery_max", 30),
+        name="x6a.body_battery_max",
+    )
     bb = _body_battery(snapshot)
     if bb is None or bb >= ceiling:
         return []
@@ -926,7 +963,10 @@ def evaluate_x6a(
     # wins via precedence anyway, but suppressing the duplicate keeps the
     # firings list clean.
     x6b_cfg = _get(thresholds, "synthesis", "x_rules", "x6b") or {}
-    x6b_ceiling = int(x6b_cfg.get("body_battery_max", 15))
+    x6b_ceiling = coerce_int(
+        x6b_cfg.get("body_battery_max", 15),
+        name="x6b.body_battery_max",
+    )
     if bb < x6b_ceiling:
         return []
 
@@ -966,8 +1006,13 @@ def evaluate_x6b(
 ) -> list[XRuleFiring]:
     """X6b (block): body_battery < 15 → escalate every hard proposal."""
 
+    from health_agent_infra.core.config import coerce_int
+
     cfg = _get(thresholds, "synthesis", "x_rules", "x6b") or {}
-    ceiling = int(cfg.get("body_battery_max", 15))
+    ceiling = coerce_int(
+        cfg.get("body_battery_max", 15),
+        name="x6b.body_battery_max",
+    )
     bb = _body_battery(snapshot)
     if bb is None or bb >= ceiling:
         return []
@@ -1256,8 +1301,12 @@ def apply_phase_a(
     if "action_detail" in mutated and isinstance(mutated["action_detail"], dict):
         mutated["action_detail"] = dict(mutated["action_detail"])
 
-    applied_action_mutation = False
-    # Precedence: block > soften.
+    # Precedence: block > soften. v0.1.10 W-J cleanup: dropped a
+    # local `applied_action_mutation` flag that was assigned in both
+    # branches but never read anywhere in the codebase. If a future
+    # caller needs to know whether Phase A actually mutated the
+    # action surface, bring it back as a return value (or read
+    # `mutated["action"] != proposal.get("action")` directly).
     if blocks:
         block = blocks[0]
         mutation = block.recommended_mutation or {}
@@ -1265,7 +1314,6 @@ def apply_phase_a(
             mutated["action"] = mutation["action"]
         if "action_detail" in mutation:
             mutated["action_detail"] = dict(mutation["action_detail"])
-        applied_action_mutation = True
     elif softens:
         soften = softens[0]
         mutation = soften.recommended_mutation or {}
@@ -1273,7 +1321,6 @@ def apply_phase_a(
             mutated["action"] = mutation["action"]
         if "action_detail" in mutation:
             mutated["action_detail"] = dict(mutation["action_detail"])
-        applied_action_mutation = True
 
     # cap_confidence: independent. Lower "high" to "moderate"; never raise.
     if caps:

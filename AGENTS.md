@@ -23,8 +23,18 @@ Authoritative orientation:
 - `REPO_MAP.md` - every top-level entry classified active/historical
 - `reporting/docs/architecture.md` - full pipeline and code-vs-skill boundary
 - `reporting/docs/non_goals.md` - scope discipline
-- `reporting/plans/multi_release_roadmap.md` - release-by-release roadmap
+- `reporting/plans/README.md` - reading-order index for the planning tree
+- `reporting/plans/strategic_plan_v1.md` - 12-24 month strategic vision
+- `reporting/plans/tactical_plan_v0_1_x.md` - next 6-8 releases
+- `reporting/plans/eval_strategy/v1.md` - how correctness is measured
+- `reporting/plans/success_framework_v1.md` - how project value is measured
+- `reporting/plans/risks_and_open_questions.md` - what could derail + decisions needed
+- `verification/dogfood/README.md` - persona harness operating guide
 - `AUDIT.md` - release-by-release audit index
+
+The 2026-04-25 `reporting/plans/multi_release_roadmap.md` is
+SUPERSEDED. Read it only as historical provenance; use the
+strategic + tactical plans above for current scope.
 
 ## Code Vs Skill
 
@@ -94,8 +104,10 @@ micronutrient features without a new scoped plan.
    `review_outcome` must reconcile through `hai explain`.
 6. **Review-summary bool-as-int hardening.** `followed_recommendation`,
    `self_reported_improvement`, and `policy.review_summary` runtime threshold
-   values reject bool-shaped numeric inputs. Global threshold-runtime type
-   hardening remains v0.1.9 backlog.
+   values reject bool-shaped numeric inputs. v0.1.10 W-A extended the
+   hardening across nutrition policy + classify + synthesis_policy x7/x2/
+   x3a/x3b. Use `core.config.coerce_int / coerce_float / coerce_bool` for
+   any new threshold-consumer site (D12).
 
 ## Settled Decisions - Do Not Reopen Casually
 
@@ -117,13 +129,29 @@ write a cycle proposal in `reporting/plans/`; do not act unilaterally.
 - **No `STATUS.md`.** Status lives in CHANGELOG, AUDIT, ROADMAP, and
   ARCHITECTURE; do not resurrect a parallel status file without a new
   maintainer decision.
+- **(D10, v0.1.10) Persona harness lives in `verification/dogfood/`,
+  not `verification/tests/`.** Full matrix runs are not part of CI. CI
+  stays fast; persona matrix is invoked on release.
+- **(D11, v0.1.10) Pre-PLAN bug-hunt phase is permanent pattern.**
+  Substantive releases run a structured hunt (internal sweep +
+  audit-chain probe + persona matrix + Codex external audit) before
+  scoping PLAN.md. Findings consolidate to `audit_findings.md`.
+- **(D12, v0.1.10) Every `int(cfg)` / `float(cfg)` / `bool(cfg)` in the
+  runtime must use `core.config.coerce_*` helpers.** Bool-as-int silent
+  coercion is the highest-impact silent bug class. New code referencing
+  thresholds without going through the helpers is a bug.
 
 ## Release Cycle Expectation
 
 Substantive releases run structured Codex audit/response rounds under
-`reporting/plans/v0_1_X/`. v0.1.8 stabilized the four-round pattern:
+`reporting/plans/v0_1_X/`. v0.1.8 stabilized the four-round pattern;
+v0.1.10 added the pre-PLAN bug-hunt phase (D11):
 
-1. `PLAN.md` names the release scope.
+0. **Pre-PLAN bug hunt** (v0.1.10+). Internal sweep + audit-chain probe
+   + persona matrix + Codex external audit. Findings consolidate to
+   `audit_findings.md`. Optional for doc-only or small-scope releases;
+   required for substantive ones.
+1. `PLAN.md` names the release scope, derived from `audit_findings.md`.
 2. `codex_audit_prompt.md` -> `codex_audit_response.md` records round 1.
 3. Maintainer response files address findings with code changes, deferrals,
    or explicit disagreement.
@@ -157,6 +185,8 @@ CI runs `verification/tests/`. The suite includes docs and skill/CLI drift check
 | New CLI command | `src/health_agent_infra/cli.py`; annotate capabilities metadata |
 | New audit field | Add to the write path and to `hai explain` rendering |
 | New skill | `src/health_agent_infra/skills/<name>/SKILL.md` with valid frontmatter |
+| New persona archetype | `verification/dogfood/personas/p<N>_<slug>.py` + register in `personas/__init__.py`'s `ALL_PERSONAS` |
+| New threshold consumer | Always use `core.config.coerce_int / coerce_float / coerce_bool` (D12) |
 
 ## Do Not Do
 
@@ -179,5 +209,20 @@ CI runs `verification/tests/`. The suite includes docs and skill/CLI drift check
 ## When In Doubt
 
 Read `README.md`, `REPO_MAP.md`, `reporting/docs/architecture.md`,
-`reporting/docs/non_goals.md`, then the current cycle's plan. If still
+`reporting/docs/non_goals.md`, `reporting/plans/README.md` (the planning
+tree's reading-order index), then the current cycle's plan. If still
 unclear, ask Dom rather than guessing.
+
+The planning tree under `reporting/plans/` has a structured shape as of
+2026-04-27:
+
+- `strategic_plan_v1.md` — 12-24 month vision.
+- `tactical_plan_v0_1_x.md` — next 6-8 releases.
+- `eval_strategy/v1.md` — how correctness is measured.
+- `success_framework_v1.md` — how project value is measured.
+- `risks_and_open_questions.md` — what could go wrong + decisions needed.
+- `v0_1_X/` — per-cycle artifacts (PLAN, audit findings, release proof).
+- `multi_release_roadmap.md` — SUPERSEDED 2026-04-27, historical only.
+
+The `reporting/plans/README.md` index disambiguates which doc to read
+when. Always check there before authoring a new plan doc.

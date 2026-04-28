@@ -59,7 +59,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Optional
 
-from health_agent_infra.core.config import load_thresholds
+from health_agent_infra.core.config import coerce_float, load_thresholds
 
 
 CalorieBalanceBand = str    # "met"|"mild_deficit"|"moderate_deficit"|"high_deficit"|"surplus"|"unknown"
@@ -96,11 +96,13 @@ def _classify_calorie_balance(
 ) -> tuple[CalorieBalanceBand, list[str]]:
     if deficit_kcal is None:
         return "unknown", ["calorie_baseline_unavailable"]
+    from health_agent_infra.core.config import coerce_float
+
     cfg = t["classify"]["nutrition"]["calorie_balance_band"]
-    surplus_min = float(cfg["surplus_min_kcal"])
-    high = float(cfg["high_deficit_min_kcal"])
-    moderate = float(cfg["moderate_deficit_min_kcal"])
-    mild = float(cfg["mild_deficit_min_kcal"])
+    surplus_min = coerce_float(cfg["surplus_min_kcal"], name="surplus_min_kcal")
+    high = coerce_float(cfg["high_deficit_min_kcal"], name="high_deficit_min_kcal")
+    moderate = coerce_float(cfg["moderate_deficit_min_kcal"], name="moderate_deficit_min_kcal")
+    mild = coerce_float(cfg["mild_deficit_min_kcal"], name="mild_deficit_min_kcal")
     # Surplus is when actual - target >= surplus_min_kcal, i.e.
     # deficit <= -surplus_min_kcal.
     if deficit_kcal <= -surplus_min:
@@ -120,9 +122,17 @@ def _classify_protein_sufficiency(
     if protein_ratio is None:
         return "unknown", ["protein_target_unavailable"]
     cfg = t["classify"]["nutrition"]["protein_sufficiency_band"]
-    if protein_ratio < cfg["very_low_max_ratio"]:
+    very_low_max = coerce_float(
+        cfg["very_low_max_ratio"],
+        name="classify.nutrition.protein_sufficiency_band.very_low_max_ratio",
+    )
+    low_max = coerce_float(
+        cfg["low_max_ratio"],
+        name="classify.nutrition.protein_sufficiency_band.low_max_ratio",
+    )
+    if protein_ratio < very_low_max:
         return "very_low", []
-    if protein_ratio < cfg["low_max_ratio"]:
+    if protein_ratio < low_max:
         return "low", []
     return "met", []
 
@@ -136,7 +146,11 @@ def _classify_hydration(
         # nudge the user to log hydration.
         return "unknown", ["hydration_not_logged"]
     cfg = t["classify"]["nutrition"]["hydration_band"]
-    if hydration_ratio < cfg["low_max_ratio"]:
+    low_max = coerce_float(
+        cfg["low_max_ratio"],
+        name="classify.nutrition.hydration_band.low_max_ratio",
+    )
+    if hydration_ratio < low_max:
         return "low", []
     return "met", []
 
@@ -217,7 +231,29 @@ def _nutrition_score(
     if coverage == "insufficient":
         return None
 
-    penalties = t["classify"]["nutrition"]["nutrition_score_penalty"]
+    raw_penalties = t["classify"]["nutrition"]["nutrition_score_penalty"]
+    # Coerce each penalty leaf once so the arithmetic below sees only
+    # well-typed floats. Load-time validation already rejects bool-on-
+    # numeric overrides; the explicit coerce_float here is consistent
+    # with W-A's pattern and self-documents the type contract for
+    # readers.
+    penalties = {
+        key: coerce_float(
+            raw_penalties[key],
+            name=f"classify.nutrition.nutrition_score_penalty.{key}",
+        )
+        for key in (
+            "calorie_mild_deficit",
+            "calorie_moderate_deficit",
+            "calorie_high_deficit",
+            "calorie_surplus",
+            "protein_low",
+            "protein_very_low",
+            "hydration_low",
+            "coverage_partial",
+            "coverage_sparse",
+        )
+    }
     score = 1.0
 
     if calorie == "mild_deficit":
@@ -273,9 +309,18 @@ def classify_nutrition_state(
 
     today_row: Optional[dict[str, Any]] = nutrition_signals.get("today_row")
     targets = t["classify"]["nutrition"]["targets"]
-    calorie_target = float(targets["calorie_target_kcal"])
-    protein_target = float(targets["protein_target_g"])
-    hydration_target = float(targets["hydration_target_l"])
+    calorie_target = coerce_float(
+        targets["calorie_target_kcal"],
+        name="classify.nutrition.targets.calorie_target_kcal",
+    )
+    protein_target = coerce_float(
+        targets["protein_target_g"],
+        name="classify.nutrition.targets.protein_target_g",
+    )
+    hydration_target = coerce_float(
+        targets["hydration_target_l"],
+        name="classify.nutrition.targets.hydration_target_l",
+    )
 
     # Derived intermediates.
     calorie_deficit: Optional[float] = None

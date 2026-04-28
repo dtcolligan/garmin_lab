@@ -1,6 +1,25 @@
-# Multi-release roadmap (v0.1.9 → v1.0+)
+# Multi-release roadmap (v0.1.9 → v1.0+) — SUPERSEDED
 
-> **Status.** Draft authored 2026-04-25 by Claude. Supersedes the
+> ## ⚠️ SUPERSEDED 2026-04-27
+>
+> This doc is preserved as historical provenance. The current
+> canonical strategic + tactical plans are:
+>
+> - **Strategic plan:** `reporting/plans/strategic_plan_v1.md`
+> - **Tactical plan (next 6-8 releases):** `reporting/plans/tactical_plan_v0_1_x.md`
+> - **Reading-order index:** `reporting/plans/README.md`
+>
+> The hypotheses (H1-H5), category claim, and settled decisions
+> from this doc were lifted forward intact where still load-bearing.
+> Three claims were falsified by v0.1.10 evidence and are addressed
+> in `strategic_plan_v1.md` § 5 ("Settled-but-now-falsifiable").
+>
+> Do not act on this doc's release schedule (§ 4) — it predates
+> v0.1.10 reality. Use the tactical plan instead.
+>
+> ---
+>
+> **Original status.** Draft authored 2026-04-25 by Claude. Supersedes the
 > "Multi-release roadmap" + "Workstreams the plan missed" sections of
 > `reporting/plans/v0_1_8/codex_audit_response.md` and the older
 > `reporting/plans/post_v0_1_roadmap.md`. This is the canonical

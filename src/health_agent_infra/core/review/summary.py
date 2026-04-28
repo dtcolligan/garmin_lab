@@ -26,7 +26,7 @@ state on their own (per `reporting/docs/non_goals.md`).
 from __future__ import annotations
 
 import sqlite3
-from datetime import date, datetime, timedelta
+from datetime import date, timedelta
 from typing import Any, Iterable, Optional
 
 from health_agent_infra.core.config import load_thresholds

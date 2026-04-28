@@ -11,6 +11,203 @@ Per-release detail lives under `reporting/plans/<version>/`.
 
 ---
 
+## [0.1.10] - 2026-04-28
+
+> **Theme.** Persona harness, running-activity rollup wire, and
+> threshold-consumer type hardening. v0.1.10 introduces the
+> `verification/dogfood/` persona harness as permanent regression
+> infrastructure, wires the existing-but-unused `running_activity`
+> daily aggregator into the clean flow (closes a load-bearing gap
+> that affected every intervals.icu user), and hardens threshold
+> consumers against bool-as-int silent coercion (D12).
+>
+> **Scope discipline.** Two audit-chain integrity items uncovered in
+> the pre-PLAN bug hunt (W-E same-day state-change re-synth and W-F
+> version-counter sequencing) are explicitly **deferred to v0.1.11**.
+> The original v0.1.10 framing as a "correctness + audit-chain
+> integrity release" overpromised on that second axis; this release
+> ships the correctness work and the persona infrastructure.
+> Audit-chain integrity is the v0.1.11 thesis.
+>
+> **Audit history.** Codex round 1 returned `DO_NOT_SHIP` against
+> the initial cut, surfacing four blockers: W-C was tested at the
+> policy boundary but never wired into `build_snapshot`; the W-A
+> sweep missed live threshold consumers; the test suite was not
+> hermetic under configured live credentials; and the audit-chain
+> deferral did not match the release framing. Round 2 closes all
+> four. Detail in `reporting/plans/v0_1_10/`.
+
+### Added
+
+- **Persona dogfood harness** — `verification/dogfood/` with 8 synthetic
+  user personas spanning age, sex, sport mix, data source, and history
+  length. Drives each persona through `pull → clean → daily → today →
+  explain` against an isolated state DB. Permanent regression
+  infrastructure; not part of CI today (matrix runs take minutes), but
+  available as a pre-flight check on every release.
+- **`coerce_int` / `coerce_float` / `coerce_bool` helpers** in
+  `core/config.py` with new `ConfigCoerceError`. Strict numeric
+  coercion that rejects bools (closes v0.1.9 backlog B1 type-hardening).
+- **Pre-PLAN audit pattern** — `reporting/plans/v0_1_10/PRE_AUDIT_PLAN.md`
+  introduces a structured bug-hunt phase before formal PLAN.md, ensuring
+  release scope reflects systematic audit output rather than opportunistic
+  findings.
+
+### Fixed
+
+- **Running domain reads zero history despite logged activities (F-C-03)** —
+  `aggregate_activities_to_daily_rollup` was implemented but never invoked
+  in the clean flow. Wired into `cmd_clean` for both today and historical
+  dates with field-name mapping (`total_distance_m` → `distance_m`).
+  Personas with logged runs now produce useful running recommendations
+  instead of universal defer. Affects every intervals.icu user.
+- **R-extreme-deficiency partial-day false positives (B1, F-CDX-IR-01)** —
+  `_r_extreme_deficiency` gains `meals_count` + `is_end_of_day` parameters
+  with new `r_extreme_deficiency_min_meals_count: 2` threshold default.
+  Suppresses escalation when fewer than the minimum meals have been
+  logged unless the caller has asserted end-of-day. Reproduces +
+  fixes the morning-briefing 06:32 false alarm. The Codex round-1
+  audit caught that the initial cut wired the gate at the policy
+  boundary only; round 2 plumbs `meals_count` + a clock-derived
+  `is_end_of_day` through `build_snapshot` so the gate activates
+  in normal `hai daily` flow. New
+  `r_extreme_deficiency_end_of_day_local_hour: 21` threshold
+  controls the cutover (past dates always treated as end-of-day).
+- **Activity projector `KeyError` rollbacks (F-C-01, F-C-02)** —
+  `project_activity` now validates required fields up front via
+  `_validate_activity_payload` and raises typed
+  `ActivityProjectorInputError` instead of a generic `KeyError` that
+  bubbles up as a "rolled back" warning. Validates `activity_id`,
+  `user_id`, `as_of_date`, `raw_json`.
+- **Threshold consumer type hardening (F-A-01, F-CDX-IR-02,
+  F-CDX-IR-R2-01)** — Three rounds, ending with an architectural
+  fix.
+  - **Round 1** added `coerce_int` / `coerce_float` / `coerce_bool`
+    helpers in `core/config.py` and applied them to ≥12 threshold-
+    consumer sites across `core/synthesis_policy.py` (x7, x2, x3a,
+    x3b), `domains/nutrition/policy.py`, and
+    `domains/nutrition/classify.py`. Closes the named raw-cast
+    survivors at the call site.
+  - **Round 2** swept additional named survivors per Codex audit:
+    `synthesis_policy.py` x4 / x5 / x6a / x6b, plus
+    `core/pull/garmin_live.py` retry config (4 helpers). Added a
+    runtime grep guard `test_d12_no_raw_cfg_coerce.py` for
+    `(int|float|bool)(cfg…)` patterns.
+  - **Round 3 (architectural close).** Codex round 2 caught that
+    the grep guard misses direct numeric leaf consumers
+    (`protein_ratio < cfg["low_max_ratio"]`,
+    `float(targets["protein_target_g"])`) — Python bools are
+    numeric, so a TOML override of `low_max_ratio = true` would
+    silently flow as `1` regardless of the helper sweep. Round 3
+    adds **load-time threshold-type validation** in
+    `core/config.load_thresholds`: after the user TOML is
+    deep-merged over `DEFAULT_THRESHOLDS`, every leaf is checked
+    against the default's type with strict bool detection
+    (`type(x) is bool`). Bool-on-numeric and numeric-on-bool
+    overrides raise `ConfigCoerceError` at load time. Consumers
+    never see a bool-shaped numeric value regardless of how they
+    read the leaf — coercer call, comparison, arithmetic, or dict
+    indexing. Test surface: 28 new validator unit + integration
+    tests in `test_load_time_threshold_validation.py`. Also
+    finished the consumer-side W-A sweep in
+    `domains/nutrition/classify.py` (ratio thresholds, targets,
+    nutrition-score penalties) for self-documenting consistency.
+- **`hai intake gym --session-json` accepts `exercise` alias (F-C-08)** —
+  Schema normalisation: `exercise` is accepted as alias for the
+  `exercise_name` per-set key, matching the per-set CLI flag name.
+- **Ruff cleanup** — 24 of 24 findings closed (`ruff check`: 0).
+  23 auto-fixed (unused imports + unused locals). One required manual
+  intervention: `applied_action_mutation` in `core/synthesis_policy.py`
+  was confirmed dead code via grep, deleted with explanatory comment.
+- **Test-suite hermeticity (F-CDX-IR-03)** — `verification/tests/`
+  now sets an autouse pytest fixture in `conftest.py` that disables
+  `_intervals_icu_configured()` by default. Eight tests in
+  `test_intake_readiness`, `test_intake_gaps`, and
+  `test_recovery_readiness_v1` previously hit the live intervals.icu
+  API with `HTTP 403` whenever the developer machine had real
+  credentials configured, invalidating the `2169 passed` proof claim
+  for anyone running on a populated keychain. Tests that exercise
+  the resolver's auto-default path opt back in via their own
+  monkeypatch.
+
+### Documented
+
+- **27 audit findings** consolidated in
+  `reporting/plans/v0_1_10/audit_findings.md` across Phase A (internal
+  sweep), Phase B (audit-chain integrity probe), and Phase C (persona
+  dogfood matrix). 9 fixed in v0.1.10, 18 deferred to v0.1.11.
+- **`verification/dogfood/README.md`** — harness usage + isolation
+  discipline + persona authorship guide.
+- **`reporting/plans/v0_1_10/PLAN.md`** — workstream catalogue,
+  acceptance criteria, sequencing.
+- **`reporting/plans/v0_1_10/codex_audit_prompt.md`** — external audit
+  prompt for the post-fix Codex review. Bug-hunt question stays
+  scoped to bugs the internal sweep + persona matrix did not catch.
+
+### Explicitly deferred to v0.1.11
+
+The pre-PLAN bug hunt surfaced two audit-chain integrity issues
+that were initially in-scope but did not land cleanly. Codex round 1
+challenged the deferral as incompatible with the original release
+framing; round 2 accepts the challenge by **rescoping v0.1.10 away
+from the audit-chain integrity claim**. v0.1.11 is the audit-chain
+integrity release.
+
+Tagged **release-blocker-class** for v0.1.11 — these are not
+opportunistic backlog items, they gate the next ship:
+
+- **Same-day state-change re-synth (W-E / B7 / F-B-02)** — When the
+  user re-logs intake the same day, `hai daily` should produce a
+  superseded `_v<N>` plan with refreshed rationale. Today the
+  rationale prose is stale. Synthesis-path semantic; needs design
+  discussion before code.
+- **Audit-chain version-counter integrity (W-F / F-B-01)** — A
+  `_v0 → _v3` jump (skipping `_v2`) was observed during the
+  audit-chain probe. Root cause not yet localised; v0.1.11 starts
+  with the investigation.
+
+Tagged backlog (lower priority):
+
+- **R-volume-spike minimum-coverage gate (W-B / B2 / F-C-04)** —
+  Confirmed across 6 personas; fix shape needs strength-domain
+  freshness-model alignment.
+- **Running-rollup provenance completeness (F-CDX-IR-05)** —
+  `aggregate_activities_to_daily_rollup` computes `total_duration_s`
+  + `session_count` but `project_accepted_running_state_daily`
+  hardcodes both to `None` and stamps `derivation_path="garmin_daily"`
+  even for rows derived from `running_activity`.
+- **Persona harness drift guards (F-CDX-IR-06)** — synthetic-skill
+  action tokens + schema versions are validated post-facto via
+  `hai propose` failure rather than directly against the runtime
+  contract.
+- **Mypy sweep (W-H)** — ~30 errors remaining; W-A coercer addressed
+  several incidentally.
+- **Bandit B608/B310 audits (W-K, W-L)** — 17 findings to triage.
+- **Pytest unraisable warning (W-N)** — v0.1.9 carry-over.
+
+### Test surface
+
+```
+Pre-cycle:    2133 passed, 2 skipped
+Post-round-1: 2169 passed, 2 skipped   (+36 tests)
+Post-round-2: 2174 passed, 2 skipped   (+5 tests)
+Post-round-3: 2202 passed, 2 skipped   (+28 tests)
+```
+
+New test files (round 1): `test_config_coerce.py` (24),
+`test_partial_day_nutrition_gate.py` (5),
+`test_running_activity_projector.py` (7).
+New test files (round 2):
+`test_partial_day_nutrition_snapshot_wire.py` (4),
+`test_d12_no_raw_cfg_coerce.py` (1).
+New test files (round 3):
+`test_load_time_threshold_validation.py` (28).
+
+The v0.1.10 suite is hermetic regardless of whether the developer
+machine has live intervals.icu credentials configured.
+
+---
+
 ## [0.1.9] - 2026-04-26
 
 > **Theme.** Hardening and governance closure. v0.1.9 closes the
