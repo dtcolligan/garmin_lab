@@ -152,8 +152,17 @@ def check_state_db(db_path: Path) -> dict[str, Any]:
     return base
 
 
-def check_auth_garmin(store: Any) -> dict[str, Any]:
-    """Credential presence only — never reads the secret value."""
+def check_auth_garmin(
+    store: Any, *, probe_result: Any = None
+) -> dict[str, Any]:
+    """Credential presence only — never reads the secret value.
+
+    v0.1.11 W-X: when ``probe_result`` is supplied (i.e. the operator
+    passed ``--deep``), the probe outcome attaches as a ``probe``
+    sub-dict and the row's ``status`` reflects the probe's success/
+    failure. Without ``--deep`` the row keeps its credentials-only
+    semantics for backwards compatibility.
+    """
 
     status = store.garmin_status()
     if not status["credentials_available"]:
@@ -166,11 +175,26 @@ def check_auth_garmin(store: Any) -> dict[str, Any]:
             ),
         }
     source = "keyring" if status["keyring"]["password_present"] else "env"
-    return {"status": "ok", "credentials_source": source}
+    out: dict[str, Any] = {"status": "ok", "credentials_source": source}
+    if probe_result is not None:
+        out["probe"] = probe_result.to_dict()
+        if not probe_result.ok:
+            out["status"] = "fail"
+            out["reason"] = (
+                f"Garmin --deep probe failed: "
+                f"{probe_result.error_message or 'unknown error'}"
+            )
+    return out
 
 
-def check_auth_intervals_icu(store: Any) -> dict[str, Any]:
-    """Credential presence only — never reads the API key."""
+def check_auth_intervals_icu(
+    store: Any, *, probe_result: Any = None
+) -> dict[str, Any]:
+    """Credential presence only — never reads the API key.
+
+    v0.1.11 W-X: ``probe_result`` adds a ``probe`` sub-dict and may
+    flip the row to ``fail`` when the probe rejects.
+    """
 
     status = store.intervals_icu_status()
     if not status["credentials_available"]:
@@ -183,7 +207,16 @@ def check_auth_intervals_icu(store: Any) -> dict[str, Any]:
             ),
         }
     source = "keyring" if status["keyring"]["api_key_present"] else "env"
-    return {"status": "ok", "credentials_source": source}
+    out: dict[str, Any] = {"status": "ok", "credentials_source": source}
+    if probe_result is not None:
+        out["probe"] = probe_result.to_dict()
+        if not probe_result.ok:
+            out["status"] = "fail"
+            out["reason"] = (
+                f"intervals.icu --deep probe failed: "
+                f"{probe_result.error_message or 'unknown error'}"
+            )
+    return out
 
 
 def check_skills(skills_dest: Path, packaged_names: list[str]) -> dict[str, Any]:
@@ -381,6 +414,8 @@ def build_report(
     credential_store: Any,
     user_id: str,
     as_of_date: Optional[date] = None,
+    deep: bool = False,
+    probe: Any = None,
 ) -> DoctorReport:
     """Run every check and return a :class:`DoctorReport`.
 
@@ -388,15 +423,43 @@ def build_report(
     The "today" counts use ``as_of_date`` (defaults to today UTC) so
     an operator debugging yesterday's state can pass ``--as-of``
     without rewiring the rest of the checks.
+
+    v0.1.11 W-X: when ``deep=True``, run live or fixture probes
+    against the auth surfaces. The ``probe`` argument lets callers
+    inject an explicit :class:`Probe` (test override or demo-mode
+    FixtureProbe). When ``probe`` is None and ``deep=True``, this
+    function selects via ``resolve_probe(demo_active=...)``.
     """
 
     as_of = as_of_date if as_of_date is not None else datetime.now(timezone.utc).date()
 
+    probe_results: dict[str, Any] = {}
+    if deep:
+        from health_agent_infra.core.demo.session import is_demo_active
+        from health_agent_infra.core.doctor.probe import (
+            resolve_probe,
+            run_deep_probes,
+        )
+
+        active_probe = probe if probe is not None else resolve_probe(
+            demo_active=is_demo_active(),
+        )
+        probe_results = run_deep_probes(
+            probe=active_probe,
+            credential_store=credential_store,
+        )
+
     checks: dict[str, dict[str, Any]] = {
         "config": check_config(thresholds_path),
         "state_db": check_state_db(db_path),
-        "auth_garmin": check_auth_garmin(credential_store),
-        "auth_intervals_icu": check_auth_intervals_icu(credential_store),
+        "auth_garmin": check_auth_garmin(
+            credential_store,
+            probe_result=probe_results.get("garmin"),
+        ),
+        "auth_intervals_icu": check_auth_intervals_icu(
+            credential_store,
+            probe_result=probe_results.get("intervals_icu"),
+        ),
         "skills": check_skills(skills_dest, packaged_skill_names),
         "domains": check_domains(domain_names),
         "sources": check_sources(db_path, user_id=user_id, as_of_date=as_of),

@@ -5374,6 +5374,10 @@ def cmd_doctor(args: argparse.Namespace) -> int:
         credential_store=_credential_store_for(args),
         user_id=getattr(args, "user_id", "u_local_1"),
         as_of_date=as_of_date,
+        # v0.1.11 W-X: --deep adds live/fixture probe results to the
+        # auth_* rows. Demo mode routes to FixtureProbe with a hard
+        # no-network guarantee per Codex F-PLAN-R2-03.
+        deep=getattr(args, "deep", False),
     )
 
     if getattr(args, "json", False):
@@ -8045,6 +8049,18 @@ def build_parser() -> argparse.ArgumentParser:
     p_doctor.add_argument("--json", action="store_true",
                           help="Emit the structured report dict as JSON "
                                "instead of the human-readable text view.")
+    p_doctor.add_argument(
+        "--deep", action="store_true",
+        help=(
+            "Run live API probes against the configured credential "
+            "surfaces (intervals.icu wellness fetch, etc.). Closes the "
+            "diagnostic-trust gap Codex F-DEMO-01 surfaced — a present "
+            "credential is not the same as an accepted credential. "
+            "Default off so the cheap path stays cheap. Routes to a "
+            "fixture stub (no network) when a demo session is active "
+            "(W-X / Q-3 + W-Va integration)."
+        ),
+    )
     p_doctor.set_defaults(func=cmd_doctor)
     annotate_contract(
         p_doctor,
