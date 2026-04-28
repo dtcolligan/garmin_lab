@@ -31,7 +31,27 @@ _MIGRATION_FILENAME_RE = re.compile(r"^(\d{3,})_[a-zA-Z0-9_]+\.sql$")
 
 
 def resolve_db_path(explicit: Optional[Path | str] = None) -> Path:
-    """Return the DB path to use, preferring explicit arg > env var > default."""
+    """Return the DB path to use.
+
+    **Demo-mode override (v0.1.11 W-Va).** If a valid demo marker is
+    present, it overrides every other source — explicit arg, env
+    var, and default — so a demo session never touches the real DB.
+    Marker validation is fail-closed: a present-but-invalid marker
+    raises :class:`DemoMarkerError`, which the CLI catches and
+    converts to ``USER_INPUT``. Only ``hai demo end`` and
+    ``hai demo cleanup`` are allowed past an invalid marker.
+
+    Normal-mode precedence: explicit arg > env var > default.
+    """
+
+    # Lazy import to avoid a circular dependency at package import.
+    from health_agent_infra.core.demo.session import (  # noqa: PLC0415
+        require_valid_marker_or_refuse,
+    )
+
+    marker = require_valid_marker_or_refuse()
+    if marker is not None:
+        return marker.db_path
 
     if explicit is not None:
         return Path(explicit).expanduser()

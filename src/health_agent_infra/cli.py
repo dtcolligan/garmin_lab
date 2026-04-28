@@ -6241,6 +6241,104 @@ def cmd_capabilities(args: argparse.Namespace) -> int:
     return exit_codes.OK
 
 
+# ---------------------------------------------------------------------------
+# hai demo — demo-mode session lifecycle (W-Va, v0.1.11)
+# ---------------------------------------------------------------------------
+
+
+def cmd_demo_start(args: argparse.Namespace) -> int:
+    """Open a new demo session.
+
+    Refuses with USER_INPUT if a session is already active. Creates
+    a scratch root, writes a marker, and prints the marker payload
+    as JSON for the agent / user to confirm.
+    """
+    from health_agent_infra.core.demo.session import (
+        DemoMarkerError,
+        open_session,
+    )
+
+    persona: Optional[str]
+    if getattr(args, "blank", False):
+        persona = None
+    else:
+        persona = getattr(args, "persona", None)
+
+    try:
+        marker = open_session(persona=persona)
+    except DemoMarkerError as exc:
+        print(f"hai demo start: {exc}", file=sys.stderr)
+        return exit_codes.USER_INPUT
+
+    print(
+        f"[demo session opened — marker_id {marker.marker_id}, "
+        f"scratch root {marker.scratch_root}]",
+        file=sys.stderr,
+    )
+    _emit_json({
+        "status": "started",
+        **marker.to_dict(),
+    })
+    return exit_codes.OK
+
+
+def cmd_demo_end(args: argparse.Namespace) -> int:
+    """Close the active demo session.
+
+    Removes the marker file. Idempotent: closing when no session is
+    active is a successful no-op. v0.1.11 W-Va leaves the scratch
+    root on disk; W-Vb adds archive-on-end.
+    """
+    from health_agent_infra.core.demo.session import close_session
+
+    marker = close_session()
+    if marker is None:
+        print("hai demo end: no active demo session to close.", file=sys.stderr)
+        _emit_json({"status": "no_session"})
+        return exit_codes.OK
+
+    print(
+        f"[demo session closed — marker_id {marker.marker_id}, "
+        f"scratch root {marker.scratch_root} (left on disk; "
+        f"W-Vb will add archive-on-end)]",
+        file=sys.stderr,
+    )
+    _emit_json({
+        "status": "closed",
+        "marker_id": marker.marker_id,
+        "scratch_root": str(marker.scratch_root),
+    })
+    return exit_codes.OK
+
+
+def cmd_demo_cleanup(args: argparse.Namespace) -> int:
+    """Remove orphan/corrupt demo markers (safety net).
+
+    Allowed even when the marker is present-but-invalid (fail-closed
+    escape hatch per Codex F-PLAN-03). Returns the marker_ids
+    cleaned (or empty list if no orphan found).
+    """
+    from health_agent_infra.core.demo.session import cleanup_orphans
+
+    cleaned = cleanup_orphans()
+    if not cleaned:
+        print(
+            "hai demo cleanup: no orphan markers found.",
+            file=sys.stderr,
+        )
+    else:
+        print(
+            f"hai demo cleanup: removed {len(cleaned)} marker(s): "
+            f"{', '.join(cleaned)}",
+            file=sys.stderr,
+        )
+    _emit_json({
+        "status": "cleaned",
+        "removed_marker_ids": cleaned,
+    })
+    return exit_codes.OK
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="hai", description="Health Agent Infra CLI")
     parser.add_argument(
@@ -8270,12 +8368,182 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
 
+    # hai demo — demo-mode session lifecycle (W-Va, v0.1.11).
+    p_demo = sub.add_parser(
+        "demo",
+        help="Manage a demo session (scratch DB + isolated base_dir).",
+        description=(
+            "Open / close / clean up a demo session. While a session "
+            "is active, every CLI command routes to a per-session "
+            "scratch root so the real ~/.health_agent tree, real "
+            "state.db, and real thresholds.toml stay byte-identical."
+        ),
+    )
+    p_demo_sub = p_demo.add_subparsers(dest="demo_subcommand", required=True)
+
+    p_demo_start = p_demo_sub.add_parser(
+        "start",
+        help="Open a new demo session (refuses if one is already active).",
+    )
+    p_demo_start.add_argument(
+        "--persona",
+        default=None,
+        help=(
+            "Persona slug to pre-populate the scratch root with (W-Vb "
+            "scope). v0.1.11 W-Va opens an unpopulated session; the "
+            "flag is accepted for forward-compat but no fixture is "
+            "loaded yet."
+        ),
+    )
+    p_demo_start.add_argument(
+        "--blank",
+        action="store_true",
+        help="Force an empty session (no persona). Default behaviour today.",
+    )
+    p_demo_start.set_defaults(func=cmd_demo_start)
+    annotate_contract(
+        p_demo_start,
+        mutation="writes-state",
+        idempotent="no",
+        json_output="default",
+        exit_codes=("OK", "USER_INPUT"),
+        agent_safe=True,
+        description=(
+            "Open a new demo session. Creates a scratch root at "
+            "/tmp/hai_demo_<id>/ with state.db, health_agent_root/, "
+            "and config/thresholds.toml. Writes a marker file at "
+            "the demo-session location ($XDG_CACHE_HOME/hai/ or "
+            "~/.cache/hai/). Refuses with USER_INPUT if a session is "
+            "already active."
+        ),
+    )
+
+    p_demo_end = p_demo_sub.add_parser(
+        "end",
+        help="Close the active demo session (removes the marker).",
+    )
+    p_demo_end.set_defaults(func=cmd_demo_end)
+    annotate_contract(
+        p_demo_end,
+        mutation="writes-state",
+        idempotent="yes",
+        json_output="default",
+        exit_codes=("OK",),
+        agent_safe=True,
+        description=(
+            "Close the active demo session. Removes the marker so "
+            "subsequent CLI invocations route to real persistence. "
+            "v0.1.11 W-Va leaves the scratch root in place; W-Vb "
+            "adds archive-on-end behaviour."
+        ),
+    )
+
+    p_demo_cleanup = p_demo_sub.add_parser(
+        "cleanup",
+        help="Remove an orphan/stale demo marker (safety net).",
+    )
+    p_demo_cleanup.set_defaults(func=cmd_demo_cleanup)
+    annotate_contract(
+        p_demo_cleanup,
+        mutation="writes-state",
+        idempotent="yes",
+        json_output="default",
+        exit_codes=("OK",),
+        agent_safe=True,
+        description=(
+            "Remove an orphan / corrupt demo marker so the CLI can "
+            "return to normal mode. Allowed even when the marker is "
+            "invalid (the fail-closed escape hatch)."
+        ),
+    )
+
     return parser
+
+
+def _derive_command_id(func) -> str:
+    """Map a handler callable to its command id (handler name minus 'cmd_')."""
+    name = getattr(func, "__name__", "")
+    return name[4:] if name.startswith("cmd_") else name
+
+
+def _demo_gate(args: argparse.Namespace) -> Optional[int]:
+    """Demo-mode gate (W-Va).
+
+    Returns ``None`` when the command may proceed; an exit-code int
+    when the command is refused or the marker is invalid. Emits the
+    stderr banner on the proceed path when a demo is active.
+    """
+
+    from health_agent_infra.core.demo.session import (
+        DemoMarkerError,
+        require_valid_marker_or_refuse,
+    )
+    from health_agent_infra.core.demo.refusal import (
+        CLEANUP_ONLY_COMMANDS,
+        evaluate_demo_refusal,
+    )
+
+    command_id = _derive_command_id(args.func)
+
+    # Cleanup-only commands run regardless of marker validity (the
+    # fail-closed escape hatch). They handle the marker themselves.
+    if command_id in CLEANUP_ONLY_COMMANDS:
+        return None
+
+    # Validate the marker. Fail-closed: an invalid marker refuses
+    # every command except the cleanup pair above.
+    try:
+        marker = require_valid_marker_or_refuse()
+    except DemoMarkerError as exc:
+        print(f"hai: {exc}", file=sys.stderr)
+        return exit_codes.USER_INPUT
+
+    # No marker → normal mode. Skip the gate.
+    if marker is None:
+        return None
+
+    # Marker is valid. Consult the refusal matrix.
+    decision = evaluate_demo_refusal(command_id, args)
+    if not decision.allowed:
+        print(
+            f"hai: refused under demo session [{decision.category}]: "
+            f"{decision.reason}",
+            file=sys.stderr,
+        )
+        return exit_codes.USER_INPUT
+
+    # Allowed. Emit the banner once before the handler runs.
+    persona_label = marker.persona if marker.persona else "unpopulated"
+    print(
+        f"[demo session active — marker_id {marker.marker_id}, "
+        f"scratch root {marker.scratch_root}, persona: {persona_label}, "
+        f"started: {marker.started_at}]",
+        file=sys.stderr,
+    )
+
+    # Stale-session surfacing (>24h since started_at).
+    try:
+        from datetime import datetime as _dt
+        started = _dt.fromisoformat(marker.started_at)
+        delta = _dt.now(timezone.utc) - started
+        if delta.total_seconds() > 24 * 3600:
+            print(
+                "hai: stale demo session — run 'hai demo end' or "
+                "'hai demo cleanup' to clear",
+                file=sys.stderr,
+            )
+    except (ValueError, TypeError):
+        pass
+
+    return None
 
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv if argv is not None else sys.argv[1:])
     try:
+        gate = _demo_gate(args)
+        if gate is not None:
+            return gate
         return args.func(args)
     except SystemExit:
         # argparse error path uses SystemExit(2); pass through unchanged.

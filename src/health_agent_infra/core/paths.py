@@ -30,11 +30,26 @@ _HAI_BASE_DIR_ENV = "HAI_BASE_DIR"
 def resolve_base_dir(explicit: Optional[Path | str] = None) -> Path:
     """Return the writeback / intake base directory.
 
-    Resolution order: explicit > ``$HAI_BASE_DIR`` env var > default.
-    The returned path is expanded but not created — handlers that
-    write into it should ``mkdir(parents=True, exist_ok=True)`` as
-    they do today.
+    **Demo-mode override (v0.1.11 W-Va).** If a valid demo marker is
+    present, it overrides every other source so a demo session never
+    appends JSONL audit/intake/proposal/review rows to the real
+    ``~/.health_agent`` tree. Marker validation is fail-closed
+    (per Codex F-PLAN-02 + F-PLAN-03).
+
+    Normal-mode precedence: explicit > ``$HAI_BASE_DIR`` env var
+    > default. The returned path is expanded but not created —
+    handlers that write into it should
+    ``mkdir(parents=True, exist_ok=True)`` as they do today.
     """
+
+    # Lazy import to avoid a circular dependency at package import.
+    from health_agent_infra.core.demo.session import (  # noqa: PLC0415
+        require_valid_marker_or_refuse,
+    )
+
+    marker = require_valid_marker_or_refuse()
+    if marker is not None:
+        return marker.base_dir_path
 
     if explicit is not None:
         return Path(explicit).expanduser()

@@ -55,7 +55,7 @@ JSON; this markdown is an at-a-glance overview for humans.
 
 ## Commands
 
-*52 commands; hai 0.1.10; schema agent_cli_contract.v1*
+*55 commands; hai 0.1.10; schema agent_cli_contract.v1*
 
 | Command | Mutation | Idempotent | JSON | Agent-safe | Exit codes | Description |
 |---|---|---|---|---|---|---|
@@ -69,6 +69,9 @@ JSON; this markdown is an at-a-glance overview for humans.
 | ``hai config show`` | ``read-only`` | ``n/a`` | ``default`` | yes | ``OK``, ``USER_INPUT`` | Print the effective merged threshold configuration (defaults + overrides). |
 | ``hai config validate`` | ``read-only`` | ``n/a`` | ``default`` | yes | ``OK``, ``USER_INPUT`` | Validate user thresholds.toml against DEFAULT_THRESHOLDS shape. |
 | ``hai daily`` | ``writes-state`` | ``yes-with-supersede`` | ``default`` | yes | ``OK``, ``USER_INPUT`` | Morning orchestrator: deterministic stages run end-to-end (pull → clean → snapshot → gaps → proposal_gate). The agent then invokes the 6 per-domain readiness skills, posts DomainProposal rows via `hai propose --domain <d>`, and re-runs `hai daily` to advance the gate to `complete` and trigger synthesis. `--domains <csv>` narrows the expected set for partial-day planning. |
+| ``hai demo cleanup`` | ``writes-state`` | ``yes`` | ``default`` | yes | ``OK`` | Remove an orphan / corrupt demo marker so the CLI can return to normal mode. Allowed even when the marker is invalid (the fail-closed escape hatch). |
+| ``hai demo end`` | ``writes-state`` | ``yes`` | ``default`` | yes | ``OK`` | Close the active demo session. Removes the marker so subsequent CLI invocations route to real persistence. v0.1.11 W-Va leaves the scratch root in place; W-Vb adds archive-on-end behaviour. |
+| ``hai demo start`` | ``writes-state`` | ``no`` | ``default`` | yes | ``OK``, ``USER_INPUT`` | Open a new demo session. Creates a scratch root at /tmp/hai_demo_<id>/ with state.db, health_agent_root/, and config/thresholds.toml. Writes a marker file at the demo-session location ($XDG_CACHE_HOME/hai/ or ~/.cache/hai/). Refuses with USER_INPUT if a session is already active. |
 | ``hai doctor`` | ``read-only`` | ``n/a`` | ``opt-in`` | yes | ``OK``, ``USER_INPUT`` | Report runtime health: DB present, migrations up to date, per-source freshness, today's accepted counts. |
 | ``hai eval run`` | ``read-only`` | ``n/a`` | ``opt-in`` | yes | ``OK``, ``USER_INPUT``, ``INTERNAL`` | Execute frozen deterministic eval scenarios for a domain (--domain) or the synthesis layer (--synthesis). Read-only — scores scenarios, never writes state. USER_INPUT when a scenario fails its rubric; INTERNAL if the runner itself crashes. |
 | ``hai exercise search`` | ``read-only`` | ``n/a`` | ``default`` | yes | ``OK``, ``USER_INPUT`` | Rank top exercise-taxonomy matches for a free-text query. |

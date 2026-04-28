@@ -573,10 +573,26 @@ DEFAULT_THRESHOLDS: dict[str, Any] = {
 def user_config_path() -> Path:
     """Platform-appropriate path to the user's thresholds.toml.
 
-    macOS: ~/Library/Application Support/hai/thresholds.toml
-    Linux: ~/.config/hai/thresholds.toml (XDG)
-    Windows: %APPDATA%/hai/thresholds.toml
+    **Demo-mode override (v0.1.11 W-Va).** If a valid demo marker is
+    present, returns the scratch ``thresholds.toml`` path instead so
+    a demo session can carry overrides without mutating the real
+    user-config file. Fail-closed per
+    :func:`require_valid_marker_or_refuse`.
+
+    Normal mode:
+    - macOS: ~/Library/Application Support/hai/thresholds.toml
+    - Linux: ~/.config/hai/thresholds.toml (XDG)
+    - Windows: %APPDATA%/hai/thresholds.toml
     """
+
+    # Lazy import to avoid a circular dependency at package import.
+    from health_agent_infra.core.demo.session import (  # noqa: PLC0415
+        require_valid_marker_or_refuse,
+    )
+
+    marker = require_valid_marker_or_refuse()
+    if marker is not None:
+        return marker.config_path
 
     return Path(user_config_dir(APP_NAME)) / CONFIG_FILENAME
 
