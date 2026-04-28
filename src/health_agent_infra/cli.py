@@ -823,14 +823,15 @@ def _project_clean_into_state(
                 a for a in activities or []
                 if a.get("as_of_date") == as_of_date.isoformat()
             ]
+            today_rollup: Optional[dict[str, Any]] = None
             if today_activities:
-                rollup = aggregate_activities_to_daily_rollup(today_activities)
+                today_rollup = aggregate_activities_to_daily_rollup(today_activities)
                 # Merge non-None rollup fields into raw_row. Don't
                 # overwrite values that were already populated by the
                 # daily summary — trust the upstream daily totals when
                 # both sources exist.
                 for rollup_key, raw_key in _ROLLUP_TO_RAW.items():
-                    value = rollup.get(rollup_key)
+                    value = today_rollup.get(rollup_key)
                     if value is not None and raw_row.get(raw_key) in (None, 0):
                         raw_row[raw_key] = value
 
@@ -841,6 +842,11 @@ def _project_clean_into_state(
                 raw_row=raw_row,
                 source_row_ids=[source_row_id],
                 commit_after=False,
+                # v0.1.11 W-R (Codex F-C-03): pass the rollup so the
+                # projector can populate session_count + total_duration_s
+                # AND stamp derivation_path='activity_rollup' when per-
+                # activity data was used.
+                rollup=today_rollup,
             )
 
             # v0.1.10 W-D extension: also backfill accepted_running_state_daily
@@ -884,6 +890,10 @@ def _project_clean_into_state(
                         source_row_ids=[hist_source_row_id],
                         ingest_actor="intervals_icu_activity_rollup",
                         commit_after=False,
+                        # v0.1.11 W-R: backfilled historical rows are
+                        # always rollup-derived; stamp derivation_path
+                        # accordingly + carry the session_count.
+                        rollup=rollup,
                     )
             project_accepted_sleep_state_daily(
                 conn,

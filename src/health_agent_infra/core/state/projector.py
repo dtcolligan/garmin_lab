@@ -413,13 +413,22 @@ def project_accepted_running_state_daily(
     source: str = "garmin",
     ingest_actor: str = "garmin_csv_adapter",
     commit_after: bool = True,
+    rollup: Optional[dict] = None,
 ) -> bool:
-    """UPSERT one day's accepted running state with ``derivation_path='garmin_daily'``.
+    """UPSERT one day's accepted running state with a derivation_path stamp.
 
-    In v1, running is synthesised from the daily Garmin aggregate
-    (distance_m + intensity minutes). Per-activity ``running_session`` rows
-    don't exist yet, so ``session_count`` and ``total_duration_s`` are NULL
-    and snapshots must not flag them as partial (state_model_v1.md §8).
+    v0.1.11 W-R (Codex F-C-03 / F-CDX-IR-05): when a per-activity
+    rollup is supplied (and carries non-None values for
+    ``session_count`` / ``total_duration_s``), the projector stamps
+    ``derivation_path='activity_rollup'`` and populates the formerly-
+    NULL fields. Without a rollup (the legacy daily-aggregate path),
+    behaviour matches v0.1.10: ``garmin_daily`` stamp, NULL session
+    count + duration. The two paths are now distinguishable for
+    audit + downstream consumers.
+
+    The rollup shape comes from
+    :func:`aggregate_activities_to_daily_rollup`; callers that don't
+    have per-activity data (CSV adapter only) pass ``rollup=None``.
 
     ``commit_after``: set False when composing inside an outer transaction.
     """
@@ -434,13 +443,35 @@ def project_accepted_running_state_daily(
     ).fetchone()
     is_insert = existing is None
 
+    # v0.1.11 W-R: choose derivation_path based on whether a rollup
+    # supplied values the daily aggregate cannot. A rollup with a
+    # populated session_count is the unambiguous "this row was
+    # synthesised from per-activity data" signal.
+    rollup_session_count = (
+        rollup.get("session_count") if isinstance(rollup, dict) else None
+    )
+    rollup_total_duration_s = (
+        rollup.get("total_duration_s") if isinstance(rollup, dict) else None
+    )
+    if rollup_session_count is not None:
+        # The schema CHECK already reserves 'running_sessions' for the
+        # per-session-derived path; reuse it rather than minting a new
+        # value (which would require a CHECK-constraint migration).
+        derivation_path = "running_sessions"
+        session_count_value = rollup_session_count
+        total_duration_value = rollup_total_duration_s
+    else:
+        derivation_path = "garmin_daily"
+        session_count_value = None
+        total_duration_value = None
+
     values = (
         raw_row.get("distance_m"),
-        None,  # total_duration_s — not in daily CSV; 7B-deferred enrichment
+        total_duration_value,
         raw_row.get("moderate_intensity_min"),
         raw_row.get("vigorous_intensity_min"),
-        None,  # session_count — NULL by design on garmin_daily path
-        "garmin_daily",
+        session_count_value,
+        derivation_path,
         derived_from_json,
         source,
         ingest_actor,
