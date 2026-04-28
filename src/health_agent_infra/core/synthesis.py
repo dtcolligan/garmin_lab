@@ -393,7 +393,7 @@ def _overlay_skill_drafts(
 def _compute_state_fingerprint(
     *,
     proposals: list[dict[str, Any]],
-    phase_a_firings: list[dict[str, Any]],
+    phase_a_firings: list[Any],
 ) -> str:
     """Deterministic SHA-256 hex digest of the synthesis inputs.
 
@@ -696,10 +696,10 @@ def run_synthesis(
                 # No-op: state hasn't materially changed.
                 return SynthesisResult(
                     daily_plan_id=canonical_id,
-                    proposal_ids=tuple(p["proposal_id"] for p in proposals),
-                    recommendation_ids=tuple(),
-                    phase_a_firings=tuple(phase_a_firings),
-                    phase_b_firings=tuple(),
+                    proposal_ids=[p["proposal_id"] for p in proposals],
+                    recommendation_ids=[],
+                    phase_a_firings=list(phase_a_firings),
+                    phase_b_firings=[],
                     superseded_prior=None,
                 )
             # Fingerprint mismatch (or NULL on legacy row) → auto-supersede.

@@ -305,15 +305,19 @@ def check_sources(
     sources: dict[str, Any] = {}
     for source, row in rows.items():
         completed_at_raw = row.get("completed_at") or row.get("started_at")
-        try:
-            completed_at = datetime.fromisoformat(completed_at_raw)
-            if completed_at.tzinfo is None:
-                completed_at = completed_at.replace(tzinfo=timezone.utc)
-            staleness = round(
-                (anchor - completed_at).total_seconds() / 3600.0, 2,
-            )
-        except (TypeError, ValueError):
+        # F-A-11 fix per W-H1: fromisoformat doesn't accept None.
+        if completed_at_raw is None:
             staleness = None
+        else:
+            try:
+                completed_at = datetime.fromisoformat(completed_at_raw)
+                if completed_at.tzinfo is None:
+                    completed_at = completed_at.replace(tzinfo=timezone.utc)
+                staleness = round(
+                    (anchor - completed_at).total_seconds() / 3600.0, 2,
+                )
+            except (TypeError, ValueError):
+                staleness = None
         sources[source] = {
             "last_successful_sync_at": completed_at_raw,
             "staleness_hours": staleness,

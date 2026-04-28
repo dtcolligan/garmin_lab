@@ -51,7 +51,13 @@ def begin_event(
         (command, user_id, _now_iso()),
     )
     conn.commit()
-    return int(cursor.lastrowid)
+    # cursor.lastrowid is Optional[int]; SQLite returns the new rowid for
+    # INSERT but typeshed annotates it as Optional. Guard explicitly so
+    # mypy correctness pass is clean (F-A-11 fix per W-H1).
+    last = cursor.lastrowid
+    if last is None:
+        raise RuntimeError("INSERT into runtime_event_log returned no rowid")
+    return int(last)
 
 
 def complete_event(

@@ -296,7 +296,11 @@ def project_review_outcome(
         ),
     )
     conn.commit()
-    return int(cursor.lastrowid)
+    # F-A-11 fix per W-H1: lastrowid is Optional[int] in typeshed.
+    last = cursor.lastrowid
+    if last is None:
+        raise RuntimeError("INSERT into review_outcome returned no rowid")
+    return int(last)
 
 
 # ---------------------------------------------------------------------------
@@ -2252,7 +2256,11 @@ def project_x_rule_firing(
     )
     if commit_after:
         conn.commit()
-    return int(cursor.lastrowid)
+    # F-A-11 fix per W-H1: lastrowid is Optional[int] in typeshed.
+    last = cursor.lastrowid
+    if last is None:
+        raise RuntimeError("INSERT into x_rule_firing returned no rowid")
+    return int(last)
 
 
 def project_bounded_recommendation(

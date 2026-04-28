@@ -185,6 +185,13 @@ def cmd_pull(args: argparse.Namespace) -> int:
         for_date=as_of,
     )
 
+    # F-A-03 fix per W-H1: the adapter variable holds whichever of the
+    # three adapter classes the user picked; mypy can't infer a common
+    # type across these branches because the classes don't share an ABC.
+    # Annotating as Any (the actual call surface — they all expose
+    # `.load(as_of) -> PullResult`) lets the existing duck-typing work
+    # without a heavier protocol refactor (deferred to v0.1.12 W-H2).
+    adapter: Any
     if source == "csv":
         adapter = GarminRecoveryReadinessAdapter()
     elif source == "garmin_live":
@@ -3035,16 +3042,26 @@ def cmd_intake_exercise(args: argparse.Namespace) -> int:
 
     conn = open_connection(db_path)
     try:
+        # F-A-07 fix per W-H1: build_manual_taxonomy_row validates the
+        # required fields upstream, but mypy sees the row dict's values
+        # as Optional. Pull required fields into local non-Optional
+        # bindings so the projector call sees narrowed types.
+        from typing import cast as _cast
+        exercise_id_v = _cast(str, row["exercise_id"])
+        canonical_name_v = _cast(str, row["canonical_name"])
+        primary_muscle_group_v = _cast(str, row["primary_muscle_group"])
+        category_v = _cast(str, row["category"])
+        equipment_v = _cast(str, row["equipment"])
         try:
             inserted = project_exercise_taxonomy_entry(
                 conn,
-                exercise_id=row["exercise_id"],
-                canonical_name=row["canonical_name"],
+                exercise_id=exercise_id_v,
+                canonical_name=canonical_name_v,
                 aliases=row["aliases"],
-                primary_muscle_group=row["primary_muscle_group"],
+                primary_muscle_group=primary_muscle_group_v,
                 secondary_muscle_groups=row["secondary_muscle_groups"],
-                category=row["category"],
-                equipment=row["equipment"],
+                category=category_v,
+                equipment=equipment_v,
                 source="user_manual",
             )
         except sqlite3.IntegrityError as exc:
@@ -4208,9 +4225,14 @@ def _review_summary_range_issues(user_overrides: dict) -> list[dict[str, Any]]:
                 f"policy.review_summary.{key}",
                 f"must be in [0, 1]; got {val}",
             )
+    # F-A-06 fix per W-H1: mypy can't narrow lower/upper to non-None
+    # via `_is_real_number()` because that helper isn't a TypeGuard.
+    # Add a defensive None check so the > comparison sees only floats.
     if (
         _is_real_number(lower)
         and _is_real_number(upper)
+        and lower is not None
+        and upper is not None
         and lower > upper
     ):
         _flag(
@@ -4512,6 +4534,8 @@ def _daily_pull_and_project(
     """
 
     source = _resolve_pull_source(args)
+    # F-A-03 fix per W-H1 — see annotated comment in cmd_pull.
+    adapter: Any
     if source == "csv":
         adapter = GarminRecoveryReadinessAdapter()
     elif source == "garmin_live":

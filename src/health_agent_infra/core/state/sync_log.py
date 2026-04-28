@@ -61,7 +61,11 @@ def begin_sync(
         ),
     )
     conn.commit()
-    return int(cursor.lastrowid)
+    # F-A-11 fix per W-H1: lastrowid is Optional[int] in typeshed.
+    last = cursor.lastrowid
+    if last is None:
+        raise RuntimeError("INSERT into sync_run_log returned no rowid")
+    return int(last)
 
 
 def complete_sync(
