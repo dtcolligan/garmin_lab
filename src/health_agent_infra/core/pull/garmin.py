@@ -19,7 +19,7 @@ from datetime import date, timedelta
 from pathlib import Path
 from typing import Optional
 
-import pandas as pd
+import pandas as pd  # type: ignore[import-untyped]
 
 
 from importlib.resources import as_file, files as _resource_files

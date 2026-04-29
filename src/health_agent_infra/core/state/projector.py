@@ -1639,7 +1639,10 @@ def reproject_from_jsonl(
             # here (reproject stamps fresh timestamps). The correction
             # chain is preserved by replaying `supersedes_submission_id`
             # exactly as stored in JSONL.
-            days_touched: set[tuple[str, str]] = set()
+            # (Re-uses the days_touched name from the gym branch above;
+            # mypy F-A-04 fix v0.1.12 W-H2: drop the redundant annotation
+            # — same shape as line 1562.)
+            days_touched = set()
             for line_no, line in enumerate(
                 nutrition_log.read_text(encoding="utf-8").splitlines(), start=1,
             ):

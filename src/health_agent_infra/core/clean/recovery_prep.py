@@ -312,7 +312,9 @@ def _extract_garmin_richness(raw_daily_row: Optional[dict]) -> dict:
     # rather than hiding it behind a single "overall" number.
     components = [_float(col) for col in _GARMIN_READINESS_COMPONENT_COLUMNS]
     component_mean_pct = (
-        round(sum(components) / len(components), 1)
+        # mypy: we already gated on `all(c is not None)`, but mypy
+        # cannot narrow list comprehension elements; explicit cast.
+        round(sum(c for c in components if c is not None) / len(components), 1)
         if all(c is not None for c in components)
         else None
     )

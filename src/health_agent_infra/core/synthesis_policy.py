@@ -411,7 +411,7 @@ def _is_hard_proposal(proposal: dict[str, Any]) -> bool:
     re-runs.
     """
 
-    domain = proposal.get("domain")
+    domain = proposal.get("domain") or ""
     registry = _DOMAIN_ACTION_REGISTRY.get(domain)
     if registry is None:
         return False

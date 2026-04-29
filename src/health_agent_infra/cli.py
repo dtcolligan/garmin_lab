@@ -25,7 +25,7 @@ import sys
 from dataclasses import asdict, is_dataclass
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Literal, Optional
 
 from health_agent_infra import __version__ as _PACKAGE_VERSION
 from health_agent_infra.core import exit_codes
@@ -247,7 +247,9 @@ def cmd_pull(args: argparse.Namespace) -> int:
     # CSV adapter. The CSV adapter has no partial concept, so attribute
     # absence means "ok" by default.
     partial = getattr(adapter, "last_pull_partial", False)
-    sync_status = "partial" if partial else "ok"
+    sync_status: Literal["ok", "partial", "failed"] = (
+        "partial" if partial else "ok"
+    )
     _close_sync_row_ok(
         args.db_path,
         sync_id,
@@ -350,7 +352,7 @@ def _close_sync_row_ok(
     rows_pulled,
     rows_accepted,
     duplicates_skipped,
-    status: str = "ok",
+    status: Literal["ok", "partial", "failed"] = "ok",
 ) -> None:
     if sync_id is None:
         return
@@ -2114,7 +2116,9 @@ def _memory_entry_to_dict(entry) -> dict[str, Any]:
 def _memory_counts(entries) -> dict[str, int]:
     from health_agent_infra.core.memory.schemas import USER_MEMORY_CATEGORIES
 
-    out = {category: 0 for category in USER_MEMORY_CATEGORIES}
+    # mypy v0.1.12 W-H2: widen to dict[str, int] explicitly so the
+    # synthetic "total" key doesn't trip the Literal-keyed inference.
+    out: dict[str, int] = {category: 0 for category in USER_MEMORY_CATEGORIES}
     for entry in entries:
         out[entry.category] = out.get(entry.category, 0) + 1
     out["total"] = len(entries)
@@ -4286,11 +4290,16 @@ def _review_summary_range_issues(user_overrides: dict) -> list[dict[str, Any]]:
         ("mixed_token_lower_bound", lower),
         ("mixed_token_upper_bound", upper),
     ):
-        if _is_real_number(val) and not (0 <= val <= 1):
-            _flag(
-                f"policy.review_summary.{key}",
-                f"must be in [0, 1]; got {val}",
-            )
+        # _is_real_number() guarantees val is int|float at runtime, but
+        # it's not a TypeGuard so mypy still sees Optional. Cast inside
+        # the gated branch. v0.1.12 W-H2.
+        if _is_real_number(val):
+            assert val is not None  # narrows to int|float
+            if not (0 <= val <= 1):
+                _flag(
+                    f"policy.review_summary.{key}",
+                    f"must be in [0, 1]; got {val}",
+                )
     # F-A-06 fix per W-H1: mypy can't narrow lower/upper to non-None
     # via `_is_real_number()` because that helper isn't a TypeGuard.
     # Add a defensive None check so the > comparison sees only floats.
@@ -4679,14 +4688,16 @@ def _daily_pull_and_project(
     rows_pulled = 1 if raw_row is not None else 0
     rows_accepted = 1 if raw_row is not None else 0
     partial = getattr(adapter, "last_pull_partial", False)
-    sync_status = "partial" if partial else "ok"
+    sync_status_daily: Literal["ok", "partial", "failed"] = (
+        "partial" if partial else "ok"
+    )
     _close_sync_row_ok(
         getattr(args, "db_path", None),
         sync_id,
         rows_pulled=rows_pulled,
         rows_accepted=rows_accepted,
         duplicates_skipped=0,
-        status=sync_status,
+        status=sync_status_daily,
     )
 
     evidence_bundle: Optional[dict] = None
