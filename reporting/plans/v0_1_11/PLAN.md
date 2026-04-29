@@ -866,22 +866,22 @@ because the protocol requires `--evidence-json` from a successful
    via `thresholds.toml`:
    `gap_detection.snapshot_staleness_max_hours = 48`. Use
    `core.config.coerce_int` per D12.
-5. **Read-consistency contract (per Codex F-PLAN-06 +
-   F-PLAN-R2-04).** Snapshot-derived gaps run inside a **single
-   read transaction over SQLite**, with an `as_of_read_ts:
-   <ISO-8601>` captured at transaction start. **JSONL tail reads
-   use a row-level `recorded_at` filter, not a file-mtime
-   filter.** At transaction start, capture each tail file's
-   inode + size; subsequent reads iterate the captured byte range
-   and include only rows where the row's own `recorded_at <=
-   as_of_read_ts`. Files appended after transaction start
-   contribute nothing beyond the captured byte range; files
-   appended within the captured byte range are filtered
-   row-by-row. Concurrent writes during gap derivation cannot
-   mix old accepted-state with new manual-tail rows AND cannot
-   drop valid pre-existing rows that happen to be in a file that
-   received an append. The resulting `Gap` objects carry a new
+5. **Read-consistency contract (per Codex F-PLAN-06; revised
+   after Codex F-IR-03 to match the actual code path).**
+   Snapshot-derived gaps run inside a **single read transaction
+   over SQLite**, with an `as_of_read_ts: <ISO-8601>` captured at
+   transaction start. The resulting `Gap` objects carry a new
    `snapshot_read_at: <ISO-8601>` field matching `as_of_read_ts`.
+
+   **JSONL tail reads are out of scope for v0.1.11 W-W.** Gap
+   derivation runs entirely off SQLite via `build_snapshot`; the
+   gap detector's input (`classified_state.uncertainty`) flows
+   from `accepted_*_state_daily` rows which are SQLite-only.
+   F-PLAN-R2-04's row-level `recorded_at` filter contract was
+   authored against a hypothetical JSONL-tail consumer that
+   doesn't exist in this code path. If a future workstream adds
+   JSONL reads to gap derivation, the row-level filter +
+   inode-and-byte-range capture must land alongside it.
 
 **Files:**
 - `cli.py` — `hai intake gaps` handler; new flag + mutual

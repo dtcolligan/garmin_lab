@@ -71,6 +71,45 @@ def test_open_session_writes_marker_and_scratch_paths(tmp_path, monkeypatch):
     assert marker.config_path.parent.exists()
 
 
+def test_open_session_initializes_scratch_db(tmp_path, monkeypatch):
+    """Codex F-IR-02 fix: hai demo start must initialise the scratch
+    state.db so subsequent `hai intake *` commands don't fall back
+    to JSONL-only and `hai daily` doesn't short-circuit.
+
+    Pre-fix: open_session created the scratch_root + base_dir_path
+    + config_path but NEVER ran initialize_database, leaving the
+    DB file absent. The documented demo flow then failed.
+    """
+    import sqlite3
+    monkeypatch.setenv(
+        "HAI_DEMO_MARKER_PATH", str(tmp_path / "marker.json")
+    )
+
+    scratch = tmp_path / "scratch"
+    marker = open_session(scratch_root=scratch, persona=None)
+
+    # state.db now exists (was the bug — only the path was set).
+    assert marker.db_path.exists(), (
+        "Codex F-IR-02 regression: demo start did not initialise "
+        "the scratch state.db"
+    )
+
+    # Schema is applied — schema_migrations table is populated.
+    conn = sqlite3.connect(str(marker.db_path))
+    try:
+        rows = conn.execute(
+            "SELECT version FROM schema_migrations ORDER BY version"
+        ).fetchall()
+    finally:
+        conn.close()
+    versions = [r[0] for r in rows]
+    assert versions, "no migrations applied to scratch DB"
+    assert versions == sorted(versions)
+    # Head should be at least migration 022 (the W-E
+    # state_fingerprint column added this cycle).
+    assert max(versions) >= 22
+
+
 def test_open_session_refuses_when_marker_already_present(tmp_path, monkeypatch):
     monkeypatch.setenv(
         "HAI_DEMO_MARKER_PATH", str(tmp_path / "marker.json")

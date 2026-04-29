@@ -266,6 +266,21 @@ def open_session(
     base_dir_path.mkdir(parents=True, exist_ok=True)
     config_path.parent.mkdir(parents=True, exist_ok=True)
 
+    # v0.1.11 Codex F-IR-02 fix: initialise the scratch state.db so
+    # the documented demo flow actually runs end-to-end. Without
+    # this, every `hai intake *` call falls back to JSONL-only with
+    # the "state DB projection skipped" warning, and `hai daily`
+    # short-circuits because the DB doesn't exist. The original W-Va
+    # implementation created the path string but never ran the
+    # migrations.
+    #
+    # Lazy import to dodge a circular dependency: the resolver hooks
+    # in core/state/store.py call back into this module.
+    from health_agent_infra.core.state.store import (  # noqa: PLC0415
+        initialize_database,
+    )
+    initialize_database(db_path)
+
     marker = DemoMarker(
         schema_version=DEMO_MARKER_SCHEMA_VERSION,
         marker_id=marker_id,

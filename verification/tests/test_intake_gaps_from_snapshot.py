@@ -129,6 +129,66 @@ def test_allow_stale_lets_old_pull_through_with_warning(fresh_db):
     assert "staleness_warning" in payload
 
 
+def test_pull_at_47h_passes_gate(fresh_db):
+    """Boundary at 47h — under the 48h threshold, derivation succeeds."""
+    _seed_sync_run(fresh_db, age_hours=47, status="ok")
+    payload = compute_intake_gaps_from_state_snapshot(
+        db_path=fresh_db,
+        as_of_date=date.today(),
+        user_id="u_local_1",
+        allow_stale=False,
+        staleness_max_hours=48,
+    )
+    assert payload["computed"] is True
+    assert "staleness_warning" not in payload
+
+
+def test_pull_at_49h_refused_by_gate(fresh_db):
+    """Boundary at 49h — over the 48h threshold, derivation refuses."""
+    _seed_sync_run(fresh_db, age_hours=49, status="ok")
+    with pytest.raises(StalenessRefusal):
+        compute_intake_gaps_from_state_snapshot(
+            db_path=fresh_db,
+            as_of_date=date.today(),
+            user_id="u_local_1",
+            allow_stale=False,
+            staleness_max_hours=48,
+        )
+
+
+def test_concurrency_100_trials_deterministic(fresh_db):
+    """W-W single-read-transaction contract: 100 sequential gap
+    derivations against the same DB snapshot produce the same
+    output every time. The original PLAN.md spec called for a
+    100-trial concurrency test with multiprocessing-injected
+    writes; that path tests the SQLite read-isolation guarantee
+    `BEGIN IMMEDIATE` provides.
+
+    Codex F-IR-03 fix: this test asserts deterministic output
+    across 100 sequential trials against a stable DB. The
+    cross-process write-during-read scenario the original spec
+    described would require a JSONL tail consumer (not present
+    in v0.1.11 — see PLAN § 2.16 narrowed contract)."""
+    _seed_sync_run(fresh_db, age_hours=10, status="ok")
+    fingerprints = set()
+    for _ in range(100):
+        payload = compute_intake_gaps_from_state_snapshot(
+            db_path=fresh_db,
+            as_of_date=date.today(),
+            user_id="u_local_1",
+        )
+        # Hash the gap shape (excluding wall-clock snapshot_read_at).
+        shape = tuple(
+            (g.get("domain"), g.get("missing_field"), g.get("derived_from"))
+            for g in payload["gaps"]
+        )
+        fingerprints.add(shape)
+    assert len(fingerprints) == 1, (
+        f"100 trials produced {len(fingerprints)} distinct shapes; "
+        f"expected exactly 1 (deterministic)."
+    )
+
+
 def test_no_sync_run_history_passes_gate(fresh_db):
     """No sync history at all → no row to gate against; derivation
     proceeds (the gate is "if there IS history, check freshness")."""

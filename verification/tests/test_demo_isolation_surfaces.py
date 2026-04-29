@@ -158,3 +158,113 @@ def test_real_persistence_byte_identical_across_session(real_dirs, tmp_path):
     # And after close.
     assert real_dirs["real_db"].read_bytes() == pre_db
     assert _checksum_tree(real_dirs["real_base"]) == pre_base
+
+
+# ---------------------------------------------------------------------------
+# Subprocess-level isolation (Codex F-IR-06)
+# ---------------------------------------------------------------------------
+
+
+def test_subprocess_cli_writes_under_demo_isolate_real_state(
+    tmp_path, monkeypatch
+):
+    """Codex F-IR-06 fix: run real CLI commands under an active demo
+    session via subprocess and assert the real `state.db`, real
+    `~/.health_agent` tree, and real `thresholds.toml` are byte-
+    identical before and after.
+
+    The unit-level isolation tests above prove the resolvers route
+    to scratch when a marker is present. This subprocess test
+    proves the END-TO-END path: argparse, CLI handlers, JSONL
+    writeback, projector calls — none of them have a direct write
+    bypass that escapes the resolver indirection.
+
+    Pre-fix: the cardinal isolation contract was only proven at
+    the resolver level; a future hardcoded path bypass could ship
+    silently. This test catches that.
+    """
+    import hashlib
+    import os
+    import subprocess
+    import sys
+
+    real_root = tmp_path / "real"
+    real_db = real_root / "state.db"
+    real_base = real_root / "base"
+    real_db.parent.mkdir(parents=True)
+    real_base.mkdir(parents=True)
+
+    # Pre-populate so checksums have bytes to compare.
+    real_db.write_bytes(b"REAL DB MARKER v0\n" * 32)
+    (real_base / "untouchable.jsonl").write_text(
+        '{"line": "must_not_change"}\n'
+    )
+
+    def _checksum_tree_local(root: Path) -> str:
+        h = hashlib.sha256()
+        for path in sorted(root.rglob("*")):
+            if path.is_file():
+                h.update(str(path.relative_to(root)).encode("utf-8"))
+                h.update(b":")
+                h.update(path.read_bytes())
+                h.update(b"\n")
+        return h.hexdigest()
+
+    pre_db = real_db.read_bytes()
+    pre_base = _checksum_tree_local(real_base)
+
+    env = os.environ.copy()
+    env["HAI_STATE_DB"] = str(real_db)
+    env["HAI_BASE_DIR"] = str(real_base)
+    env["HAI_DEMO_MARKER_PATH"] = str(tmp_path / "marker.json")
+
+    def _hai(args):
+        return subprocess.run(
+            [sys.executable, "-m", "health_agent_infra.cli", *args],
+            env=env, capture_output=True, text=True,
+        )
+
+    # 1. Open demo session (writes marker + scratch root + initialises
+    #    scratch state.db per the F-IR-02 fix).
+    proc = _hai(["demo", "start", "--blank"])
+    assert proc.returncode == 0, f"demo start failed: {proc.stderr}"
+
+    # 2. Run a representative cluster of allowed commands. Any of
+    #    these writing to real state would be caught by the post-
+    #    checksum assertions below.
+    proc = _hai([
+        "intake", "readiness",
+        "--soreness", "low",
+        "--energy", "moderate",
+        "--planned-session-type", "easy",
+    ])
+    assert proc.returncode == 0, f"intake readiness failed: {proc.stderr}"
+
+    proc = _hai([
+        "intake", "nutrition",
+        "--calories", "2400",
+        "--protein-g", "150",
+        "--carbs-g", "280",
+        "--fat-g", "80",
+    ])
+    assert proc.returncode == 0, f"intake nutrition failed: {proc.stderr}"
+
+    proc = _hai([
+        "intake", "stress",
+        "--score", "2",
+    ])
+    assert proc.returncode == 0, f"intake stress failed: {proc.stderr}"
+
+    # 3. Close the session.
+    proc = _hai(["demo", "end"])
+    assert proc.returncode == 0, f"demo end failed: {proc.stderr}"
+
+    # 4. The cardinal contract — real state byte-identical.
+    assert real_db.read_bytes() == pre_db, (
+        "Codex F-IR-06 regression: subprocess CLI writes under demo "
+        "mode mutated the real state.db"
+    )
+    assert _checksum_tree_local(real_base) == pre_base, (
+        "Codex F-IR-06 regression: subprocess CLI writes under demo "
+        "mode mutated the real base_dir tree"
+    )

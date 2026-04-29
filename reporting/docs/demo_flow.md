@@ -130,17 +130,70 @@ hai intake nutrition \
 Each command prints the demo-session banner, mutates only the
 scratch DB, and returns the structured JSON the agent would route.
 
-### 5. Synthesise
+### 5. Compose proposals (the runtime/agent boundary)
+
+`hai daily` reads existing proposals from `proposal_log` and runs
+synthesis over them; it does NOT fabricate proposals on its own.
+In a real session, the agent composes proposals after consuming
+the snapshot via the per-domain readiness skills, then posts each
+via `hai propose --domain <d> --proposal-json <path>`.
+
+For a CLI-only demo without an agent driving, you have two
+options:
+
+**(a) Stop here, narrate the boundary.** Run
+`hai daily --skip-pull --source csv` and observe
+`overall_status: "awaiting_proposals"`. The output explains what
+the agent would do next:
 
 ```bash
 hai daily --skip-pull --source csv
+# overall_status: "awaiting_proposals"
+# next: agent reads `hai state snapshot`, runs each domain's
+#       readiness skill, posts via `hai propose --domain <d>
+#       --proposal-json <path>`, re-runs `hai daily`.
 ```
 
-`--skip-pull` because there's no wearable data in a blank session;
-`--source csv` is also forced under the demo refusal matrix even
-if you specified another source.
+This is the honest stopping point for a CLI-only demo. It
+demonstrates the runtime/skill code-vs-skill boundary
+(`AGENTS.md` "Code Vs Skill"): code runs synthesis once
+proposals exist; skills compose proposals.
 
-### 6. Walk the plan
+**(b) Manually seed proposals + synthesise.** Compose six
+DomainProposal JSONs (one per domain), post via `hai propose`,
+then re-run `hai daily`. The cycle's
+`reporting/plans/v0_1_11/codex_implementation_review_response.md`
+documents this path; it requires authoring six 30-line JSON
+files matching each domain's
+`<domain>_proposal.v1` schema. Consult
+`hai capabilities --json | jq '.domain_proposal_contracts'` for
+the per-domain action enum + required fields.
+
+**v0.1.11 W-Z § B canonical stops at (a)**: the boundary
+narration is the demo moment; full synthesis is a v0.1.12 W-Vb
+deliverable when the persona-fixture loader pre-populates
+proposals as part of `hai demo start --persona <name>`.
+
+### 6. Walk the (partial) state — path (a)
+
+```bash
+hai today
+```
+
+In the canonical (a) stopping point, `hai today` reports
+`No plan for <date>. Run \`hai daily\` first.` That's the
+honest signal: no canonical plan committed yet because no
+proposals were authored. The narration moment for the demo
+viewer is **why** there's no plan — the runtime/skill boundary.
+
+Skip to step 8 (`hai daily --supersede` on a fresh date)
+which still demonstrates the W-F contract without requiring
+proposals.
+
+### 6b. Walk the plan — path (b) only
+
+The remaining steps (6b, 7) require path (b)'s seeded proposals.
+If you took path (a), skip to step 8.
 
 ```bash
 hai today
@@ -160,7 +213,7 @@ The full audit-chain bundle: proposal → planned → committed →
 narrated. Every band, every threshold, every R-rule firing
 visible end-to-end.
 
-### 7. Same-day correction
+### 7. Same-day correction — path (b) only
 
 If today's nutrition is partial, log the dinner correction:
 
@@ -169,9 +222,15 @@ hai intake nutrition \
     --calories 2900 --protein-g 175 --carbs-g 320 --fat-g 95
 ```
 
-Re-run synthesis:
+Re-post each affected domain's proposal (the agent re-runs the
+relevant readiness skill against the new state), then re-run
+synthesis:
 
 ```bash
+# Re-post nutrition proposal with the new payload.
+hai propose --domain nutrition --proposal-json /tmp/p_nutrition.json
+
+# Re-synthesise.
 hai daily --skip-pull --source csv
 ```
 
@@ -180,7 +239,7 @@ plan with `_v2` because the inputs changed. Both rows persist;
 audit chain integrity is preserved (W-F), `hai explain
 --plan-version all` walks the chain.
 
-### 8. Try `hai daily --supersede` on the next day
+### 8. Try `hai daily --supersede` on a fresh date
 
 ```bash
 hai daily --supersede --as-of <tomorrow> --skip-pull --source csv

@@ -196,9 +196,17 @@ def build_proposal(
                 }
             )
 
+    # Codex F-IR-04 fix: source the schema version from the canonical
+    # registry rather than hardcoding the literal. A future schema-
+    # version bump would otherwise update the manifest + validator
+    # but leave the persona harness emitting the stale string.
+    from health_agent_infra.core.intake.next_actions import (  # noqa: PLC0415
+        _DOMAIN_PROPOSAL_SCHEMAS,
+    )
+
     proposal_id = f"prop_{for_date.isoformat()}_{user_id}_{domain}_01"
     return {
-        "schema_version": f"{domain}_proposal.v1",
+        "schema_version": _DOMAIN_PROPOSAL_SCHEMAS[domain],
         "proposal_id": proposal_id,
         "user_id": user_id,
         "for_date": for_date.isoformat(),

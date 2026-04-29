@@ -148,6 +148,51 @@ canonical:
 **Persona-replay mode** (W-Vb shipped) is forward-compat for
 v0.1.12.
 
+**Isolation-replay transcript (Codex F-IR-05 fix).** The
+following sequence executed against real state pinned via
+`HAI_STATE_DB` + `HAI_BASE_DIR` env vars, with a marker at
+`HAI_DEMO_MARKER_PATH`:
+
+```
+$ shasum $REAL_DB
+0009a5f3879c98842f3fbab25c76a8876335e2be  (pre-replay)
+
+$ hai demo start --blank
+[demo session opened — marker_id demo_1777435120_a84b813d, ...]
+{"status": "started", "schema_version": "demo_marker.v1", ...}
+
+$ hai intake readiness --soreness low --energy moderate \
+    --planned-session-type easy
+{"submission_id": "m_ready_...", ...}
+
+$ hai intake nutrition --calories 2400 --protein-g 150 \
+    --carbs-g 280 --fat-g 80
+{"submission_id": "m_nut_...", ...}
+
+$ hai daily --skip-pull --source csv
+overall_status: awaiting_proposals
+(canonical (a) stopping point — proposal authoring is the
+runtime/skill boundary; full synthesis requires hai propose
+calls per the demo flow doc § 5.)
+
+$ hai demo end
+{"status": "closed", ...}
+
+$ shasum $REAL_DB
+0009a5f3879c98842f3fbab25c76a8876335e2be  (post-replay)
+
+real_base recursive checksum:
+a33865a42513c175fc37f037e6093084ed6a1783  (pre-replay)
+a33865a42513c175fc37f037e6093084ed6a1783  (post-replay)
+
+ISOLATION REPLAY: PASS — real state byte-identical
+```
+
+The cardinal isolation contract (§ 2.7) is proven end-to-end via
+real subprocess CLI invocations, not just resolver-level units.
+Codex F-IR-06 added the same assertion as a permanent test:
+`test_demo_isolation_surfaces.py::test_subprocess_cli_writes_under_demo_isolate_real_state`.
+
 ### 2.8 Persona harness re-run
 
 PLAN ship-gate: "all 12 personas run without crashes." W-O

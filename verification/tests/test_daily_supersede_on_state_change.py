@@ -231,6 +231,128 @@ def test_rerun_with_same_state_is_noop(fresh_db, tmp_path):
 # ---------------------------------------------------------------------------
 
 
+def test_rerun_after_intake_nutrition_change_auto_supersedes(
+    fresh_db, tmp_path
+):
+    """Codex F-IR-01 fix verification: the PLAN.md acceptance scenario.
+
+    1. Project a nutrition state for the day (simulates the user
+       having logged nutrition A and the intake handler having
+       UPSERTed accepted_nutrition_state_daily).
+    2. Seed proposals + run synthesis → canonical plan.
+    3. Re-project nutrition with different macros (simulates
+       `hai intake nutrition --calories ... --protein-g ...` —
+       the projector UPSERTs the row and bumps `corrected_at`).
+    4. Re-run synthesis WITHOUT modifying proposal_log directly.
+
+    Pre-fix (Codex F-IR-01): step 4 returned the existing canonical
+    plan because the fingerprint only hashed proposal payloads
+    (which haven't changed) and Phase-A firings.
+
+    Post-fix: the fingerprint now also hashes each accepted_*_state_daily
+    row's `corrected_at` + `projected_at`. Step 3 bumped
+    `corrected_at` on accepted_nutrition_state_daily, so the new
+    fingerprint differs and the re-run auto-supersedes with `_v2`.
+    """
+    from datetime import date as _date_cls
+    import time
+
+    from health_agent_infra.core.synthesis import run_synthesis
+
+    target_date = _date_cls(2026, 4, 28)
+
+    def _seed_accepted_nutrition(conn, *, projected_at: str, corrected_at):
+        """Directly seed accepted_nutrition_state_daily — simulates what
+        the intake-handler + projector would have UPSERTed when the
+        user logged a nutrition intake. Bypasses the raw-row chain so
+        the test focuses on the W-E fingerprint contract."""
+        existing = conn.execute(
+            "SELECT 1 FROM accepted_nutrition_state_daily "
+            "WHERE as_of_date = ? AND user_id = ?",
+            (target_date.isoformat(), "u_local_1"),
+        ).fetchone()
+        if existing is None:
+            conn.execute(
+                "INSERT INTO accepted_nutrition_state_daily ("
+                "  as_of_date, user_id, calories, protein_g, carbs_g, "
+                "  fat_g, hydration_l, meals_count, derivation_path, "
+                "  derived_from, source, ingest_actor, "
+                "  projected_at, corrected_at"
+                ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (
+                    target_date.isoformat(),
+                    "u_local_1",
+                    2400.0, 150.0, 280.0, 80.0,
+                    None, 3,
+                    "daily_macros", "[]", "user_manual",
+                    "claude_agent_v1",
+                    projected_at, corrected_at,
+                ),
+            )
+        else:
+            conn.execute(
+                "UPDATE accepted_nutrition_state_daily SET "
+                "  calories = ?, protein_g = ?, carbs_g = ?, fat_g = ?, "
+                "  meals_count = ?, corrected_at = ? "
+                "WHERE as_of_date = ? AND user_id = ?",
+                (
+                    2900.0, 175.0, 320.0, 95.0, 4, corrected_at,
+                    target_date.isoformat(), "u_local_1",
+                ),
+            )
+
+    conn = open_connection(fresh_db)
+    try:
+        # 1. Seed initial nutrition state (intake nutrition A).
+        _seed_accepted_nutrition(
+            conn,
+            projected_at="2026-04-28T12:00:00+00:00",
+            corrected_at=None,
+        )
+
+        # 2. Seed proposals for all six domains + run synthesis.
+        _seed_all_six_proposals(conn)
+        conn.commit()
+        result1 = run_synthesis(
+            conn,
+            for_date=target_date,
+            user_id="u_local_1",
+        )
+        assert result1.daily_plan_id == "plan_2026-04-28_u_local_1"
+
+        # 3. Bump corrected_at on accepted_nutrition_state_daily
+        # WITHOUT touching proposal_log. Simulates the user running
+        # `hai intake nutrition --calories 2900 ...` mid-day; the
+        # intake handler UPSERTs the accepted row and bumps
+        # corrected_at, but the proposal payloads would only update
+        # if the agent re-runs the readiness skill + re-posts.
+        _seed_accepted_nutrition(
+            conn,
+            projected_at="2026-04-28T12:00:00+00:00",
+            corrected_at="2026-04-28T18:00:00+00:00",
+        )
+        conn.commit()
+
+        # 4. Re-run synthesis. Proposals are byte-identical; only
+        # accepted_nutrition_state_daily changed. The new fingerprint
+        # captures that via the corrected_at delta.
+        result2 = run_synthesis(
+            conn,
+            for_date=target_date,
+            user_id="u_local_1",
+        )
+    finally:
+        conn.close()
+
+    # Auto-supersede: state changed, so _v2 minted.
+    assert result2.daily_plan_id == "plan_2026-04-28_u_local_1_v2", (
+        "Codex F-IR-01 regression: state-only change (intake nutrition "
+        "without re-authoring proposals) did not trigger auto-supersede. "
+        f"Got daily_plan_id={result2.daily_plan_id!r}."
+    )
+    assert _row_count(fresh_db, "daily_plan") == 2
+
+
 def test_rerun_with_changed_state_auto_supersedes(fresh_db, tmp_path):
     conn = open_connection(fresh_db)
     try:

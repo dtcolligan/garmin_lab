@@ -78,3 +78,55 @@ def test_every_runtime_domain_appears_in_harness_default_table():
             f"but the harness has no default action mapping. "
             f"Update verification/dogfood/synthetic_skill.py."
         )
+
+
+def test_harness_emits_schema_version_from_canonical_registry():
+    """Codex F-IR-04 fix: synthetic_skill.build_proposal() must
+    source schema versions from `_DOMAIN_PROPOSAL_SCHEMAS` rather
+    than hardcoding the literal `f"{domain}_proposal.v1"`. Pre-fix,
+    a schema-version bump would silently drift between the harness
+    and the validator/manifest.
+    """
+    from datetime import date
+
+    from health_agent_infra.core.intake.next_actions import (
+        _DOMAIN_PROPOSAL_SCHEMAS,
+    )
+    from verification.dogfood.synthetic_skill import build_proposal
+
+    for domain in _DOMAIN_PROPOSAL_SCHEMAS:
+        snapshot = {
+            domain: {
+                "classified_state": {
+                    # Minimal status field per domain so derive_action
+                    # picks up _STATUS_TO_ACTION mapping rather than
+                    # the default; either way the schema_version
+                    # surface is what we're asserting.
+                    "recovery_status": "unknown",
+                    "running_readiness_status": "unknown",
+                    "sleep_status": "unknown",
+                    "stress_state": "unknown",
+                    "strength_status": "unknown",
+                    "nutrition_status": "unknown",
+                    "uncertainty": [],
+                },
+                "policy_result": {
+                    "forced_action": None,
+                    "forced_action_detail": None,
+                    "capped_confidence": None,
+                    "policy_decisions": [],
+                },
+            },
+        }
+        proposal = build_proposal(
+            domain=domain,
+            snapshot=snapshot,
+            user_id="u_local_1",
+            for_date=date(2026, 4, 28),
+        )
+        assert proposal["schema_version"] == _DOMAIN_PROPOSAL_SCHEMAS[domain], (
+            f"persona harness emitted schema_version "
+            f"{proposal['schema_version']!r} for domain={domain!r}, "
+            f"but the canonical registry says "
+            f"{_DOMAIN_PROPOSAL_SCHEMAS[domain]!r}"
+        )

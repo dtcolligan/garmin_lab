@@ -390,42 +390,95 @@ def _overlay_skill_drafts(
 # Plan id supersession helpers
 # ---------------------------------------------------------------------------
 
+_ACCEPTED_STATE_TABLES: tuple[tuple[str, str], ...] = (
+    ("accepted_recovery_state_daily", "recovery"),
+    ("accepted_running_state_daily", "running"),
+    ("accepted_sleep_state_daily", "sleep"),
+    ("accepted_stress_state_daily", "stress"),
+    ("accepted_resistance_training_state_daily", "strength"),
+    ("accepted_nutrition_state_daily", "nutrition"),
+)
+
+
 def _compute_state_fingerprint(
     *,
     proposals: list[dict[str, Any]],
     phase_a_firings: list[Any],
+    conn: Optional[sqlite3.Connection] = None,
+    for_date: Optional[date] = None,
+    user_id: Optional[str] = None,
 ) -> str:
     """Deterministic SHA-256 hex digest of the synthesis inputs.
 
-    v0.1.11 W-E. Used to detect re-runs of `hai daily` /
-    `hai synthesize` against unchanged state. Inputs:
+    v0.1.11 W-E (revised after Codex F-IR-01).
 
-    - Each proposal's ``payload_json`` (canonical leaf snapshot of
-      classified_state + policy_result + rationale + uncertainty).
-    - Phase A firings (the X-rule mutations the synthesizer would
-      apply).
+    Inputs hashed (in order):
 
-    Excludes ``produced_at`` / ``validated_at`` from the proposal
-    payload — those wall-clock fields would change every reload
-    even when the substantive content is identical. We hash the
-    payload's content-bearing keys only.
+    1. **Upstream state surfaces** (the PLAN.md contract): for each
+       of the six per-domain ``accepted_*_state_daily`` tables, the
+       row's ``corrected_at`` + ``projected_at`` timestamps at
+       ``(for_date, user_id)``. These update on every UPSERT, so a
+       ``hai intake nutrition`` mutation flips ``corrected_at`` even
+       if the proposal rows haven't been re-authored yet. This
+       closes the gap Codex flagged: state-only changes that don't
+       alter the proposal payload now still trigger auto-supersede.
+    2. **Proposal payloads**: each proposal's content-bearing
+       fields (excluding wall-clock ``produced_at`` /
+       ``validated_at``).
+    3. **Phase A firings**: the X-rule mutations the synthesizer
+       would apply.
 
-    The fingerprint is stored on the daily_plan row at commit time;
-    a subsequent run_synthesis call compares against the canonical's
-    fingerprint to choose between no-op (match) and auto-supersede
-    (mismatch).
+    Wall-clock fields excluded by design — those churn every
+    reload even when the substantive content is identical.
+
+    The fingerprint is stored on the ``daily_plan`` row at commit
+    time; a subsequent ``run_synthesis`` call compares against the
+    canonical's fingerprint to choose between no-op (match) and
+    auto-supersede (mismatch).
+
+    When ``conn`` / ``for_date`` / ``user_id`` are not supplied
+    (legacy callers), the upstream-state slice is silently skipped
+    — the function still produces a deterministic hash but loses
+    state-only change detection. Production callers via
+    ``run_synthesis`` always supply all three.
     """
     import hashlib
 
-    # Stable hash domain: sorted by (domain, proposal_id) for
-    # deterministic ordering.
+    parts: list[str] = []
+
+    # 1. Upstream state surfaces (Codex F-IR-01 fix).
+    parts.append("accepted_state")
+    if conn is not None and for_date is not None and user_id is not None:
+        for_date_iso = for_date.isoformat()
+        for table, domain_label in _ACCEPTED_STATE_TABLES:
+            try:
+                # nosec B608 - table is a hardcoded constant tuple element.
+                row = conn.execute(
+                    f"SELECT projected_at, corrected_at "  # nosec B608
+                    f"FROM {table} "
+                    f"WHERE as_of_date = ? AND user_id = ?",
+                    (for_date_iso, user_id),
+                ).fetchone()
+            except sqlite3.OperationalError:
+                # Pre-migration DB or table not yet created (e.g. an
+                # older accepted_*_state_daily table on a fresh demo).
+                row = None
+            if row is None:
+                parts.append(f"{domain_label}:absent")
+                continue
+            parts.append(
+                f"{domain_label}:projected={row['projected_at']}"
+                f"|corrected={row['corrected_at']}"
+            )
+
+    # 2. Proposal payloads (sorted by (domain, proposal_id) for
+    # deterministic ordering).
     sorted_proposals = sorted(
         proposals, key=lambda p: (p.get("domain"), p.get("proposal_id"))
     )
 
-    parts: list[str] = []
+    parts.append("proposals")
     for p in sorted_proposals:
-        # Pull the content-bearing fields, skipping wall-clock.
         canonical = {
             "domain": p.get("domain"),
             "schema_version": p.get("schema_version"),
@@ -438,9 +491,8 @@ def _compute_state_fingerprint(
         }
         parts.append(json.dumps(canonical, sort_keys=True, default=str))
 
+    # 3. Phase A firings.
     parts.append("phase_a")
-    # Phase-A firings are XRuleFiring dataclasses (or dicts in legacy
-    # test scaffolds). Coerce to dict for stable sorting + JSON.
     from dataclasses import asdict, is_dataclass
 
     def _firing_dict(f):
@@ -654,6 +706,13 @@ def run_synthesis(
     state_fingerprint = _compute_state_fingerprint(
         proposals=proposals,
         phase_a_firings=phase_a_firings,
+        # Codex F-IR-01 fix: include upstream state surfaces in the
+        # fingerprint so a `hai intake nutrition` mutation that
+        # doesn't re-author the proposal still flips the fingerprint
+        # via the accepted_nutrition_state_daily corrected_at update.
+        conn=conn,
+        for_date=for_date,
+        user_id=user_id,
     )
 
     canonical_id = canonical_daily_plan_id(for_date, user_id)
