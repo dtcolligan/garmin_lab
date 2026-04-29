@@ -1819,6 +1819,40 @@ def cmd_today(args: argparse.Namespace) -> int:
         domain_filter=args.domain,
         cold_start_by_domain=cold_start_by_domain,
     )
+
+    # W-FCC (v0.1.12 / F-C-05): when --verbose is set, prepend a
+    # "classified state" footer surfacing internal classifier outputs.
+    # v0.1.12 surfaces only strength_status enum values; future cycles
+    # may extend (recovery_status, sleep_status, etc.). The enum surface
+    # itself is the load-bearing exposure — `hai capabilities --json`
+    # carries the canonical list under
+    # ``commands[].output_schema.OK.enum_surface.strength_status``.
+    if getattr(args, "verbose", False):
+        from health_agent_infra.domains.strength.classify import (
+            STRENGTH_STATUS_VALUES,
+        )
+        if fmt == "json":
+            # JSON callers don't get a header — the enum surface lives
+            # in capabilities; verbose JSON is a future extension.
+            pass
+        else:
+            header_lines = [
+                "## classified state (verbose) — strength_status enum surface",
+                "",
+                "  strength_status ∈ {"
+                + ", ".join(STRENGTH_STATUS_VALUES)
+                + "}",
+                "",
+                "  (See `hai capabilities --json | jq '.commands[] | "
+                "select(.command == \"hai today\").output_schema.OK."
+                "enum_surface'` for the canonical list. Live "
+                "classified-state-of-the-day rendering is v0.1.13+.)",
+                "",
+                "---",
+                "",
+            ]
+            output = "\n".join(header_lines) + output
+
     sys.stdout.write(output)
     return exit_codes.OK
 
@@ -6906,7 +6940,22 @@ def build_parser() -> argparse.ArgumentParser:
         "--db-path", default=None,
         help="State DB path (same semantics as other state commands).",
     )
+    p_today.add_argument(
+        "--verbose", action="store_true",
+        help=(
+            "Print classified-state internals alongside the plan. "
+            "Currently surfaces strength_status; v0.1.13+ may extend."
+        ),
+    )
     p_today.set_defaults(func=cmd_today)
+    # W-FCC (v0.1.12): import STRENGTH_STATUS_VALUES at parser-build time
+    # so the capabilities manifest carries the enum surface as
+    # data, not as documentation. The contract test
+    # ``test_capabilities_strength_status_enum_surface`` keeps the
+    # manifest in sync with the classifier.
+    from health_agent_infra.domains.strength.classify import (
+        STRENGTH_STATUS_VALUES,
+    )
     annotate_contract(
         p_today,
         mutation="read-only",
@@ -6931,6 +6980,16 @@ def build_parser() -> argparse.ArgumentParser:
                     "top_matter", "summary", "sections",
                 ],
                 "notes": "JSON format only emitted when --format json.",
+                "enum_surface": {
+                    "strength_status": list(STRENGTH_STATUS_VALUES),
+                },
+                "verbose_surface": (
+                    "When --verbose is passed, a 'classified state' "
+                    "footer is prepended showing strength_status (one of "
+                    "the values in enum_surface.strength_status) and "
+                    "other internal classifier outputs as v0.1.13+ "
+                    "extends."
+                ),
             },
         },
     )

@@ -55,12 +55,13 @@ JSON; this markdown is an at-a-glance overview for humans.
 
 ## Commands
 
-*55 commands; hai 0.1.11; schema agent_cli_contract.v1*
+*56 commands; hai 0.1.11; schema agent_cli_contract.v1*
 
 | Command | Mutation | Idempotent | JSON | Agent-safe | Exit codes | Description |
 |---|---|---|---|---|---|---|
 | ``hai auth garmin`` | ``writes-credentials`` | ``yes`` | ``default`` | no | ``OK``, ``USER_INPUT`` | Store Garmin credentials in the OS keyring. Interactive by default; operator-only (requires a live password). |
 | ``hai auth intervals-icu`` | ``writes-credentials`` | ``yes`` | ``default`` | no | ``OK``, ``USER_INPUT`` | Store Intervals.icu credentials in the OS keyring. Interactive by default; operator-only (requires a live API key). |
+| ``hai auth remove`` | ``writes-credentials`` | ``yes`` | ``default`` | no | ``OK`` | Remove stored credentials from the OS keyring. Idempotent — removing absent credentials is a no-op. Env-var-supplied credentials are never touched. |
 | ``hai auth status`` | ``read-only`` | ``n/a`` | ``default`` | yes | ``OK`` | Report whether Garmin and Intervals.icu credentials are configured. Presence only — never emits the secret itself. |
 | ``hai capabilities`` | ``read-only`` | ``n/a`` | ``opt-out`` | yes | ``OK`` | Emit the agent-CLI-contract manifest describing every subcommand's mutation class, idempotency, JSON output, and exit codes. The authoritative surface the routing skill consumes. |
 | ``hai clean`` | ``writes-state`` | ``yes`` | ``default`` | yes | ``OK``, ``USER_INPUT`` | Normalize pulled evidence into CleanedEvidence + RawSummary JSON and project accepted state rows. Best-effort projection when --db-path is absent. |

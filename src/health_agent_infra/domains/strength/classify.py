@@ -63,6 +63,19 @@ FreshnessBand = str            # "fresh"|"recent"|"fatigued"|"unknown"
 CoverageBand = str             # "insufficient"|"sparse"|"partial"|"full"
 StrengthStatus = str           # "progressing"|"maintaining"|"undertrained"|"overreaching"|"unknown"
 
+# Authoritative enum surface — exposed via capabilities manifest at
+# ``hai today`` per W-FCC (PLAN.md §2.9 / F-C-05). Adding a value here
+# requires updating the classifier; the manifest contract test
+# (``test_capabilities_strength_status_enum_surface``) keeps the
+# manifest in sync.
+STRENGTH_STATUS_VALUES: tuple[str, ...] = (
+    "progressing",
+    "maintaining",
+    "undertrained",
+    "overreaching",
+    "unknown",
+)
+
 
 @dataclass(frozen=True)
 class ClassifiedStrengthState:
