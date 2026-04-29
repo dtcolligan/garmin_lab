@@ -255,11 +255,49 @@ def test_subprocess_cli_writes_under_demo_isolate_real_state(
     ])
     assert proc.returncode == 0, f"intake stress failed: {proc.stderr}"
 
-    # 3. Close the session.
+    # 3. hai daily reaches the canonical boundary stopping point.
+    # Without proposals, this returns OK with overall_status =
+    # "awaiting_proposals" (Codex F-IR2-02 — the v0.1.11 gate is
+    # explicitly the boundary-stop demo, not full synthesis).
+    proc = _hai(["daily", "--skip-pull", "--source", "csv"])
+    assert proc.returncode == 0, f"daily failed: {proc.stderr}"
+    import json as _json
+    payload = _json.loads(proc.stdout)
+    assert payload.get("overall_status") == "awaiting_proposals", (
+        f"daily did not reach the canonical boundary stop. "
+        f"overall_status={payload.get('overall_status')!r}"
+    )
+
+    # 4. hai today shows "no plan for <date>" — the visible signal
+    # that the runtime/skill boundary has not yet been crossed.
+    proc = _hai(["today"])
+    # Exit code 1 (USER_INPUT) is the signal; stderr names the cause.
+    assert proc.returncode == 1, (
+        f"today did not signal no-plan-for-date. "
+        f"returncode={proc.returncode}, stderr={proc.stderr!r}"
+    )
+    assert "No plan" in proc.stderr or "no plan" in proc.stderr.lower(), (
+        f"today's stderr did not name the no-plan signal: {proc.stderr!r}"
+    )
+
+    # 5. hai daily --supersede on a fresh date with no proposals
+    # short-circuits at awaiting_proposals (the supersede gate
+    # never fires because synthesis isn't reached). Verify it
+    # doesn't crash + doesn't pollute real state.
+    proc = _hai([
+        "daily", "--skip-pull", "--source", "csv",
+        "--supersede", "--as-of", "2027-01-01",
+    ])
+    assert proc.returncode in (0, 1), (
+        f"daily --supersede unexpected returncode {proc.returncode}: "
+        f"{proc.stderr!r}"
+    )
+
+    # 6. Close the session.
     proc = _hai(["demo", "end"])
     assert proc.returncode == 0, f"demo end failed: {proc.stderr}"
 
-    # 4. The cardinal contract — real state byte-identical.
+    # 7. The cardinal contract — real state byte-identical.
     assert real_db.read_bytes() == pre_db, (
         "Codex F-IR-06 regression: subprocess CLI writes under demo "
         "mode mutated the real state.db"

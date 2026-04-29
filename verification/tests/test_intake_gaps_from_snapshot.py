@@ -189,17 +189,39 @@ def test_concurrency_100_trials_deterministic(fresh_db):
     )
 
 
-def test_no_sync_run_history_passes_gate(fresh_db):
-    """No sync history at all → no row to gate against; derivation
-    proceeds (the gate is "if there IS history, check freshness")."""
+def test_no_sync_run_history_refuses_without_override(fresh_db):
+    """Codex F-IR2-03: no sync history → refuse unless override.
+
+    Pre-fix this passed permissively; PLAN.md § 2.16 calls for
+    fail-closed behaviour ("within the last 48h" strictly implies
+    at least one successful sync). The no-history case is
+    indistinguishable from "infinitely stale" and refuses by
+    default."""
+    with pytest.raises(StalenessRefusal) as excinfo:
+        compute_intake_gaps_from_state_snapshot(
+            db_path=fresh_db,
+            as_of_date=date.today(),
+            user_id="u_local_1",
+            allow_stale=False,
+            staleness_max_hours=48,
+        )
+    assert "no successful sync" in str(excinfo.value).lower()
+    assert "--allow-stale-snapshot" in str(excinfo.value)
+
+
+def test_no_sync_run_history_passes_with_override(fresh_db):
+    """No sync history + --allow-stale-snapshot → derivation
+    proceeds with a staleness_warning surface."""
     payload = compute_intake_gaps_from_state_snapshot(
         db_path=fresh_db,
         as_of_date=date.today(),
         user_id="u_local_1",
-        allow_stale=False,
+        allow_stale=True,
         staleness_max_hours=48,
     )
     assert payload["computed"] is True
+    assert "staleness_warning" in payload
+    assert "no sync" in payload["staleness_warning"].lower()
 
 
 # ---------------------------------------------------------------------------
@@ -223,6 +245,9 @@ def test_emitted_gaps_carry_derived_from_state_snapshot(fresh_db):
 
 
 def test_top_level_payload_carries_audit_fields(fresh_db):
+    # Need a successful sync_run_log entry so the staleness gate
+    # passes (post-Codex-F-IR2-03 no-history-refuses-by-default).
+    _seed_sync_run(fresh_db, age_hours=10, status="ok")
     payload = compute_intake_gaps_from_state_snapshot(
         db_path=fresh_db,
         as_of_date=date.today(),

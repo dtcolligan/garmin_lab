@@ -231,6 +231,109 @@ def test_rerun_with_same_state_is_noop(fresh_db, tmp_path):
 # ---------------------------------------------------------------------------
 
 
+def test_reproject_with_same_content_different_timestamps_is_noop(
+    fresh_db, tmp_path
+):
+    """Codex F-IR2-01 fix verification: a reproject of byte-identical
+    semantic content with refreshed `projected_at` / `corrected_at`
+    timestamps must NOT trigger auto-supersede. The fingerprint
+    hashes content fields only; wall-clock timestamps are excluded.
+
+    Pre-fix the F-IR-01 round-1 implementation hashed
+    `projected_at` + `corrected_at` directly, so any normal daily
+    reproject of unchanged raw/clean evidence would mint `_v2`
+    incorrectly. This test would have failed against that
+    implementation.
+    """
+    from datetime import date as _date_cls
+
+    from health_agent_infra.core.synthesis import run_synthesis
+
+    target_date = _date_cls(2026, 4, 28)
+
+    def _seed_accepted_nutrition(conn, *, projected_at, corrected_at):
+        existing = conn.execute(
+            "SELECT 1 FROM accepted_nutrition_state_daily "
+            "WHERE as_of_date = ? AND user_id = ?",
+            (target_date.isoformat(), "u_local_1"),
+        ).fetchone()
+        if existing is None:
+            conn.execute(
+                "INSERT INTO accepted_nutrition_state_daily ("
+                "  as_of_date, user_id, calories, protein_g, carbs_g, "
+                "  fat_g, hydration_l, meals_count, derivation_path, "
+                "  derived_from, source, ingest_actor, "
+                "  projected_at, corrected_at"
+                ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (
+                    target_date.isoformat(), "u_local_1",
+                    2400.0, 150.0, 280.0, 80.0, None, 3,
+                    "daily_macros", "[]", "user_manual",
+                    "claude_agent_v1",
+                    projected_at, corrected_at,
+                ),
+            )
+        else:
+            # Update timestamps + provenance only — content stays identical.
+            conn.execute(
+                "UPDATE accepted_nutrition_state_daily SET "
+                "  projected_at = ?, corrected_at = ? "
+                "WHERE as_of_date = ? AND user_id = ?",
+                (
+                    projected_at, corrected_at,
+                    target_date.isoformat(), "u_local_1",
+                ),
+            )
+
+    conn = open_connection(fresh_db)
+    try:
+        # 1. Initial state — content X, projection at T0.
+        _seed_accepted_nutrition(
+            conn,
+            projected_at="2026-04-28T12:00:00+00:00",
+            corrected_at=None,
+        )
+        _seed_all_six_proposals(conn)
+        conn.commit()
+
+        result1 = run_synthesis(
+            conn,
+            for_date=target_date,
+            user_id="u_local_1",
+        )
+        plan_id_1 = result1.daily_plan_id
+        assert plan_id_1 == "plan_2026-04-28_u_local_1"
+
+        # 2. Reproject the SAME content but with refreshed timestamps.
+        # Simulates the daily-pull-and-clean path running again
+        # without any actual state change.
+        _seed_accepted_nutrition(
+            conn,
+            projected_at="2026-04-28T18:00:00+00:00",  # changed
+            corrected_at="2026-04-28T18:00:00+00:00",  # changed
+        )
+        conn.commit()
+
+        # 3. Re-run synthesis — content unchanged, only wall-clock churned.
+        result2 = run_synthesis(
+            conn,
+            for_date=target_date,
+            user_id="u_local_1",
+        )
+    finally:
+        conn.close()
+
+    # Cardinal contract: same content → no-op; canonical id returned.
+    assert result2.daily_plan_id == plan_id_1, (
+        "Codex F-IR2-01 regression: a reproject with refreshed "
+        "projected_at / corrected_at but byte-identical content "
+        "incorrectly triggered auto-supersede. The fingerprint must "
+        "hash semantic content, not wall-clock timestamps."
+    )
+    # Only one daily_plan row (the canonical) — no _v2 minted.
+    assert _row_count(fresh_db, "daily_plan") == 1
+
+
 def test_rerun_after_intake_nutrition_change_auto_supersedes(
     fresh_db, tmp_path
 ):

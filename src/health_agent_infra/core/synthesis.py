@@ -399,6 +399,26 @@ _ACCEPTED_STATE_TABLES: tuple[tuple[str, str], ...] = (
     ("accepted_nutrition_state_daily", "nutrition"),
 )
 
+# Columns excluded from the state-fingerprint hash.
+# - `projected_at` / `corrected_at` are wall-clock timestamps that
+#   the projectors update on every UPSERT, including a no-op reproject
+#   of byte-identical content. Hashing them would conflate "wall-clock
+#   churned" with "semantic state changed" — exactly the failure mode
+#   Codex F-IR2-01 flagged.
+# - `derived_from` lists the latest submission_id, which encodes the
+#   intake's wall-clock at composition time. A user re-running `hai
+#   intake nutrition` with byte-identical values produces a new
+#   submission_id and a new derived_from JSON, even though no
+#   semantic content changed. Excluded for the same reason.
+# - `ingest_actor` is provenance metadata (`hai_cli_direct` vs
+#   `claude_agent_v1`) that doesn't reflect content changes.
+_FINGERPRINT_EXCLUDED_COLUMNS: frozenset[str] = frozenset({
+    "projected_at",
+    "corrected_at",
+    "derived_from",
+    "ingest_actor",
+})
+
 
 def _compute_state_fingerprint(
     *,
@@ -410,26 +430,24 @@ def _compute_state_fingerprint(
 ) -> str:
     """Deterministic SHA-256 hex digest of the synthesis inputs.
 
-    v0.1.11 W-E (revised after Codex F-IR-01).
+    v0.1.11 W-E (revised after Codex F-IR2-01).
 
     Inputs hashed (in order):
 
-    1. **Upstream state surfaces** (the PLAN.md contract): for each
-       of the six per-domain ``accepted_*_state_daily`` tables, the
-       row's ``corrected_at`` + ``projected_at`` timestamps at
-       ``(for_date, user_id)``. These update on every UPSERT, so a
-       ``hai intake nutrition`` mutation flips ``corrected_at`` even
-       if the proposal rows haven't been re-authored yet. This
-       closes the gap Codex flagged: state-only changes that don't
-       alter the proposal payload now still trigger auto-supersede.
-    2. **Proposal payloads**: each proposal's content-bearing
-       fields (excluding wall-clock ``produced_at`` /
-       ``validated_at``).
+    1. **Upstream state surfaces (semantic content only)**: for each
+       per-domain ``accepted_*_state_daily`` table, every column's
+       value EXCEPT the wall-clock + provenance columns enumerated
+       in ``_FINGERPRINT_EXCLUDED_COLUMNS``. A reproject of
+       byte-identical raw evidence updates ``projected_at`` /
+       ``corrected_at`` / ``derived_from`` (new submission_id with
+       fresh wall-clock) but the semantic content fields stay
+       identical, so the fingerprint stays stable. A real content
+       change (different calories, different soreness band, etc.)
+       flips the fingerprint deterministically.
+    2. **Proposal payloads**: each proposal's content-bearing fields
+       (excluding wall-clock ``produced_at`` / ``validated_at``).
     3. **Phase A firings**: the X-rule mutations the synthesizer
        would apply.
-
-    Wall-clock fields excluded by design — those churn every
-    reload even when the substantive content is identical.
 
     The fingerprint is stored on the ``daily_plan`` row at commit
     time; a subsequent ``run_synthesis`` call compares against the
@@ -446,29 +464,43 @@ def _compute_state_fingerprint(
 
     parts: list[str] = []
 
-    # 1. Upstream state surfaces (Codex F-IR-01 fix).
+    # 1. Upstream state surfaces — semantic content only.
     parts.append("accepted_state")
     if conn is not None and for_date is not None and user_id is not None:
         for_date_iso = for_date.isoformat()
         for table, domain_label in _ACCEPTED_STATE_TABLES:
             try:
-                # nosec B608 - table is a hardcoded constant tuple element.
+                cols_rows = conn.execute(
+                    f"PRAGMA table_info({table})"  # nosec B608 - hardcoded table
+                ).fetchall()
+            except sqlite3.OperationalError:
+                parts.append(f"{domain_label}:table_absent")
+                continue
+            content_cols = sorted(
+                r["name"] for r in cols_rows
+                if r["name"] not in _FINGERPRINT_EXCLUDED_COLUMNS
+            )
+            if not content_cols:
+                parts.append(f"{domain_label}:no_content_cols")
+                continue
+            select_cols = ", ".join(content_cols)
+            try:
+                # nosec B608 - table + content_cols come from
+                # _ACCEPTED_STATE_TABLES + PRAGMA table_info; no user input.
                 row = conn.execute(
-                    f"SELECT projected_at, corrected_at "  # nosec B608
-                    f"FROM {table} "
+                    f"SELECT {select_cols} FROM {table} "  # nosec B608
                     f"WHERE as_of_date = ? AND user_id = ?",
                     (for_date_iso, user_id),
                 ).fetchone()
             except sqlite3.OperationalError:
-                # Pre-migration DB or table not yet created (e.g. an
-                # older accepted_*_state_daily table on a fresh demo).
                 row = None
             if row is None:
                 parts.append(f"{domain_label}:absent")
                 continue
+            row_content = {col: row[col] for col in content_cols}
             parts.append(
-                f"{domain_label}:projected={row['projected_at']}"
-                f"|corrected={row['corrected_at']}"
+                f"{domain_label}:"
+                + json.dumps(row_content, sort_keys=True, default=str)
             )
 
     # 2. Proposal payloads (sorted by (domain, proposal_id) for

@@ -123,30 +123,54 @@ emerged.
 ### 2.7 Demo regression gate
 
 PLAN.md § 3 demo-regression gate has two modes; with W-Vb
-deferred, this cycle ships the **isolation-replay mode** as
-canonical:
+deferred, this cycle ships the **isolation-replay mode (boundary-
+stop demo)** as canonical. Per Codex F-IR2-02, the gate is
+explicitly scoped to what is actually runnable for v0.1.11:
 
-- `hai demo start --blank` — opens an empty scratch session.
-- Manual-seed sequence per `reporting/docs/demo_flow.md` § B —
-  scripted intakes populate enough state for `hai today` to
-  render.
-- `hai daily --skip-pull --source csv` synthesizes; re-run with
-  intake change auto-supersedes with `_v2` (W-E).
-- `hai daily --supersede` on a fresh date exits USER_INPUT (W-F).
+- `hai demo start --blank` — opens an empty scratch session;
+  `initialize_database()` runs against the scratch state.db
+  (Codex F-IR-02 fix).
+- Manual intake sequence (`hai intake readiness / nutrition /
+  stress` etc.) writes to scratch DB + scratch base_dir.
+- `hai daily --skip-pull --source csv` returns
+  `overall_status: "awaiting_proposals"` — **the canonical
+  stopping point**. Proposal authoring is the runtime/skill
+  boundary; full synthesis (and therefore `hai today` rendering
+  a plan) requires `hai propose` calls. v0.1.11 demos narrate
+  the boundary as the demo moment; full synthesis lands as
+  v0.1.12 W-Vb when the persona-fixture loader pre-populates
+  proposals.
+- `hai today` shows "no plan for <date>" by design — that is
+  the visible signal that the runtime/skill boundary has not
+  yet been crossed.
 - Real `state.db` + real `~/.health_agent` tree + real
-  `thresholds.toml` checksums byte-identical before / after
-  (W-Va isolation contract verified by
-  `test_demo_isolation_surfaces.py`).
-- `hai intake gaps --from-state-snapshot` emits gaps with
-  `derived_from: "state_snapshot"` and `snapshot_read_at`
-  populated (W-W contract verified by
-  `test_intake_gaps_from_snapshot.py`).
-- `hai doctor --deep` routes to FixtureProbe in demo mode with
-  hard no-network assertion (W-X contract verified by
-  `test_doctor_deep_probe.py::test_demo_mode_deep_probe_does_not_open_a_socket`).
+  `thresholds.toml` checksums byte-identical before / after the
+  full sequence (W-Va isolation contract verified by
+  `test_demo_isolation_surfaces.py::test_subprocess_cli_writes_under_demo_isolate_real_state`).
+
+**The following items are forward-compat to v0.1.12 W-Vb** and
+not part of the v0.1.11 isolation-replay gate:
+
+- `hai daily` reaching synthesis with proposals seeded.
+- Re-run-with-intake-change auto-supersede via `_v2` end-to-end
+  through the demo session (the W-E contract is unit-tested in
+  `test_daily_supersede_on_state_change.py`; the demo flow does
+  not exercise it without proposals).
+- `hai today` rendering a populated plan.
+- `hai intake gaps --from-state-snapshot` and `hai doctor
+  --deep` are independently unit-tested and capabilities-listed,
+  but the v0.1.11 demo flow does not exercise them in the
+  isolation-replay sequence — they're available but not part of
+  the gate's executable transcript.
+
+Each of those W-id contracts has its own dedicated test
+(`test_intake_gaps_from_snapshot.py`,
+`test_doctor_deep_probe.py`, etc.) and is independently
+verified — they are not unverified just because the demo
+sequence stops at the boundary.
 
 **Persona-replay mode** (W-Vb shipped) is forward-compat for
-v0.1.12.
+v0.1.12 — full synthesis through the demo session.
 
 **Isolation-replay transcript (Codex F-IR-05 fix).** The
 following sequence executed against real state pinned via

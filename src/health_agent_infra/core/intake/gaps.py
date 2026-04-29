@@ -292,7 +292,22 @@ def compute_intake_gaps_from_state_snapshot(
         except Exception:  # noqa: BLE001
             last_ok = None
 
-        if last_ok is not None:
+        if last_ok is None:
+            # Codex F-IR2-03: PLAN.md says "refuse if no successful
+            # sync_run_log entry exists within the last 48h." Strict
+            # reading: "within the last 48h" implies at least one
+            # successful sync. The no-history case fails closed.
+            if not allow_stale:
+                conn.execute("ROLLBACK")
+                raise StalenessRefusal(
+                    f"no successful sync_run_log entry exists for this "
+                    f"DB (threshold={staleness_max_hours}h requires at "
+                    f"least one sync within that window). Pass "
+                    f"--allow-stale-snapshot to override, or run "
+                    f"`hai pull` first."
+                )
+            staleness_warning = "no sync_run_log history at all"
+        else:
             try:
                 last_ok_dt = datetime.fromisoformat(str(last_ok))
                 if last_ok_dt.tzinfo is None:
