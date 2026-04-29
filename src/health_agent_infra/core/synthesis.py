@@ -368,16 +368,21 @@ def _overlay_skill_drafts(
     by_id = {d["recommendation_id"]: d for d in skill_drafts}
     out: list[dict[str, Any]] = []
     for draft in drafts:
-        skill_draft = by_id.get(draft["recommendation_id"])
-        if skill_draft is None:
+        # Distinct name from the validation loop above (`skill_draft`)
+        # so mypy doesn't conflate the non-Optional list-element type
+        # with this Optional dict-lookup result. v0.1.12 W-H2.
+        matched_draft: Optional[dict[str, Any]] = by_id.get(
+            draft["recommendation_id"],
+        )
+        if matched_draft is None:
             out.append(draft)
             continue
         merged = dict(draft)
-        if isinstance(skill_draft.get("rationale"), list):
-            merged["rationale"] = list(skill_draft["rationale"])
-        if isinstance(skill_draft.get("uncertainty"), list):
-            merged["uncertainty"] = list(skill_draft["uncertainty"])
-        incoming_fu = skill_draft.get("follow_up") or {}
+        if isinstance(matched_draft.get("rationale"), list):
+            merged["rationale"] = list(matched_draft["rationale"])
+        if isinstance(matched_draft.get("uncertainty"), list):
+            merged["uncertainty"] = list(matched_draft["uncertainty"])
+        incoming_fu = matched_draft.get("follow_up") or {}
         if isinstance(incoming_fu, dict) and "review_question" in incoming_fu:
             fu = dict(merged["follow_up"])
             fu["review_question"] = incoming_fu["review_question"]

@@ -177,6 +177,10 @@ def _r_extreme_deficiency(
                 None,
             )
     if deficit_triggers and protein_triggers:
+        # mypy narrowing — the trigger predicates above already
+        # guarded ``is not None`` for both, but mypy can't follow that
+        # through the boolean variable. v0.1.12 W-H2.
+        assert deficit is not None and protein_ratio is not None
         detail = {
             "reason_token": "extreme_deficiency_detected",
             "calorie_deficit_kcal": round(deficit, 1),

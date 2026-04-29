@@ -602,7 +602,9 @@ class _GarminConnectClient:
         most_recent = (status.get("mostRecentTrainingLoadBalance") or {})
         metrics = (most_recent.get("metricsTrainingLoadBalanceDTOMap") or {})
         # metrics is a dict keyed by device id; pick the first entry
-        first_metrics = next(iter(metrics.values()), {}) if metrics else {}
+        first_metrics: dict[str, Any] = (
+            next(iter(metrics.values()), {}) if metrics else {}
+        )
         row["acute_load"] = first_metrics.get("monthlyLoadAerobicLow") or first_metrics.get("acuteLoad")
         row["chronic_load"] = first_metrics.get("chronicLoad")
         row["acwr_status"] = first_metrics.get("trainingBalanceFeedbackPhrase")
@@ -614,7 +616,7 @@ class _GarminConnectClient:
         ts_inner = row["training_status"]
         if isinstance(ts_inner, dict):
             # device-id-keyed map again
-            first_ts = next(iter(ts_inner.values()), {})
+            first_ts: dict[str, Any] = next(iter(ts_inner.values()), {})
             if isinstance(first_ts, dict):
                 row["training_status"] = first_ts.get("trainingStatus")
             else:

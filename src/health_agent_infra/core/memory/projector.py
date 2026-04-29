@@ -55,7 +55,12 @@ class UserMemoryBundle:
     entries: tuple[UserMemoryEntry, ...]
 
     def counts(self) -> dict[str, int]:
-        out = {category: 0 for category in USER_MEMORY_CATEGORIES}
+        # mypy: Literal-keyed dict refuses "total"; widen via
+        # explicit dict[str, int] before adding the synthetic key.
+        # v0.1.12 W-H2.
+        out: dict[str, int] = {
+            category: 0 for category in USER_MEMORY_CATEGORIES
+        }
         for entry in self.entries:
             out[entry.category] = out.get(entry.category, 0) + 1
         out["total"] = len(self.entries)

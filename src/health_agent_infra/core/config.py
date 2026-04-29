@@ -32,7 +32,7 @@ from copy import deepcopy
 from pathlib import Path
 from typing import Any, Optional
 
-from platformdirs import user_config_dir
+from platformdirs import user_config_dir  # type: ignore[import-not-found]
 
 
 class ConfigError(RuntimeError):

@@ -199,7 +199,10 @@ def validate_recommendation_dict(data: Any) -> None:
             f"missing required fields: {sorted(missing)}",
         )
 
-    domain = data.get("domain")
+    # `data.get("domain")` is `Any | None`; for the registry lookups we
+    # need a str. Coerce defensively — empty string falls through to
+    # the default in both registries.
+    domain = data.get("domain") or ""
     expected_schema = SCHEMA_VERSION_BY_DOMAIN.get(
         domain, RECOMMENDATION_SCHEMA_VERSION,
     )

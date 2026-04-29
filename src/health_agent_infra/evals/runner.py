@@ -352,8 +352,15 @@ def score_domain_result(
         # about what fired actively. Scenarios can always assert the
         # empty set if they expect nothing to fire.
         active_ids = sorted(
-            {f.get("rule_id") for f in firings
-             if f.get("decision") not in (None, "allow")}
+            # Filter None rule_ids (defensive — every active firing
+            # has one) before sorting to keep mypy's SupportsRichComparison
+            # bound happy. v0.1.12 W-H2.
+            {
+                rid for rid in (
+                    f.get("rule_id") for f in firings
+                    if f.get("decision") not in (None, "allow")
+                ) if rid is not None
+            }
         )
         expected_ids = sorted(set(expected_policy["fired_rule_ids"]))
         if active_ids != expected_ids:
@@ -662,11 +669,15 @@ def run_scenarios(
     for scenario in scenarios:
         kind = scenario.get("kind")
         if kind == "domain":
-            result = run_domain_scenario(scenario)
-            score = score_domain_result(result, scenario.get("expected") or {})
+            domain_result = run_domain_scenario(scenario)
+            score = score_domain_result(
+                domain_result, scenario.get("expected") or {},
+            )
         elif kind == "synthesis":
-            result = run_synthesis_scenario(scenario)
-            score = score_synthesis_result(result, scenario.get("expected") or {})
+            syn_result = run_synthesis_scenario(scenario)
+            score = score_synthesis_result(
+                syn_result, scenario.get("expected") or {},
+            )
         else:
             raise EvalRunError(
                 f"scenario {scenario.get('scenario_id')} has unknown kind {kind!r}",
