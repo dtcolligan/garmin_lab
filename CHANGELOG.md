@@ -11,6 +11,34 @@ Per-release detail lives under `reporting/plans/<version>/`.
 
 ---
 
+## [0.1.12.1] - 2026-04-29
+
+> **Tier (per CP3 D15):** hotfix. Single-bug fix, no scope expansion,
+> lightweight RELEASE_PROOF. Branched from `v0.1.12` tag; v0.1.13 cycle
+> work continues independently with the same fix carried forward.
+
+### Fixed
+
+- `core/pull/intervals_icu.py`: `HttpIntervalsIcuClient` now sets a
+  project-identifying `User-Agent` header on every request. Cloudflare's
+  bot protection on the intervals.icu zone was rejecting urllib's
+  default UA (`Python-urllib/3.x`) with HTTP 403 error 1010
+  (`browser_signature_banned`), causing `hai pull --source intervals_icu`
+  to fail for every user even with valid credentials. The fix unblocks
+  the supported live-source path. Memory note triage instructions
+  updated to distinguish Cloudflare-edge rejection from credential
+  rotation by inspecting the error body shape. Originally tracked as
+  F-DEMO-01.
+
+### Tests
+
+- `test_http_client_sends_project_user_agent` — asserts the default
+  UA is the project-identifying string, not the Python-urllib default.
+- `test_http_client_user_agent_is_overridable` — confirms callers can
+  inject a custom UA for diagnostic or compatibility purposes.
+
+---
+
 ## [0.1.12] - 2026-04-29
 
 > **Theme.** Carry-over closure + trust repair. No release-blocker
