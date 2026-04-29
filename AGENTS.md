@@ -267,6 +267,95 @@ catches version-tag drift in the most common offenders mechanically.
 The checklist above covers the human-judgement freshness items the
 test cannot mechanise.
 
+## Patterns the cycles have validated
+
+Operating-discipline lessons surfaced through audit chains. These
+apply to every AI agent (Claude Code, Codex, future tools); failure
+to apply them is the canonical shape of an audit-round finding.
+
+### Provenance discipline
+
+Before citing a file path, line number, function name, or fact in a
+PLAN, RELEASE_PROOF, audit response, or reply to the maintainer,
+**verify on disk**. Empirical examples:
+
+- v0.1.12 D14 round 1 caught `core/credentials.py:171` claims when
+  the helper actually lived at `core/pull/auth.py:171`.
+- v0.1.12 D14 round 2 caught "strategic plan §10 contains no MCP
+  exposure row" when it had a Wave 3 row at line 444.
+- v0.1.12 IR round 1 caught W-FBC RELEASE_PROOF claims of "recovery
+  prototype shipped" when only the flag plumbing landed.
+
+Verify by reading or grepping the actual file; do not trust the
+previous round's assertion. Verify *file paths*, *line numbers*,
+*function/class names*, and *exact strings* before citing them.
+
+### Summary-surface sweep on partial closure
+
+When a workstream ships partial closure or fork-defers, **all
+summary surfaces must move in lockstep**, not just RELEASE_PROOF.
+The canonical sites that must reflect the partial scope:
+
+- `PLAN.md` §1.1 theme bullet
+- `PLAN.md` §1.2 catalogue row (severity / files / source)
+- `PLAN.md` §1.3 deferral table
+- `PLAN.md` §2.X per-WS contract section
+- `PLAN.md` §3 ship-gate row
+- `PLAN.md` §4 risks register entry
+- `RELEASE_PROOF.md` §1 workstream completion row
+- `RELEASE_PROOF.md` §5 out-of-scope items
+- `REPORT.md` §3 highlights + §4 deferrals + §6 lessons
+- `CARRY_OVER.md` §1/§2/§3 disposition rows
+- `ROADMAP.md` "Now" / "Next" rows
+- `reporting/plans/tactical_plan_v0_1_x.md` §3.1 / §3.2 / §4
+- `CHANGELOG.md` bullet
+- Any `reporting/docs/<workstream>.md` design doc
+- CLI help text (if a flag/command was scoped down)
+
+Missing one is the canonical IR-round-2-finds-it bug. Origin:
+v0.1.12 IR rounds 1 + 2.
+
+### Honest partial-closure naming
+
+When a workstream undershoots, **name the residual with destination
+cycle** in every artifact. Convention:
+
+- `in-cycle (W-X here)` → `partial-closure → v0.1.X+1 W-X-2`
+- `full broader gate ships` → `fork-deferred → v0.1.X+1 W-X`
+
+Don't dress up partial work as full delivery. The audit chain
+catches the mismatch every time; the only difference is whether
+you save a round by being honest first. Origin: v0.1.12 W-Vb +
+W-FBC + W-N-broader.
+
+### Audit-chain empirical settling shape
+
+Twice-validated across v0.1.11 and v0.1.12:
+
+- **D14 plan-audit:** 4 rounds, **10 → 5 → 3 → 0** findings.
+  Budget 2-4 rounds for substantive PLANs; 1 round for hardening
+  or doc-only.
+- **Implementation review:** 3 rounds, **5 → 2 → 1-nit**.
+  Budget 2-3 rounds for substantive cycles.
+
+If round N has *more* findings than round N-1, the previous
+response introduced second-order issues — re-read your own diff.
+A "1-shot" estimate on a substantive PLAN is wrong; round 2
+always finds something round 1 introduced.
+
+### Cycle-prompt templates
+
+Future cycles should not author Codex audit prompts from scratch.
+Templates live at:
+
+- `reporting/plans/_templates/codex_plan_audit_prompt.template.md`
+- `reporting/plans/_templates/codex_implementation_review_prompt.template.md`
+
+Copy the relevant template into the cycle dir and customise the
+"Why this round" + step-1 reading list + step-2 audit questions
+for the cycle's actual workstream catalogue. Step 0 / step 3 /
+step 4 / step 5 / step 6 / step 7 stay stable across cycles.
+
 ## Test Commands
 
 ```bash
