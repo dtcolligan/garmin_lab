@@ -25,4 +25,4 @@ against a real USDA slice, before Phase 5 commits to meal-level intake.
 ## Status
 
 Complete. See `findings.md` for the gate decision.
-Gate document: `../../plans/phase_2_5_retrieval_gate.md`.
+Gate document: `../../plans/historical/phase_2_5_retrieval_gate.md`.

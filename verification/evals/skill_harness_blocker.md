@@ -7,9 +7,9 @@ open, and what is intentionally out of scope.
 
 Phase 2.5 Track B Condition 3 ("skill-harness eval as a Phase 3 exit
 criterion") attached the original gap. See
-[`reporting/plans/skill_harness_rfc.md`](../../reporting/plans/skill_harness_rfc.md)
+[`reporting/plans/historical/skill_harness_rfc.md`](../../reporting/plans/historical/skill_harness_rfc.md)
 for the pilot's design and
-[`reporting/plans/post_v0_1_roadmap.md`](../../reporting/plans/post_v0_1_roadmap.md)
+[`reporting/plans/historical/post_v0_1_roadmap.md`](../../reporting/plans/historical/post_v0_1_roadmap.md)
 §5 Phase E for scope.
 
 ## Original condition (verbatim)

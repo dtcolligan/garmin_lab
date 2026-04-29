@@ -1,6 +1,6 @@
 -- Migration 011 — planned_recommendation ledger (Phase 1 of the
 -- agent-operable runtime plan; see
--- reporting/plans/agent_operable_runtime_plan.md §1).
+-- reporting/plans/historical/agent_operable_runtime_plan.md §1).
 --
 -- Closes the audit chain at the aggregate level. Today the pipeline is:
 --

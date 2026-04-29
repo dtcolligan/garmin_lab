@@ -58,8 +58,8 @@ gate for the planning tree. Files:
   questions for maintainer judgement.
 - `reporting/plans/README.md` — reading-order index.
 
-The `reporting/plans/multi_release_roadmap.md` is **SUPERSEDED** by
-the strategic + tactical pair (banner at top of that file).
+The `reporting/plans/historical/multi_release_roadmap.md` is
+**SUPERSEDED** by the strategic + tactical pair.
 
 ## What's next — your call when you return
 

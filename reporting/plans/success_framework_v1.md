@@ -523,7 +523,8 @@ indirect signals already covered by Tier 2 metrics.
 - `reporting/plans/v0_1_10/audit_findings.md` (deferred work
   surface).
 - AGENTS.md governance invariants 1-6.
-- 2026-04-25 multi_release_roadmap.md (H1 falsification framing).
+- 2026-04-25 historical/multi_release_roadmap.md (H1 falsification
+  framing).
 
 **Refresh:** annually OR at every wave boundary. Tier 1 metrics
 reviewed every minor release.

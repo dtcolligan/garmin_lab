@@ -1,11 +1,28 @@
 # Planning Tree — Reading Order Index
 
-> **Last updated:** 2026-04-27 (post-v0.1.10 ship + strategic
-> planning session).
+> **Last updated:** 2026-04-29 (post-v0.1.11 ship + folder
+> reorganisation).
 
 This is the orientation guide to the `reporting/plans/` tree.
 Read this when you're returning cold and need to find the right
 doc by intent.
+
+## Tree at a glance
+
+```
+reporting/plans/
+├── README.md                          (this file)
+├── strategic_plan_v1.md               ← active strategic vision
+├── tactical_plan_v0_1_x.md            ← active release plan
+├── eval_strategy/v1.md                ← active eval methodology
+├── success_framework_v1.md            ← active value-measurement
+├── risks_and_open_questions.md        ← active risk + decision register
+├── v0_1_4/ … v0_1_11/                 ← per-cycle artifacts (frozen post-ship)
+├── post_v0_1_10/                      ← between-cycles work (demo, Phase 4 audit)
+├── future_strategy_2026-04-29/        ← Claude/Codex deep strategy review
+├── historical/                        ← 9 superseded planning docs
+└── docs_overhaul/                     ← docs-overhaul review record
+```
 
 ---
 
@@ -92,7 +109,7 @@ Cycle directories preserve their own history:
 - `v0_1_8/` — plan-aware feedback visibility (W43, W48, W51).
 - `v0_1_9/` — hardening + governance closure (B1-B8).
 - `v0_1_10/` — pre-PLAN audit pattern + persona harness.
-- `v0_1_11/` — audit-cycle deferred items + persona expansion (in flight).
+- `v0_1_11/` — audit-cycle deferred items + persona expansion (shipped 2026-04-28).
 
 Each cycle directory typically contains:
 - `PLAN.md` — cycle scope.
@@ -103,18 +120,35 @@ Each cycle directory typically contains:
 - `RELEASE_PROOF.md` — ship readiness proof.
 - `REPORT.md` — post-ship retro.
 
+## I want to read the current strategy review (Apr 2026).
+
+The 2026-04-29 deep strategy review lives in
+`future_strategy_2026-04-29/`:
+
+- `reconciliation.md` — single decision-ready synthesis of the two
+  reviews. Start here if you only have time for one.
+- `review_claude.md` — Claude's two-pass review (1200 lines).
+- `review_codex.md` — Codex's three-pass review (2005 lines).
+
+The reconciliation drives the v0.1.12+ planning refresh.
+
 ## Historical / superseded docs (preserve provenance, do not act on)
 
-- `multi_release_roadmap.md` — **SUPERSEDED 2026-04-27** by
-  `strategic_plan_v1.md` + `tactical_plan_v0_1_x.md`. Banner at top.
-- `post_v0_1_roadmap.md` — earlier roadmap; superseded by the
-  multi-release roadmap (2026-04-25), now further superseded.
-- `agent_operable_runtime_plan.md` — Phase-3 design doc; some
-  details lifted into AGENTS.md. Historical.
-- `phase_0_findings.md`, `phase_0_5_synthesis_prototype.md`,
-  `phase_2_5_*` — pre-v0.1 design exploration. Historical.
-- `skill_harness_rfc.md` — pre-v0.1 RFC. Historical.
-- `launch_notes.md` — pre-v0.1 launch checklist. Historical.
+All 9 superseded docs live under `historical/`:
+
+- `historical/multi_release_roadmap.md` — **SUPERSEDED 2026-04-27** by
+  `strategic_plan_v1.md` + `tactical_plan_v0_1_x.md`.
+- `historical/post_v0_1_roadmap.md` — earlier roadmap; superseded by
+  the multi-release roadmap (2026-04-25), now further superseded.
+- `historical/agent_operable_runtime_plan.md` — Phase-3 design doc;
+  some details lifted into AGENTS.md.
+- `historical/phase_0_findings.md`,
+  `historical/phase_0_5_synthesis_prototype.md`,
+  `historical/phase_2_5_retrieval_gate.md`,
+  `historical/phase_2_5_independent_eval.md` — pre-v0.1 design
+  exploration.
+- `historical/skill_harness_rfc.md` — pre-v0.1 RFC.
+- `historical/launch_notes.md` — pre-v0.1 launch checklist.
 
 Do not assume claims in historical docs are still load-bearing.
 Cross-check against AGENTS.md "Settled Decisions" if relying on

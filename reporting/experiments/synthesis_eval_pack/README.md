@@ -37,4 +37,4 @@ findings.md for what that means for confidence in the gate decision.
 ## Status
 
 Complete. See `findings.md` for the gate decision.
-Gate document: `../../plans/phase_2_5_independent_eval.md`.
+Gate document: `../../plans/historical/phase_2_5_independent_eval.md`.

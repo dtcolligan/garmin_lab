@@ -1,8 +1,12 @@
 # Roadmap
 
-Now, next, and later. The full release-by-release plan, dependencies, risks,
-and bibliography live in
-[`reporting/plans/multi_release_roadmap.md`](reporting/plans/multi_release_roadmap.md).
+Now, next, and later. The current release-by-release plan lives in
+[`reporting/plans/tactical_plan_v0_1_x.md`](reporting/plans/tactical_plan_v0_1_x.md)
+and the longer-horizon strategy in
+[`reporting/plans/strategic_plan_v1.md`](reporting/plans/strategic_plan_v1.md).
+The earlier
+[`reporting/plans/historical/multi_release_roadmap.md`](reporting/plans/historical/multi_release_roadmap.md)
+is superseded as of 2026-04-27.
 
 ## Now
 

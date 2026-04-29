@@ -12,29 +12,28 @@ This directory has four subdirectories, each with a distinct role.
 |---|---|---|
 | [`docs/`](docs/) | active docs (with `archive/` for pre-rebuild doctrine) | The current v1 documentation set: architecture, x-rules, non-goals, state model, tour, extension paths, positioning, query taxonomy, memory model, explainability, grounded-expert scope. Start at [`docs/README.md`](docs/README.md). |
 | [`artifacts/`](artifacts/) | active proof + archived bundles | The sole canonical checked-in proof root. Active proof is the multi-domain eval capture under `flagship_loop_proof/`; older single-domain bundles live under `archive/`; the Phase 0 preflight capture is preserved under `phase_0/`. See [`artifacts/README.md`](artifacts/README.md). |
-| [`plans/`](plans/) | mixed (active roadmap + release history + historical phase docs) | The canonical forward roadmap, current backlog, launch notes, release audit folders, and historical phase records. |
+| [`plans/`](plans/) | mixed (active strategy + release history + historical archive) | Current strategic + tactical + eval + success + risks docs at top level; per-cycle audit folders (`v0_1_*`); historical superseded docs under `historical/`; deep strategy reviews under dated subdirs. See [`plans/README.md`](plans/README.md). |
 | [`experiments/`](experiments/) | historical / archived prototypes | Throwaway prototypes from Phase 0.5 and Phase 2.5 that decided whether to commit to specific architectural bets. Frozen as proof of those decisions; **not** living code. See [`experiments/README.md`](experiments/README.md). |
 
 ## Active vs historical inside `plans/`
 
-| File | Status |
+| File / dir | Status |
 |---|---|
-| [`plans/multi_release_roadmap.md`](plans/multi_release_roadmap.md) | active — canonical forward roadmap |
-| [`plans/v0_1_9/BACKLOG.md`](plans/v0_1_9/BACKLOG.md) | active — next-cycle backlog |
-| [`plans/launch_notes.md`](plans/launch_notes.md) | active historical — describes the shipped `v0.1.0` runtime |
-| [`plans/skill_harness_rfc.md`](plans/skill_harness_rfc.md) | historical — Phase E pilot RFC |
+| [`plans/strategic_plan_v1.md`](plans/strategic_plan_v1.md) | active — 12-24 month strategic vision |
+| [`plans/tactical_plan_v0_1_x.md`](plans/tactical_plan_v0_1_x.md) | active — release-by-release plan for v0.1.x |
+| [`plans/eval_strategy/v1.md`](plans/eval_strategy/v1.md) | active — how correctness is measured |
+| [`plans/success_framework_v1.md`](plans/success_framework_v1.md) | active — how project value is measured |
+| [`plans/risks_and_open_questions.md`](plans/risks_and_open_questions.md) | active — what could derail + decisions needed |
+| [`plans/v0_1_11/`](plans/v0_1_11/) | active — most recent shipped cycle (v0.1.10–v0.1.11 also under their own dirs) |
+| [`plans/post_v0_1_10/`](plans/post_v0_1_10/) | active — between-cycles work (demo + Phase 4 audit plans) |
+| [`plans/future_strategy_2026-04-29/`](plans/future_strategy_2026-04-29/) | active — Claude/Codex deep strategy review + reconciliation |
+| [`plans/historical/`](plans/historical/) | superseded — 9 pre-2026-04-27 planning docs (multi_release_roadmap, post_v0_1_roadmap, agent_operable_runtime_plan, launch_notes, skill_harness_rfc, phase_0_*, phase_2_5_*). Provenance only. |
 | [`plans/docs_overhaul/codex_review.md`](plans/docs_overhaul/codex_review.md) | historical — docs-overhaul review record |
-| [`plans/post_v0_1_roadmap.md`](plans/post_v0_1_roadmap.md) | historical — superseded by `multi_release_roadmap.md` |
-| [`plans/agent_operable_runtime_plan.md`](plans/agent_operable_runtime_plan.md) | historical — M8 runtime plan |
-| [`plans/phase_0_findings.md`](plans/phase_0_findings.md) | historical — Phase 0 preflight verdict |
-| [`plans/phase_0_5_synthesis_prototype.md`](plans/phase_0_5_synthesis_prototype.md) | historical — Phase 0.5 feasibility verdict |
-| [`plans/phase_2_5_retrieval_gate.md`](plans/phase_2_5_retrieval_gate.md) | historical — Phase 2.5 Track A retrieval gate |
-| [`plans/phase_2_5_independent_eval.md`](plans/phase_2_5_independent_eval.md) | historical — Phase 2.5 Track B independent eval gate |
 
-Historical plan documents are kept alongside the roadmap on purpose:
-they explain *why* the runtime has the shape it does (e.g. why
-nutrition is macros-only, why synthesis is a single skill rather than a
-multi-agent debate). Treat them as decision history, not a backlog.
+Historical plan documents are kept on purpose: they explain *why* the
+runtime has the shape it does (e.g. why nutrition is macros-only, why
+synthesis is a single skill rather than a multi-agent debate). Treat
+them as decision history, not a backlog.
 
 ## What is intentionally not here
 

@@ -1,7 +1,7 @@
 """Agent-operable CLI contract — manifest generation and doc rendering.
 
 Phase 2 of the agent-operable runtime plan (see
-``reporting/plans/agent_operable_runtime_plan.md §2``).
+``reporting/plans/historical/agent_operable_runtime_plan.md §2``).
 
 The CLI is the stable contract surface an agent host relies on. This
 module is **manifest-first**: each subparser in ``cli.py`` carries a

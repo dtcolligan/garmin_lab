@@ -12,7 +12,7 @@ Opt-in harness that exercises real readiness skill paths
 
 See [`rubrics/recovery.md`](rubrics/recovery.md) and
 [`rubrics/running.md`](rubrics/running.md) for the rubrics and
-[`../../reporting/plans/skill_harness_rfc.md`](../../../reporting/plans/skill_harness_rfc.md)
+[`../../reporting/plans/historical/skill_harness_rfc.md`](../../../reporting/plans/historical/skill_harness_rfc.md)
 for design context.
 
 ## Not part of normal CI

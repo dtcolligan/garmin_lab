@@ -148,8 +148,8 @@ poorly grounded. Plan readability degrades.
 
 **Mitigation:**
 - Annual hypothesis review (per `strategic_plan_v1.md` § 11).
-- Bibliography tracked in 2026-04-25 multi_release_roadmap.md
-  (preserved as historical doc).
+- Bibliography tracked in 2026-04-25
+  historical/multi_release_roadmap.md (preserved as historical doc).
 
 **Trip-wire:** Apple Mulberry-style retraction; or a published
 result that contradicts H1's "interpretability > better recs"

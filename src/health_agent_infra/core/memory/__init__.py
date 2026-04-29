@@ -3,7 +3,7 @@
 Phase D of the post-v0.1.0 roadmap. Adds a local, inspectable layer of
 user-memory state alongside the existing accepted / decision / outcome
 layers. See ``reporting/docs/memory_model.md`` §2.1 and
-``reporting/plans/post_v0_1_roadmap.md`` §5 Phase D for framing.
+``reporting/plans/historical/post_v0_1_roadmap.md`` §5 Phase D for framing.
 
 Three bounded concerns:
 
@@ -18,7 +18,7 @@ Three bounded concerns:
 
 Nothing in this module feeds thresholds, classifiers, policy, or
 X-rules — see the locked non-goal in
-``reporting/plans/post_v0_1_roadmap.md`` §3.1 decision 4.
+``reporting/plans/historical/post_v0_1_roadmap.md`` §3.1 decision 4.
 """
 
 from health_agent_infra.core.memory.projector import (

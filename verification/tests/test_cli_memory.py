@@ -1,7 +1,7 @@
 """End-to-end tests for ``hai memory set | list | archive`` (Phase D).
 
 Covers the acceptance criteria in
-``reporting/plans/post_v0_1_roadmap.md`` §5 Phase D that flow through
+``reporting/plans/historical/post_v0_1_roadmap.md`` §5 Phase D that flow through
 the CLI:
 
 - create / list / archive works without manual SQL;

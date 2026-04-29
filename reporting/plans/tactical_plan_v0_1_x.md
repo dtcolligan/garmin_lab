@@ -369,8 +369,8 @@ assumptions failing" can be run cleanly.
 
 ### 6.1 In scope
 
-Lifted from `multi_release_roadmap.md` § 4 v0.1.9 (cut), now
-v0.2.0:
+Lifted from `historical/multi_release_roadmap.md` § 4 v0.1.9 (cut),
+now v0.2.0:
 
 - **W52: `hai review weekly --week YYYY-Www [--json|--markdown]`.**
   Code-owned aggregation across accepted state, intent, target,
@@ -530,7 +530,7 @@ W53, W58 from v0.2.0 (strategic Wave 2 anchor).
 - v0.1.10 audit_findings.md (deferred items list).
 - v0.1.10 RELEASE_PROOF.md (test surface baseline).
 - AGENTS.md (settled decisions D1-D12).
-- 2026-04-25 multi_release_roadmap.md (release pattern).
+- 2026-04-25 historical/multi_release_roadmap.md (release pattern).
 
 **Refresh:** updated per release. After v0.1.11 ships, the v0.1.11
 section becomes "shipped" with a 1-paragraph retro, and v0.1.12

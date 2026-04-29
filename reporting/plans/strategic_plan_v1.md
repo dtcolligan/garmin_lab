@@ -1,9 +1,9 @@
 # Strategic Plan v1 — Health Agent Infra
 
 > **Status.** Authored 2026-04-27 by Claude in extended planning
-> session. Supersedes `multi_release_roadmap.md` (2026-04-25). The
-> previous doc remains in the tree marked SUPERSEDED with a pointer
-> here; its hypotheses (H1-H5), category claim, and settled
+> session. Supersedes `historical/multi_release_roadmap.md`
+> (2026-04-25). The previous doc lives under `historical/` with a
+> pointer here; its hypotheses (H1-H5), category claim, and settled
 > decisions are lifted forward intact.
 >
 > **Audience.** Portfolio-grade — readable to a senior engineer
@@ -142,8 +142,8 @@ place to widen the lead.
 Each is a strategic bet. Each can turn out wrong; each has a
 falsification criterion. Stated explicitly so future audits can
 ask "is this still true?" rather than re-derive the case. These
-are lifted from `multi_release_roadmap.md` (2026-04-25) with
-v0.1.10 evidence updates.
+are lifted from `historical/multi_release_roadmap.md` (2026-04-25)
+with v0.1.10 evidence updates.
 
 ### H1. The hard problem in personal health AI is interpretability of outcomes, not better recommendations
 
@@ -670,10 +670,10 @@ not a default.
 
 This doc is built on:
 
-- **`reporting/plans/multi_release_roadmap.md`** (2026-04-25,
-  Claude). Source of H1-H5, settled decisions D1-D9, comparable-OSS
-  survey, category claim. Lifted forward intact where still
-  load-bearing; updated where v0.1.10 evidence falsified.
+- **`reporting/plans/historical/multi_release_roadmap.md`**
+  (2026-04-25, Claude). Source of H1-H5, settled decisions D1-D9,
+  comparable-OSS survey, category claim. Lifted forward intact where
+  still load-bearing; updated where v0.1.10 evidence falsified.
 - **`reporting/plans/v0_1_10/audit_findings.md`** (2026-04-27,
   Claude). Source of v0.1.10 strategic updates (§5).
 - **`reporting/plans/v0_1_10/RELEASE_PROOF.md`** (2026-04-27,

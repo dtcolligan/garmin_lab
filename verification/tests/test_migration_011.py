@@ -4,7 +4,7 @@ Contracts pinned:
 
   1. Migration 011 creates the ``planned_recommendation`` table with the
      columns documented in §1 of
-     ``reporting/plans/agent_operable_runtime_plan.md`` (per-domain rows,
+     ``reporting/plans/historical/agent_operable_runtime_plan.md`` (per-domain rows,
      Option 2 locked).
   2. The three supporting indexes exist:
      - ``idx_planned_recommendation_daily_plan``

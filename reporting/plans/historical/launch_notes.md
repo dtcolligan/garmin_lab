@@ -183,7 +183,7 @@ them is a product decision.
 
 - **Macros-only nutrition.** Per the Phase 2.5 retrieval-gate
   outcome (see
-  [`reporting/plans/phase_2_5_retrieval_gate.md`](phase_2_5_retrieval_gate.md)),
+  [`reporting/plans/historical/phase_2_5_retrieval_gate.md`](phase_2_5_retrieval_gate.md)),
   v1 ships nutrition as a macros-only domain:
   - No `hai intake meal` command.
   - No `meal_log` raw table.

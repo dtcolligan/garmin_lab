@@ -1,7 +1,7 @@
 """End-to-end tests for ``hai explain`` (Phase C of the post-v0.1.0 roadmap).
 
 Covers the acceptance criteria called out in
-``reporting/plans/post_v0_1_roadmap.md`` §5 Phase C:
+``reporting/plans/historical/post_v0_1_roadmap.md`` §5 Phase C:
 
 1. **Read-only**: a JSON or text explain run leaves every persisted
    table at the same row count it had before.

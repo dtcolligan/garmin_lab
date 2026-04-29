@@ -32,8 +32,8 @@ Authoritative orientation:
 - `verification/dogfood/README.md` - persona harness operating guide
 - `AUDIT.md` - release-by-release audit index
 
-The 2026-04-25 `reporting/plans/multi_release_roadmap.md` is
-SUPERSEDED. Read it only as historical provenance; use the
+The 2026-04-25 `reporting/plans/historical/multi_release_roadmap.md`
+is SUPERSEDED. Read it only as historical provenance; use the
 strategic + tactical plans above for current scope.
 
 ## Code Vs Skill
@@ -263,7 +263,7 @@ tree's reading-order index), then the current cycle's plan. If still
 unclear, ask Dom rather than guessing.
 
 The planning tree under `reporting/plans/` has a structured shape as of
-2026-04-27:
+2026-04-29:
 
 - `strategic_plan_v1.md` — 12-24 month vision.
 - `tactical_plan_v0_1_x.md` — next 6-8 releases.
@@ -271,7 +271,11 @@ The planning tree under `reporting/plans/` has a structured shape as of
 - `success_framework_v1.md` — how project value is measured.
 - `risks_and_open_questions.md` — what could go wrong + decisions needed.
 - `v0_1_X/` — per-cycle artifacts (PLAN, audit findings, release proof).
-- `multi_release_roadmap.md` — SUPERSEDED 2026-04-27, historical only.
+- `historical/` — superseded planning docs (multi_release_roadmap,
+  post_v0_1_roadmap, agent_operable_runtime_plan, launch_notes,
+  skill_harness_rfc, phase_0_*, phase_2_5_*). Provenance only.
+- `future_strategy_2026-04-29/` — Claude/Codex deep strategy review +
+  reconciliation. Drives the v0.1.12+ refresh.
 
 The `reporting/plans/README.md` index disambiguates which doc to read
 when. Always check there before authoring a new plan doc.

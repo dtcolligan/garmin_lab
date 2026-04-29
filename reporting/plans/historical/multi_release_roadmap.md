@@ -22,7 +22,7 @@
 > **Original status.** Draft authored 2026-04-25 by Claude. Supersedes the
 > "Multi-release roadmap" + "Workstreams the plan missed" sections of
 > `reporting/plans/v0_1_8/codex_audit_response.md` and the older
-> `reporting/plans/post_v0_1_roadmap.md`. This is the canonical
+> `reporting/plans/historical/post_v0_1_roadmap.md`. This is the canonical
 > forward plan; the audit file becomes immutable history once
 > v0.1.8 ships.
 >

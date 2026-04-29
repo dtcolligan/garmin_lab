@@ -295,9 +295,14 @@ The authoritative surface is `hai capabilities --markdown` or
 
 ## Roadmap
 
-Now / Next / Later lives in [ROADMAP.md](ROADMAP.md). The detailed,
-audited release plan is
-[`reporting/plans/multi_release_roadmap.md`](reporting/plans/multi_release_roadmap.md).
+Now / Next / Later lives in [ROADMAP.md](ROADMAP.md). The detailed
+release plan lives in
+[`reporting/plans/tactical_plan_v0_1_x.md`](reporting/plans/tactical_plan_v0_1_x.md);
+the strategic vision in
+[`reporting/plans/strategic_plan_v1.md`](reporting/plans/strategic_plan_v1.md).
+The earlier
+[`reporting/plans/historical/multi_release_roadmap.md`](reporting/plans/historical/multi_release_roadmap.md)
+is superseded as of 2026-04-27.
 
 ## Where to read next
 

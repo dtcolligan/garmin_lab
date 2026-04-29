@@ -67,8 +67,12 @@ deterministic runtime behaviour on frozen scenarios.
   three-state audit bundle (planned → adapted → performed).
 - [`agent_cli_contract.md`](agent_cli_contract.md) — generated
   per-command contract manifest the intent-router skill consumes.
-- [`../plans/multi_release_roadmap.md`](../plans/multi_release_roadmap.md)
-  — current release roadmap.
+- [`../plans/tactical_plan_v0_1_x.md`](../plans/tactical_plan_v0_1_x.md)
+  — current release plan; see also
+  [`../plans/strategic_plan_v1.md`](../plans/strategic_plan_v1.md) for
+  the longer horizon. The earlier
+  [`../plans/historical/multi_release_roadmap.md`](../plans/historical/multi_release_roadmap.md)
+  is superseded.
 - [`how_to_add_a_domain.md`](how_to_add_a_domain.md) —
   conceptual walk-through for adding a seventh domain; paired with
   the [`domains/README.md`](domains/README.md) checklist.

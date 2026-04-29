@@ -5,10 +5,11 @@ falsification criterion. Stated explicitly so future audits can ask
 "is this still true?" rather than re-derive the entire strategic
 case.
 
-This file is a stable lift from
-[`reporting/plans/multi_release_roadmap.md § 3`](reporting/plans/multi_release_roadmap.md).
-The roadmap is the working document; this file is the citable
-artifact.
+This file is a stable lift from the (now superseded)
+[`reporting/plans/historical/multi_release_roadmap.md § 3`](reporting/plans/historical/multi_release_roadmap.md).
+The current working strategy lives in
+[`reporting/plans/strategic_plan_v1.md`](reporting/plans/strategic_plan_v1.md);
+this file is the citable artifact for the H1-H5 hypotheses themselves.
 
 ---
 

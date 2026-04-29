@@ -80,7 +80,7 @@ checked-in repo shape.
   v0.1.10), `reporting/plans/risks_and_open_questions.md` (NEW
   v0.1.10), `reporting/plans/v0_1_10/`, `reporting/plans/v0_1_11/`
   (next cycle scaffolded).
-- **SUPERSEDED 2026-04-27**: `reporting/plans/multi_release_roadmap.md` —
+- **SUPERSEDED 2026-04-27**: `reporting/plans/historical/multi_release_roadmap.md` —
   preserved as historical provenance; do not act on its release
   schedule. Use the strategic + tactical plans above.
 - **Active proof**:
@@ -97,14 +97,13 @@ checked-in repo shape.
   `reporting/artifacts/archive/`, `reporting/artifacts/phase_0/`,
   `reporting/experiments/`,
   `reporting/plans/docs_overhaul/codex_review.md`,
-  `reporting/plans/launch_notes.md`,
-  `reporting/plans/skill_harness_rfc.md`,
-  `reporting/plans/phase_0_findings.md`,
-  `reporting/plans/phase_0_5_synthesis_prototype.md`,
-  `reporting/plans/phase_2_5_retrieval_gate.md`,
-  `reporting/plans/agent_operable_runtime_plan.md`,
-  `reporting/plans/post_v0_1_roadmap.md`,
-  `reporting/plans/phase_2_5_independent_eval.md`,
+  `reporting/plans/historical/` (9 superseded planning docs:
+  `launch_notes.md`, `skill_harness_rfc.md`, `phase_0_findings.md`,
+  `phase_0_5_synthesis_prototype.md`, `phase_2_5_retrieval_gate.md`,
+  `phase_2_5_independent_eval.md`, `agent_operable_runtime_plan.md`,
+  `post_v0_1_roadmap.md`, `multi_release_roadmap.md`),
+  `reporting/plans/future_strategy_2026-04-29/` (Claude/Codex deep
+  strategy review + reconciliation),
   `verification/scripts/`.
 
 If you find a path that is not classified above, treat it as

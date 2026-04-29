@@ -1,6 +1,6 @@
 -- Migration 007 — explicit user memory (Phase D of the post-v0.1.0 roadmap).
 --
--- Per `reporting/plans/post_v0_1_roadmap.md` §5 Phase D and
+-- Per `reporting/plans/historical/post_v0_1_roadmap.md` §5 Phase D and
 -- `reporting/docs/memory_model.md` §2.1, this adds the first-class
 -- user-memory layer: goals, preferences, constraints, and durable
 -- context notes as inspectable local SQLite state.

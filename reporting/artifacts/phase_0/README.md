@@ -14,7 +14,7 @@ current truth.
 Phase 0 was a "delay gate" check: does the existing single-domain
 flagship loop run cleanly enough that the rebuild can proceed
 without first stopping to fix it? Verdict: yes — see
-[`../../plans/phase_0_findings.md`](../../plans/phase_0_findings.md)
+[`../../plans/historical/phase_0_findings.md`](../../plans/historical/phase_0_findings.md)
 for the prose write-up and the gate decision.
 
 ## Where current proof lives

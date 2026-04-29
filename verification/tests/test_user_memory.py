@@ -1,7 +1,7 @@
 """Core tests for the Phase D user-memory module.
 
 Covers the acceptance criteria called out in
-``reporting/plans/post_v0_1_roadmap.md`` §5 Phase D that do not run
+``reporting/plans/historical/post_v0_1_roadmap.md`` §5 Phase D that do not run
 through the ``hai memory`` CLI (the CLI path has its own test in
 ``test_cli_memory.py``):
 

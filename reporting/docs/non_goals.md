@@ -49,7 +49,7 @@ discipline is load-bearing, not aspirational.
 ## Not meal-level nutrition in v1
 
 Phase 2.5 retrieval-gate outcome (see
-``reporting/plans/phase_2_5_retrieval_gate.md``) compressed Phase 5
+``reporting/plans/historical/phase_2_5_retrieval_gate.md``) compressed Phase 5
 to macros-only:
 
 - No ``hai intake meal`` command.

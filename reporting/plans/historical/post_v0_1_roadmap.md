@@ -443,7 +443,7 @@ That gap should be narrowed before more agent-facing capability is added.
    - `safety/evals/skill_harness/rubrics/recovery.md`
 
 4. Execution note / RFC
-   - `reporting/plans/skill_harness_rfc.md`
+   - `reporting/plans/historical/skill_harness_rfc.md`
 
 5. Update blocker doc
    - refine [skill_harness_blocker.md](/Users/domcolligan/Documents/health_agent_infra/safety/evals/skill_harness_blocker.md)

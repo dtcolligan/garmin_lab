@@ -88,5 +88,5 @@ Per plan dependency graph: **Phase 1 — Core reshape (3 weeks).** No gating iss
 - Prototype: `reporting/experiments/synthesis_prototype/`
 - Scenarios: `reporting/experiments/synthesis_prototype/scenarios/`
 - Outputs: `reporting/experiments/synthesis_prototype/outputs/`
-- Phase 0 findings (prior): `reporting/plans/phase_0_findings.md`
+- Phase 0 findings (prior): `reporting/plans/historical/phase_0_findings.md`
 - Revised plan: `.claude/worktrees/hardcore-kare-a92e25/reporting/plans/comprehensive_rebuild_plan.md` (commit 3ecd95e)
