@@ -119,9 +119,17 @@ def _r_chronic_deprivation(
     missing-data escalation; this rule only counts explicit shortfalls.
     """
 
+    from health_agent_infra.core.config import coerce_float, coerce_int  # noqa: PLC0415
+
     history = sleep_signals.get("sleep_history_hours_last_7") or []
-    threshold_hours = t["policy"]["sleep"]["r_chronic_deprivation_hours"]
-    threshold_nights = t["policy"]["sleep"]["r_chronic_deprivation_nights"]
+    threshold_hours = coerce_float(
+        t["policy"]["sleep"]["r_chronic_deprivation_hours"],
+        name="policy.sleep.r_chronic_deprivation_hours",
+    )
+    threshold_nights = coerce_int(
+        t["policy"]["sleep"]["r_chronic_deprivation_nights"],
+        name="policy.sleep.r_chronic_deprivation_nights",
+    )
 
     short_nights = sum(
         1 for h in history if h is not None and h < threshold_hours

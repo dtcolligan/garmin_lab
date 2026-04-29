@@ -123,9 +123,17 @@ def _r_sustained_stress(
     counts explicit high-stress days.
     """
 
+    from health_agent_infra.core.config import coerce_int  # noqa: PLC0415
+
     history = stress_signals.get("stress_history_garmin_last_7") or []
-    threshold_score = t["policy"]["stress"]["r_sustained_stress_min_score"]
-    threshold_days = t["policy"]["stress"]["r_sustained_stress_days"]
+    threshold_score = coerce_int(
+        t["policy"]["stress"]["r_sustained_stress_min_score"],
+        name="policy.stress.r_sustained_stress_min_score",
+    )
+    threshold_days = coerce_int(
+        t["policy"]["stress"]["r_sustained_stress_days"],
+        name="policy.stress.r_sustained_stress_days",
+    )
 
     # Count the trailing consecutive run ending at today. Walk from the
     # end of the window back; a missing value or a value below the

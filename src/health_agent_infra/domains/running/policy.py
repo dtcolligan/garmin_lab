@@ -109,8 +109,13 @@ def _r_acwr_spike(
     running_signals: dict[str, Any],
     t: dict[str, Any],
 ) -> tuple[PolicyDecision, Optional[str], Optional[dict[str, Any]]]:
+    from health_agent_infra.core.config import coerce_float  # noqa: PLC0415
+
     acwr = running_signals.get("acwr_ratio")
-    threshold = t["policy"]["running"]["r_acwr_spike_min_ratio"]
+    threshold = coerce_float(
+        t["policy"]["running"]["r_acwr_spike_min_ratio"],
+        name="policy.running.r_acwr_spike_min_ratio",
+    )
 
     if acwr is not None and acwr >= threshold:
         detail = {

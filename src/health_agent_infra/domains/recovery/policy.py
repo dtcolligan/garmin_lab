@@ -110,8 +110,13 @@ def _r6_resting_hr_spike(
 ) -> tuple[PolicyDecision, Optional[str], Optional[dict[str, Any]]]:
     """R6 resting_hr_spike_escalation. Escalates when spike days >= threshold."""
 
+    from health_agent_infra.core.config import coerce_int  # noqa: PLC0415
+
     spike_days = raw_summary.get("resting_hr_spike_days")
-    threshold = t["policy"]["recovery"]["r6_resting_hr_spike_days_threshold"]
+    threshold = coerce_int(
+        t["policy"]["recovery"]["r6_resting_hr_spike_days_threshold"],
+        name="policy.recovery.r6_resting_hr_spike_days_threshold",
+    )
 
     if spike_days is not None and spike_days >= threshold:
         detail = {
