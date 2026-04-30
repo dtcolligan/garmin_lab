@@ -27,7 +27,7 @@ from __future__ import annotations
 
 import io
 import json
-from contextlib import redirect_stderr, redirect_stdout
+from contextlib import closing, redirect_stderr, redirect_stdout
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Iterator, Optional
@@ -49,7 +49,7 @@ class E2EEnv:
     def sql(self, query: str, *params: Any) -> list[tuple]:
         """Run a read-only SQL query against the isolated DB. Tests assert
         on the return shape."""
-        with open_connection(self.db_path) as conn:
+        with closing(open_connection(self.db_path)) as conn:
             return list(conn.execute(query, params).fetchall())
 
     def sql_one(self, query: str, *params: Any) -> Optional[tuple]:

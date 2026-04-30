@@ -39,6 +39,7 @@ Note contracts pinned:
 from __future__ import annotations
 
 import json
+from contextlib import closing
 from datetime import date, datetime, timezone
 from pathlib import Path
 
@@ -463,10 +464,11 @@ def test_note_intake_writes_jsonl_and_db(tmp_path: Path):
     assert lines[0]["text"] == "Slept poorly, big work day"
     assert lines[0]["tags"] == ["sleep", "work"]
 
-    rows = read_domain(
-        open_connection(db),
-        domain="notes", since=AS_OF, until=AS_OF, user_id=USER,
-    )
+    with closing(open_connection(db)) as conn:
+        rows = read_domain(
+            conn,
+            domain="notes", since=AS_OF, until=AS_OF, user_id=USER,
+        )
     assert len(rows) == 1
     assert rows[0]["text"] == "Slept poorly, big work day"
     assert json.loads(rows[0]["tags"]) == ["sleep", "work"]
@@ -478,10 +480,11 @@ def test_note_multiple_same_day_accumulate(tmp_path: Path):
     assert cli_main(_note_args(base, db, text="Lunch: heavy meal, sluggish")) == 0
     assert cli_main(_note_args(base, db, text="Evening: feeling better")) == 0
 
-    rows = read_domain(
-        open_connection(db),
-        domain="notes", since=AS_OF, until=AS_OF, user_id=USER,
-    )
+    with closing(open_connection(db)) as conn:
+        rows = read_domain(
+            conn,
+            domain="notes", since=AS_OF, until=AS_OF, user_id=USER,
+        )
     assert len(rows) == 3
     # All distinct note_ids:
     assert len({r["note_id"] for r in rows}) == 3
@@ -873,10 +876,11 @@ def test_reproject_rebuilds_context_notes(tmp_path: Path):
         "--base-dir", str(base), "--db-path", str(db),
     ])
     assert rc == 0
-    rows = read_domain(
-        open_connection(db),
-        domain="notes", since=AS_OF, until=AS_OF, user_id=USER,
-    )
+    with closing(open_connection(db)) as conn:
+        rows = read_domain(
+            conn,
+            domain="notes", since=AS_OF, until=AS_OF, user_id=USER,
+        )
     assert {r["text"] for r in rows} == {"A", "B"}
 
 

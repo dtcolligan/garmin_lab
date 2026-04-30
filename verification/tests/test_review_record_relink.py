@@ -24,7 +24,7 @@ from __future__ import annotations
 import io
 import json
 import sqlite3
-from contextlib import redirect_stderr, redirect_stdout
+from contextlib import closing, redirect_stderr, redirect_stdout
 from datetime import date
 from pathlib import Path
 
@@ -66,7 +66,7 @@ def _seed_plan(
 ) -> None:
     """Insert a ``daily_plan`` + one ``recommendation_log`` row per domain."""
 
-    with sqlite3.connect(db) as conn:
+    with closing(sqlite3.connect(db)) as conn:
         conn.execute(
             """
             INSERT INTO daily_plan (
@@ -128,7 +128,7 @@ def _seed_review_event(
 ) -> None:
     """Seed a ``review_event`` row — required for the FK on ``review_outcome``."""
 
-    with sqlite3.connect(db) as conn:
+    with closing(sqlite3.connect(db)) as conn:
         conn.execute(
             """
             INSERT INTO review_event (
@@ -147,7 +147,7 @@ def _seed_review_event(
 
 
 def _link_supersede(db: Path, *, from_id: str, to_id: str) -> None:
-    with sqlite3.connect(db) as conn:
+    with closing(sqlite3.connect(db)) as conn:
         conn.execute(
             "UPDATE daily_plan SET superseded_by_plan_id = ?, "
             "superseded_at = ? WHERE daily_plan_id = ?",
@@ -207,7 +207,7 @@ def test_resolver_passthrough_on_canonical_leaf(tmp_path: Path):
     rec_id = f"rec_{AS_OF.isoformat()}_{USER}_recovery_01"
     _seed_plan(db, plan_id=plan_id, rec_ids_by_domain={"recovery": rec_id})
 
-    with open_connection(db) as conn:
+    with closing(open_connection(db)) as conn:
         resolution = resolve_review_relink(conn, recommendation_id=rec_id)
 
     assert resolution == ReLinkResolution(recommendation_id=rec_id)
@@ -231,7 +231,7 @@ def test_resolver_re_links_to_canonical_leaf_when_plan_superseded(tmp_path: Path
     _seed_plan(db, plan_id=v2_id, rec_ids_by_domain={"recovery": v2_rec})
     _link_supersede(db, from_id=v1_id, to_id=v2_id)
 
-    with open_connection(db) as conn:
+    with closing(open_connection(db)) as conn:
         resolution = resolve_review_relink(conn, recommendation_id=v1_rec)
 
     assert resolution.recommendation_id == v2_rec
@@ -260,7 +260,7 @@ def test_resolver_refuses_when_leaf_has_no_matching_domain(tmp_path: Path):
     _seed_plan(db, plan_id=v2_id, rec_ids_by_domain={"sleep": v2_rec_sleep})
     _link_supersede(db, from_id=v1_id, to_id=v2_id)
 
-    with open_connection(db) as conn:
+    with closing(open_connection(db)) as conn:
         resolution = resolve_review_relink(conn, recommendation_id=v1_rec)
 
     assert resolution.refuse is True
@@ -286,7 +286,7 @@ def test_resolver_walks_multi_step_chain_to_final_leaf(tmp_path: Path):
     _link_supersede(db, from_id=v1_id, to_id=v2_id)
     _link_supersede(db, from_id=v2_id, to_id=v3_id)
 
-    with open_connection(db) as conn:
+    with closing(open_connection(db)) as conn:
         resolution = resolve_review_relink(conn, recommendation_id=v1_rec)
 
     assert resolution.recommendation_id == v3_rec
@@ -349,7 +349,7 @@ def test_cli_review_record_re_links_outcome_on_superseded_plan(tmp_path: Path):
     assert stdout_obj["re_linked_from_recommendation_id"] == v1_rec
 
     # DB row carries the re-link audit columns.
-    with sqlite3.connect(db) as conn:
+    with closing(sqlite3.connect(db)) as conn:
         row = conn.execute(
             "SELECT recommendation_id, re_linked_from_recommendation_id, "
             "re_link_note FROM review_outcome WHERE review_event_id = ?",
@@ -402,7 +402,7 @@ def test_cli_review_record_refuses_when_leaf_has_no_matching_domain(tmp_path: Pa
     assert "recovery" in err
 
     assert not (base_dir / "review_outcomes.jsonl").exists()
-    with sqlite3.connect(db) as conn:
+    with closing(sqlite3.connect(db)) as conn:
         count = conn.execute(
             "SELECT COUNT(*) FROM review_outcome WHERE review_event_id = ?",
             (review_event_id,),

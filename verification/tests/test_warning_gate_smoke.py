@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import sqlite3
 import warnings
+from contextlib import closing
 from pathlib import Path
 
 from health_agent_infra.core.state import open_connection
@@ -57,22 +58,19 @@ def test_open_connection_then_close_does_not_leak_resource_warning(
 
 
 def test_raw_sqlite3_with_block_does_not_leak(tmp_path: Path) -> None:
-    """The pattern ``with sqlite3.connect(...) as conn`` must not leak
-    when used in test fixtures. (Documents the recommended
-    test-fixture shape; the v0.1.13 W-N-broader workstream will
-    audit production code paths that use the bare-conn-then-finally
-    shape.)"""
+    """The recommended test-fixture pattern is
+    ``with closing(sqlite3.connect(...)) as conn:`` — the bare
+    ``with sqlite3.connect(...) as conn`` form looks correct but
+    sqlite3.Connection.__exit__ only commits / rollbacks; it does
+    NOT close the connection. v0.1.13 W-N-broader closed the leak
+    sites that used the bare form by switching every site to the
+    ``closing()`` wrapper."""
 
     db_path = tmp_path / "smoke_raw.db"
 
     with warnings.catch_warnings():
         warnings.simplefilter("error", ResourceWarning)
 
-        with sqlite3.connect(str(db_path)) as conn:
+        with closing(sqlite3.connect(str(db_path))) as conn:
             conn.execute("CREATE TABLE smoke (id INTEGER PRIMARY KEY)")
             conn.execute("INSERT INTO smoke (id) VALUES (1)")
-
-        # Connection's __exit__ commits but does NOT close on Python
-        # 3.12+; explicit close is required to match production
-        # patterns. Document both patterns for v0.1.13 reference.
-        conn.close()

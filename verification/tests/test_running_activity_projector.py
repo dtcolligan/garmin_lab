@@ -10,6 +10,7 @@ Reproduces F-C-01 + F-C-02 from ``audit_findings.md``.
 from __future__ import annotations
 
 import sqlite3
+from contextlib import contextmanager
 
 import pytest
 
@@ -19,11 +20,20 @@ from health_agent_infra.core.state.projectors.running_activity import (
 )
 
 
-def _conn() -> sqlite3.Connection:
-    """In-memory connection — schema doesn't matter, validator runs first."""
+@contextmanager
+def _conn():
+    """In-memory connection — schema doesn't matter, validator runs first.
+
+    Wrapped as a context manager so the connection is always closed on
+    exit (W-N-broader: bare ``sqlite3.connect()`` plus inline use leaks
+    when the validator raises before the test gets a chance to close).
+    """
 
     conn = sqlite3.connect(":memory:")
-    return conn
+    try:
+        yield conn
+    finally:
+        conn.close()
 
 
 def _minimal_valid_activity() -> dict:
@@ -43,30 +53,35 @@ class TestActivityProjectorValidation:
         activity = _minimal_valid_activity()
         del activity["user_id"]
         with pytest.raises(ActivityProjectorInputError, match="user_id"):
-            project_activity(_conn(), activity=activity)
+            with _conn() as conn:
+                project_activity(conn, activity=activity)
 
     def test_missing_activity_id_raises_typed_error(self) -> None:
         activity = _minimal_valid_activity()
         del activity["activity_id"]
         with pytest.raises(ActivityProjectorInputError, match="activity_id"):
-            project_activity(_conn(), activity=activity)
+            with _conn() as conn:
+                project_activity(conn, activity=activity)
 
     def test_missing_raw_json_raises_typed_error(self) -> None:
         activity = _minimal_valid_activity()
         del activity["raw_json"]
         with pytest.raises(ActivityProjectorInputError, match="raw_json"):
-            project_activity(_conn(), activity=activity)
+            with _conn() as conn:
+                project_activity(conn, activity=activity)
 
     def test_missing_as_of_date_raises_typed_error(self) -> None:
         activity = _minimal_valid_activity()
         del activity["as_of_date"]
         with pytest.raises(ActivityProjectorInputError, match="as_of_date"):
-            project_activity(_conn(), activity=activity)
+            with _conn() as conn:
+                project_activity(conn, activity=activity)
 
     def test_multiple_missing_keys_listed_in_error(self) -> None:
         activity = {"activity_type": "Run"}
         with pytest.raises(ActivityProjectorInputError) as exc_info:
-            project_activity(_conn(), activity=activity)
+            with _conn() as conn:
+                project_activity(conn, activity=activity)
         msg = str(exc_info.value)
         # All four required keys should appear in the missing list
         for key in ("activity_id", "user_id", "as_of_date", "raw_json"):
@@ -74,7 +89,8 @@ class TestActivityProjectorValidation:
 
     def test_non_dict_payload_raises_typed_error(self) -> None:
         with pytest.raises(ActivityProjectorInputError, match="must be a dict"):
-            project_activity(_conn(), activity="not_a_dict")  # type: ignore[arg-type]
+            with _conn() as conn:
+                project_activity(conn, activity="not_a_dict")  # type: ignore[arg-type]
 
     def test_does_not_swallow_unrelated_errors(self) -> None:
         """Validation runs first, but a complete payload should still
@@ -86,4 +102,5 @@ class TestActivityProjectorValidation:
         # confirm the validator passes a valid payload through.
         activity = _minimal_valid_activity()
         with pytest.raises(sqlite3.OperationalError):
-            project_activity(_conn(), activity=activity)
+            with _conn() as conn:
+                project_activity(conn, activity=activity)

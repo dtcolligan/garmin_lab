@@ -76,11 +76,12 @@ def test_first_run_user_gets_non_defer_running_under_cold_start(
     # Step 3: state snapshot with evidence — the running block should
     # carry cold_start=True (no history for this user).
     import json
+    from contextlib import closing
     from datetime import date as _date
     from health_agent_infra.core.state.snapshot import _cold_start_flags
     from health_agent_infra.core.state import open_connection
 
-    with open_connection(e2e_env.db_path) as conn:
+    with closing(open_connection(e2e_env.db_path)) as conn:
         flags = _cold_start_flags(
             conn,
             user_id=USER_ID,
@@ -107,6 +108,7 @@ def test_first_run_hai_today_is_useful_before_cold_start_graduation(
 
     import json
     import sqlite3
+    from contextlib import closing
 
     plan_id = f"plan_{AS_OF}_{USER_ID}"
     recs = []
@@ -123,7 +125,7 @@ def test_first_run_hai_today_is_useful_before_cold_start_graduation(
             "domain": domain,
             "action": action,
         })
-    with sqlite3.connect(e2e_env.db_path) as conn:
+    with closing(sqlite3.connect(e2e_env.db_path)) as conn:
         conn.execute(
             """
             INSERT INTO daily_plan (

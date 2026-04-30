@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
+from contextlib import closing
 from datetime import date
 from pathlib import Path
 
@@ -63,7 +64,7 @@ def _seed_proposed_intent(db: Path) -> str:
         "--status", "proposed",
     ])
     assert rc == 0
-    with open_connection(db) as conn:
+    with closing(open_connection(db)) as conn:
         row = conn.execute(
             "SELECT intent_id FROM intent_item WHERE user_id = ? "
             "AND status = 'proposed' ORDER BY created_at DESC LIMIT 1",
@@ -82,7 +83,7 @@ def _seed_active_intent(db: Path) -> str:
         "--reason", "user authored",
     ])
     assert rc == 0
-    with open_connection(db) as conn:
+    with closing(open_connection(db)) as conn:
         row = conn.execute(
             "SELECT intent_id FROM intent_item WHERE user_id = ? "
             "AND status = 'active' ORDER BY created_at DESC LIMIT 1",
@@ -104,7 +105,7 @@ def _seed_proposed_target(db: Path) -> str:
         "--status", "proposed",
     ])
     assert rc == 0
-    with open_connection(db) as conn:
+    with closing(open_connection(db)) as conn:
         row = conn.execute(
             "SELECT target_id FROM target WHERE user_id = ? "
             "AND status = 'proposed' ORDER BY created_at DESC LIMIT 1",
@@ -124,7 +125,7 @@ def _seed_active_target(db: Path) -> str:
         "--reason", "user authored",
     ])
     assert rc == 0
-    with open_connection(db) as conn:
+    with closing(open_connection(db)) as conn:
         row = conn.execute(
             "SELECT target_id FROM target WHERE user_id = ? "
             "AND status = 'active' ORDER BY created_at DESC LIMIT 1",
@@ -135,7 +136,7 @@ def _seed_active_target(db: Path) -> str:
 
 
 def _intent_status(db: Path, intent_id: str) -> str:
-    with open_connection(db) as conn:
+    with closing(open_connection(db)) as conn:
         row = conn.execute(
             "SELECT status FROM intent_item WHERE intent_id = ?",
             (intent_id,),
@@ -145,7 +146,7 @@ def _intent_status(db: Path, intent_id: str) -> str:
 
 
 def _target_status(db: Path, target_id: str) -> str:
-    with open_connection(db) as conn:
+    with closing(open_connection(db)) as conn:
         row = conn.execute(
             "SELECT status FROM target WHERE target_id = ?",
             (target_id,),

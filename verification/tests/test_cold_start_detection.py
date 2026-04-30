@@ -24,6 +24,7 @@ Covers:
 from __future__ import annotations
 
 import sqlite3
+from contextlib import closing
 from datetime import date, timedelta
 from pathlib import Path
 
@@ -113,7 +114,7 @@ def _insert_recovery(
 
 def test_fresh_db_puts_every_domain_in_cold_start(tmp_path: Path):
     db = _init_db(tmp_path)
-    with _conn(db) as conn:
+    with closing(_conn(db)) as conn:
         flags = _cold_start_flags(conn, user_id=USER, as_of_date=AS_OF)
 
     # All six tracked domains must report cold_start=True on a fresh DB.
@@ -129,7 +130,7 @@ def test_fresh_db_puts_every_domain_in_cold_start(tmp_path: Path):
 
 def test_running_only_counts_days_with_meaningful_signal(tmp_path: Path):
     db = _init_db(tmp_path)
-    with _conn(db) as conn:
+    with closing(_conn(db)) as conn:
         # Insert a metadata-only running row (all aggregate columns NULL).
         _insert_running(
             conn,
@@ -157,7 +158,7 @@ def test_thirteen_days_keeps_running_in_cold_start(tmp_path: Path):
     threshold, so cold_start remains True."""
 
     db = _init_db(tmp_path)
-    with _conn(db) as conn:
+    with closing(_conn(db)) as conn:
         for offset in range(1, COLD_START_THRESHOLD_DAYS):  # 1..13
             _insert_running(conn, as_of_date=AS_OF - timedelta(days=offset))
         conn.commit()
@@ -172,7 +173,7 @@ def test_exactly_fourteen_days_graduates_from_cold_start(tmp_path: Path):
     """Crossing the 14-day threshold flips cold_start to False."""
 
     db = _init_db(tmp_path)
-    with _conn(db) as conn:
+    with closing(_conn(db)) as conn:
         for offset in range(1, COLD_START_THRESHOLD_DAYS + 1):  # 1..14
             _insert_running(conn, as_of_date=AS_OF - timedelta(days=offset))
         conn.commit()
@@ -190,7 +191,7 @@ def test_today_row_does_not_count_toward_the_window(tmp_path: Path):
     """
 
     db = _init_db(tmp_path)
-    with _conn(db) as conn:
+    with closing(_conn(db)) as conn:
         _insert_running(conn, as_of_date=AS_OF)
         conn.commit()
 
@@ -209,7 +210,7 @@ def test_domains_track_cold_start_independently(tmp_path: Path):
     other domain) out of cold-start."""
 
     db = _init_db(tmp_path)
-    with _conn(db) as conn:
+    with closing(_conn(db)) as conn:
         for offset in range(1, COLD_START_THRESHOLD_DAYS + 1):
             _insert_running(conn, as_of_date=AS_OF - timedelta(days=offset))
         conn.commit()
@@ -225,7 +226,7 @@ def test_domains_track_cold_start_independently(tmp_path: Path):
 
 def test_recovery_graduates_independently(tmp_path: Path):
     db = _init_db(tmp_path)
-    with _conn(db) as conn:
+    with closing(_conn(db)) as conn:
         for offset in range(1, COLD_START_THRESHOLD_DAYS + 1):
             _insert_recovery(conn, as_of_date=AS_OF - timedelta(days=offset))
         conn.commit()
@@ -243,7 +244,7 @@ def test_recovery_graduates_independently(tmp_path: Path):
 
 def test_build_snapshot_attaches_cold_start_to_every_domain(tmp_path: Path):
     db = _init_db(tmp_path)
-    with _conn(db) as conn:
+    with closing(_conn(db)) as conn:
         snap = build_snapshot(conn, as_of_date=AS_OF, user_id=USER)
 
     for domain in ("recovery", "running", "sleep", "strength", "stress", "nutrition"):
@@ -259,7 +260,7 @@ def test_build_snapshot_reflects_partial_graduation(tmp_path: Path):
     mixed cold-start state on the snapshot blocks."""
 
     db = _init_db(tmp_path)
-    with _conn(db) as conn:
+    with closing(_conn(db)) as conn:
         for offset in range(1, COLD_START_THRESHOLD_DAYS + 1):
             _insert_running(conn, as_of_date=AS_OF - timedelta(days=offset))
         conn.commit()

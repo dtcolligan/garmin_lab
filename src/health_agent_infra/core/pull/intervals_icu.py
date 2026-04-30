@@ -349,9 +349,16 @@ class HttpIntervalsIcuClient:
             # "cloudflare_error"/"error_code":1010; intervals.icu auth
             # failures emit their own auth-shaped JSON; W-AE
             # (v0.1.13) reads this to distinguish the two.
+            #
+            # HTTPError is a tempfile-backed file-like object — close it
+            # explicitly so the underlying spooled response doesn't leak
+            # past the except block (W-N-broader v0.1.13).
             try:
-                body_bytes = exc.read()
-                body_text: Optional[str] = body_bytes.decode("utf-8", errors="replace")
+                with exc:
+                    body_bytes = exc.read()
+                    body_text: Optional[str] = body_bytes.decode(
+                        "utf-8", errors="replace",
+                    )
             except Exception:  # noqa: BLE001
                 body_text = None
             raise IntervalsIcuError(

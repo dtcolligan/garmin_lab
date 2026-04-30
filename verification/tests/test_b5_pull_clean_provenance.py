@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import json
 from argparse import Namespace
+from contextlib import closing
 from datetime import date
 from pathlib import Path
 from unittest.mock import patch
@@ -116,7 +117,7 @@ def test_clean_replay_idempotent_at_raw_provenance_layer(tmp_path: Path):
     assert result1["export_batch_id"] == result2["export_batch_id"]
 
     # Source-row table has exactly one row, not two.
-    with open_connection(db) as conn:
+    with closing(open_connection(db)) as conn:
         count = conn.execute(
             "SELECT COUNT(*) FROM source_daily_garmin WHERE as_of_date = ?",
             (AS_OF.isoformat(),),
@@ -211,7 +212,7 @@ def test_daily_sync_row_records_partial_when_adapter_partial(tmp_path: Path):
     assert source_name == "intervals_icu"
     assert projected is True
 
-    with open_connection(db) as conn:
+    with closing(open_connection(db)) as conn:
         row = conn.execute(
             "SELECT source, status, rows_pulled, rows_accepted "
             "FROM sync_run_log WHERE source = ?",

@@ -342,6 +342,7 @@ def test_explain_for_date_returns_canonical_leaf(e2e_env: E2EEnv) -> None:
     first`` returns v1, ``--plan-version all`` returns all three.
     """
     import sqlite3 as _sq
+    from contextlib import closing
 
     base_id = f"plan_{AS_OF}_{USER_ID}"
     v2_id = f"{base_id}_v2"
@@ -351,7 +352,7 @@ def test_explain_for_date_returns_canonical_leaf(e2e_env: E2EEnv) -> None:
         plan_id: str,
         superseded_by: str | None,
     ) -> None:
-        with _sq.connect(e2e_env.db_path) as conn:
+        with closing(_sq.connect(e2e_env.db_path)) as conn:
             conn.execute(
                 """
                 INSERT INTO daily_plan (
@@ -411,6 +412,7 @@ def test_hai_today_renders_canonical_plan(e2e_env: E2EEnv) -> None:
 
     import json
     import sqlite3 as _sq
+    from contextlib import closing
 
     plan_id = f"plan_{AS_OF}_{USER_ID}"
     rec_id = f"rec_{AS_OF}_{USER_ID}_recovery_01"
@@ -425,7 +427,7 @@ def test_hai_today_renders_canonical_plan(e2e_env: E2EEnv) -> None:
             "review_question": "Did today's session feel appropriate?",
         },
     }
-    with _sq.connect(e2e_env.db_path) as conn:
+    with closing(_sq.connect(e2e_env.db_path)) as conn:
         conn.execute(
             """
             INSERT INTO daily_plan (
@@ -488,6 +490,7 @@ def test_review_record_re_links_outcome_to_canonical_leaf(
     the re-link audit fields populated.
     """
     import sqlite3 as _sq
+    from contextlib import closing
 
     v1_id = f"plan_{AS_OF}_{USER_ID}"
     v2_id = f"{v1_id}_v2"
@@ -498,7 +501,7 @@ def test_review_record_re_links_outcome_to_canonical_leaf(
     def _insert_plan_with_recovery_rec(
         plan_id: str, rec_id: str, superseded_by: str | None,
     ) -> None:
-        with _sq.connect(e2e_env.db_path) as conn:
+        with closing(_sq.connect(e2e_env.db_path)) as conn:
             conn.execute(
                 """
                 INSERT INTO daily_plan (
@@ -558,7 +561,7 @@ def test_review_record_re_links_outcome_to_canonical_leaf(
     # Review_event points at the v1 rec (the question was scheduled when
     # v1 was the leaf — this is the situation D1 §review record is
     # designed to handle).
-    with _sq.connect(e2e_env.db_path) as conn:
+    with closing(_sq.connect(e2e_env.db_path)) as conn:
         conn.execute(
             """
             INSERT INTO review_event (

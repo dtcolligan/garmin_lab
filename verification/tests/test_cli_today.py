@@ -12,7 +12,7 @@ from __future__ import annotations
 import io
 import json
 import sqlite3
-from contextlib import redirect_stderr, redirect_stdout
+from contextlib import closing, redirect_stderr, redirect_stdout
 from datetime import date
 from pathlib import Path
 
@@ -49,7 +49,7 @@ def _seed_plan(
 
     plan_id = plan_id or canonical_daily_plan_id(AS_OF, USER)
     rec_ids = [r["recommendation_id"] for r in recs]
-    with sqlite3.connect(db) as conn:
+    with closing(sqlite3.connect(db)) as conn:
         conn.execute(
             """
             INSERT INTO daily_plan (
@@ -310,7 +310,7 @@ def test_hai_today_on_superseded_plan_renders_canonical_leaf(tmp_path: Path):
     _seed_plan(db, plan_id=v2_id, recs=v2_recs)
 
     # Link v1 → v2 via the forward pointer.
-    with sqlite3.connect(db) as conn:
+    with closing(sqlite3.connect(db)) as conn:
         conn.execute(
             "UPDATE daily_plan SET superseded_by_plan_id = ?, "
             "superseded_at = ? WHERE daily_plan_id = ?",

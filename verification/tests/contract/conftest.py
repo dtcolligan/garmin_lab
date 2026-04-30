@@ -27,7 +27,7 @@ from __future__ import annotations
 
 import io
 import json
-from contextlib import redirect_stderr, redirect_stdout
+from contextlib import closing, redirect_stderr, redirect_stdout
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
@@ -55,7 +55,7 @@ class ContractEnv:
     tmp_root: Path
 
     def sql(self, query: str, *params: Any) -> list[tuple]:
-        with open_connection(self.db_path) as conn:
+        with closing(open_connection(self.db_path)) as conn:
             return list(conn.execute(query, params).fetchall())
 
     def sql_one(self, query: str, *params: Any) -> Optional[tuple]:

@@ -25,7 +25,7 @@ from __future__ import annotations
 import io
 import json
 import sqlite3
-from contextlib import redirect_stderr, redirect_stdout
+from contextlib import closing, redirect_stderr, redirect_stdout
 from datetime import date
 from pathlib import Path
 
@@ -62,7 +62,7 @@ def _seed_plan(
 ) -> str:
     plan_id = plan_id or canonical_daily_plan_id(AS_OF, USER)
     rec_ids = [r["recommendation_id"] for r in recs]
-    with sqlite3.connect(db) as conn:
+    with closing(sqlite3.connect(db)) as conn:
         conn.execute(
             """
             INSERT INTO daily_plan (
@@ -299,7 +299,7 @@ def test_superseded_plan_renders_canonical_leaf_snapshot(tmp_path: Path) -> None
          "domain": "recovery", "action": "downgrade_session_to_mobility_only",
          "rationale": ["v2_user_logged_soreness"]},
     ])
-    with sqlite3.connect(db) as conn:
+    with closing(sqlite3.connect(db)) as conn:
         conn.execute(
             "UPDATE daily_plan SET superseded_by_plan_id = ?, "
             "superseded_at = '2026-04-24T12:00:00+00:00' "

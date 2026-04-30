@@ -24,7 +24,7 @@ from __future__ import annotations
 import io
 import json
 import sqlite3
-from contextlib import redirect_stderr, redirect_stdout
+from contextlib import closing, redirect_stderr, redirect_stdout
 from datetime import date
 from pathlib import Path
 
@@ -174,7 +174,7 @@ def _seed_today_plan(db: Path, *, user: str, as_of: date) -> None:
             "recovery", "sleep", "running", "strength", "stress", "nutrition",
         )
     ]
-    with sqlite3.connect(db) as conn:
+    with closing(sqlite3.connect(db)) as conn:
         conn.execute(
             """
             INSERT INTO daily_plan (

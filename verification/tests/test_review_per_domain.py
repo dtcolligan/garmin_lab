@@ -519,9 +519,8 @@ def _write_outcome_line(base: Path, user: str, suffix: str, *, domain: str,
         "free_text": None,
         "domain": domain,
     }
-    (base / "review_outcomes.jsonl").open("a", encoding="utf-8").write(
-        json.dumps(payload, sort_keys=True) + "\n"
-    )
+    with (base / "review_outcomes.jsonl").open("a", encoding="utf-8") as fh:
+        fh.write(json.dumps(payload, sort_keys=True) + "\n")
 
 
 def test_cli_review_summary_splits_mixed_domains_under_domain_filter(
