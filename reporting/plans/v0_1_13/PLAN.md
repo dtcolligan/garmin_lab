@@ -14,8 +14,8 @@
 > Rationale: 17 workstreams (per F-PLAN-01), multi-day per-site
 > refactor in W-N-broader (50 sites), governance edits via CP6
 > application, new public CLI surfaces (W-AA, W-AB, W-AE), new lint
-> surface (W-LINT). Multi-round D14 expected (round 3 in flight);
-> full Phase 0 (D11) bug-hunt required.
+> surface (W-LINT). Multi-round D14 active; full Phase 0 (D11)
+> bug-hunt required after the chain closes.
 >
 > **Cycle pattern (D11 + D14 active).**
 >
