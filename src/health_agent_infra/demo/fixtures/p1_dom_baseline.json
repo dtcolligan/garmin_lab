@@ -1,14 +1,104 @@
 {
-  "schema_version": "demo_persona_fixture.v0",
+  "schema_version": "demo_persona_fixture.v1",
   "persona_slug": "p1_dom_baseline",
-  "description": "Skeleton fixture authored at v0.1.12 W-Vb. End-to-end persona-replay (proposals pre-populated so `hai daily` reaches synthesis) is deferred to v0.1.13.",
-  "v0_1_12_scope": "skeleton-only",
-  "v0_1_13_scope_pending": [
-    "domain_proposals (one per of recovery|running|sleep|strength|stress|nutrition)",
-    "intake_seed (readiness, nutrition, stress, gym sessions)",
-    "memory_seed (body comp, target kcal/protein)"
-  ],
-  "domain_proposals": [],
-  "intake_seed": {},
-  "memory_seed": {}
+  "scope": "full",
+  "description": "P1 Dom-baseline (control). 19yo male, 84kg/185cm, very active. 3 strength + 3 running per week; today is strength_upper. Performance + recomp priority. All-green readiness day used as W-Vb smoke-test persona.",
+  "domain_proposals": [
+    {
+      "domain": "recovery",
+      "schema_version": "recovery_proposal.v1",
+      "action": "proceed_with_planned_session",
+      "action_detail": null,
+      "rationale": [
+        "Soreness low, energy high, sleep window typical.",
+        "HRV and resting HR sit at the persona's recent baseline."
+      ],
+      "confidence": "high",
+      "uncertainty": [],
+      "policy_decisions": [
+        {"rule_id": "r_recovery_baseline", "decision": "allow", "note": "all_green_readiness"}
+      ],
+      "bounded": true
+    },
+    {
+      "domain": "running",
+      "schema_version": "running_proposal.v1",
+      "action": "defer_decision_insufficient_signal",
+      "action_detail": null,
+      "rationale": [
+        "Today is a planned strength session, not a run day.",
+        "Demo fixture seeds a defer so the running domain does not push a run on a strength day."
+      ],
+      "confidence": "moderate",
+      "uncertainty": [
+        "no_running_target_for_today"
+      ],
+      "policy_decisions": [
+        {"rule_id": "r_running_no_session_today", "decision": "defer", "note": "alternating_split_strength_day"}
+      ],
+      "bounded": true
+    },
+    {
+      "domain": "sleep",
+      "schema_version": "sleep_proposal.v1",
+      "action": "maintain_schedule",
+      "action_detail": null,
+      "rationale": [
+        "Sleep window typical at ~8h; sleep score holding above persona baseline."
+      ],
+      "confidence": "high",
+      "uncertainty": [],
+      "policy_decisions": [
+        {"rule_id": "r_sleep_baseline", "decision": "allow", "note": "score_above_baseline"}
+      ],
+      "bounded": true
+    },
+    {
+      "domain": "stress",
+      "schema_version": "stress_proposal.v1",
+      "action": "maintain_routine",
+      "action_detail": null,
+      "rationale": [
+        "Subjective stress reported low; HRV stable."
+      ],
+      "confidence": "moderate",
+      "uncertainty": [],
+      "policy_decisions": [
+        {"rule_id": "r_stress_baseline", "decision": "allow", "note": "subjective_low"}
+      ],
+      "bounded": true
+    },
+    {
+      "domain": "strength",
+      "schema_version": "strength_proposal.v1",
+      "action": "proceed_with_planned_session",
+      "action_detail": null,
+      "rationale": [
+        "Today's strength_upper session is on plan; readiness is green.",
+        "Recent volume tracks the persona's typical 4500kg session."
+      ],
+      "confidence": "high",
+      "uncertainty": [],
+      "policy_decisions": [
+        {"rule_id": "r_strength_baseline", "decision": "allow", "note": "planned_upper_day"}
+      ],
+      "bounded": true
+    },
+    {
+      "domain": "nutrition",
+      "schema_version": "nutrition_proposal.v1",
+      "action": "maintain_targets",
+      "action_detail": null,
+      "rationale": [
+        "Daily targets ~3300 kcal / 160g protein for performance + recomp.",
+        "Recent intake tracks targets within tolerance."
+      ],
+      "confidence": "moderate",
+      "uncertainty": [],
+      "policy_decisions": [
+        {"rule_id": "r_nutrition_baseline", "decision": "allow", "note": "intake_on_target"}
+      ],
+      "bounded": true
+    }
+  ]
 }

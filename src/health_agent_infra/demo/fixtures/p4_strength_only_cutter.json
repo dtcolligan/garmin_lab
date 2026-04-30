@@ -1,0 +1,109 @@
+{
+  "schema_version": "demo_persona_fixture.v1",
+  "persona_slug": "p4_strength_only_cutter",
+  "scope": "full",
+  "description": "P4 Strength-only cutter. 28yo male, 95kg/180cm (BMI ~29.3), very active. 4-day strength split (no running), deliberate kcal deficit, manual-only logging (no wearable). Today is strength_upper. Stresses persona-replay's no-wearable + nutrition-deficit shape.",
+  "domain_proposals": [
+    {
+      "domain": "recovery",
+      "schema_version": "recovery_proposal.v1",
+      "action": "proceed_with_planned_session",
+      "action_detail": null,
+      "rationale": [
+        "Soreness moderate, energy moderate; manual readiness signal supports proceeding with the planned upper day.",
+        "No wearable evidence available; recommendation rests on subjective signal."
+      ],
+      "confidence": "moderate",
+      "uncertainty": [
+        "no_wearable_evidence_available"
+      ],
+      "policy_decisions": [
+        {"rule_id": "r_recovery_manual_only", "decision": "allow", "note": "subjective_acceptable"}
+      ],
+      "bounded": true
+    },
+    {
+      "domain": "running",
+      "schema_version": "running_proposal.v1",
+      "action": "rest_day_recommended",
+      "action_detail": null,
+      "rationale": [
+        "Persona's intent has zero running per week; no running session is on plan today or this week.",
+        "Rest-day recommendation is the persona-correct shape on a strength-only program."
+      ],
+      "confidence": "high",
+      "uncertainty": [],
+      "policy_decisions": [
+        {"rule_id": "r_running_no_intent", "decision": "rest", "note": "strength_only_program"}
+      ],
+      "bounded": true
+    },
+    {
+      "domain": "sleep",
+      "schema_version": "sleep_proposal.v1",
+      "action": "earlier_bedtime_target",
+      "action_detail": null,
+      "rationale": [
+        "Persona's sleep window targets 23:00-07:00; recent average ~7h is at the bottom of the target range while in deficit.",
+        "Earlier bedtime supports recovery from the 4-day strength load while cutting."
+      ],
+      "confidence": "moderate",
+      "uncertainty": [
+        "no_wearable_sleep_score"
+      ],
+      "policy_decisions": [
+        {"rule_id": "r_sleep_pull_earlier_under_deficit", "decision": "advise", "note": "deficit_recovery_load"}
+      ],
+      "bounded": true
+    },
+    {
+      "domain": "stress",
+      "schema_version": "stress_proposal.v1",
+      "action": "maintain_routine",
+      "action_detail": null,
+      "rationale": [
+        "Subjective stress score 3 sits at routine baseline; no escalation signal."
+      ],
+      "confidence": "moderate",
+      "uncertainty": [],
+      "policy_decisions": [
+        {"rule_id": "r_stress_routine_baseline", "decision": "allow", "note": "subjective_score_3"}
+      ],
+      "bounded": true
+    },
+    {
+      "domain": "strength",
+      "schema_version": "strength_proposal.v1",
+      "action": "proceed_with_planned_session",
+      "action_detail": null,
+      "rationale": [
+        "Today's strength_upper is on the persona's 4-day split.",
+        "Recent volumes track persona baseline at ~8000kg session despite the deficit."
+      ],
+      "confidence": "high",
+      "uncertainty": [],
+      "policy_decisions": [
+        {"rule_id": "r_strength_baseline", "decision": "allow", "note": "planned_upper_under_deficit"}
+      ],
+      "bounded": true
+    },
+    {
+      "domain": "nutrition",
+      "schema_version": "nutrition_proposal.v1",
+      "action": "reduce_calorie_deficit",
+      "action_detail": null,
+      "rationale": [
+        "Persona is in deliberate cut at ~2700 kcal / 200g protein; recent intake tracks the deficit closely.",
+        "Reduce-deficit advisory caps the rate of weight loss to preserve strength performance during the cut."
+      ],
+      "confidence": "moderate",
+      "uncertainty": [
+        "no_body_comp_trend_data_available"
+      ],
+      "policy_decisions": [
+        {"rule_id": "r_nutrition_cap_deficit_for_strength_preservation", "decision": "advise", "note": "deliberate_cut"}
+      ],
+      "bounded": true
+    }
+  ]
+}
