@@ -5444,9 +5444,9 @@ def cmd_init(args: argparse.Namespace) -> int:
             )
         else:  # "partial"
             print(
-                f"hai init: guided onboarding partially failed. "
-                f"Check the JSON report for per-step status; rerun "
-                f"`hai init --guided` to retry the failed step(s).",
+                "hai init: guided onboarding partially failed. "
+                "Check the JSON report for per-step status; rerun "
+                "`hai init --guided` to retry the failed step(s).",
                 file=sys.stderr,
             )
         return exit_codes.USER_INPUT
