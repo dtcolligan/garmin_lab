@@ -4,9 +4,11 @@
 > in progress** — round-1 closed `PLAN_COHERENT_WITH_REVISIONS` (11
 > findings, all accepted; revisions applied at commit 547d355).
 > Round 2 closed `PLAN_COHERENT_WITH_REVISIONS` (7 findings, all
-> accepted; revisions applied 2026-04-30). Round 3 input is the
-> current PLAN; empirical norm for substantive cycles is 2-4 rounds
-> with `10 → 5 → 3 → 0` halving signature.
+> accepted; revisions applied at commit cc3d859 on 2026-04-30).
+> Round 3 closed `PLAN_COHERENT_WITH_REVISIONS` (3 findings, all
+> accepted; revisions applied 2026-04-30). The 11 → 7 → 3 sequence
+> matches the empirical 10 → 5 → 3 → 0 halving signature; round 4
+> is expected to close at PLAN_COHERENT.
 >
 > **Cycle tier (per CP3 D15 four-tier classification): substantive.**
 > Rationale: 17 workstreams (per F-PLAN-01), multi-day per-site
@@ -35,7 +37,9 @@
 >   inheritance: W-Vb, W-N-broader, W-FBC-2, CP6 application).
 > - `reporting/plans/v0_1_12/CARRY_OVER.md` §3 (reconciliation
 >   v0.1.13+ named-defers: A1+C7, A5/W-AK, C2/W-LINT, W-29-prep,
->   CP6 application).
+>   CP6 application, W-FBC-2 — the last also overlaps the
+>   RELEASE_PROOF §5 inheritance row above and is dispositioned in
+>   CARRY_OVER §1 + §2 with cross-reference per F-PLAN-02).
 > - 2026-04-29 user session: F-DEMO-01 root-cause investigation
 >   produced W-CF-UA (intervals.icu Cloudflare User-Agent block);
 >   shipped in v0.1.12.1 hotfix prior to this cycle's open. Recorded
@@ -89,7 +93,7 @@ NOT a v0.1.13 deliverable.
 
 | W-id | Title | Severity | Files (primary) | Source | Effort |
 |---|---|---|---|---|---|
-| **W-Vb** | Persona-replay end-to-end for the P1+P4+P5 named ship-set (DomainProposal seeds per persona across all 6 domains; flip `apply_fixture()` to proposal-write branch; wire `hai demo start --persona <slug>` + `hai daily` to reach `synthesized`; clean-wheel build-install-subprocess test). P9/P11/P12 fork-deferred to v0.1.14 W-Vb-3 (see §1.3). | demo correctness | `src/health_agent_infra/core/demo/fixtures.py`, `src/health_agent_infra/demo/fixtures/p1_dom_baseline.json` (extend) + `p4_*.json` + `p5_*.json` (new), `verification/tests/test_demo_persona_replay_end_to_end.py` (new) | v0.1.12 F-IR-02 | 3-4d |
+| **W-Vb** | Persona-replay end-to-end for the P1+P4+P5 named ship-set (DomainProposal seeds per persona across all 6 domains; flip `apply_fixture()` to proposal-write branch; wire `hai demo start --persona <slug>` + `hai daily` to reach `synthesized`; clean-wheel build-install-subprocess test). The 9 non-ship-set personas (P2/P3/P6/P7/P8/P9/P10/P11/P12) are fork-deferred to v0.1.14 W-Vb-3 (see §1.3). | demo correctness | `src/health_agent_infra/core/demo/fixtures.py`, `src/health_agent_infra/demo/fixtures/p1_dom_baseline.json` (extend) + `p4_strength_only_cutter.json` + `p5_female_multisport.json` (new), `verification/tests/test_demo_persona_replay_end_to_end.py` (new) | v0.1.12 F-IR-02 | 3-4d |
 | **W-N-broader** | `-W error::Warning` gate fix — audit and close the 49 fail + 1 error sqlite3 connection-lifecycle leak surface surfaced by v0.1.12 Phase 0 audit; close conn correctly on every CLI command + helper path; restore broader-gate ship target | correctness | initial search surface (to validate during Phase 0 against the actual `-W error::Warning` failure list): `src/health_agent_infra/core/state/store.py`, `src/health_agent_infra/core/explain/queries.py`, `src/health_agent_infra/core/intent/store.py`, `src/health_agent_infra/core/memory/store.py`, `src/health_agent_infra/core/state/projector.py`, `src/health_agent_infra/core/state/projectors/running_activity.py`, `src/health_agent_infra/core/state/snapshot.py`, `src/health_agent_infra/core/target/store.py`, `src/health_agent_infra/evals/runner.py`, `src/health_agent_infra/cli.py` handlers. Authoritative file list to be derived from a fresh `pytest -W error::Warning` run at Phase 0 open and recorded in `audit_findings.md` before per-site fixes begin. | v0.1.12 fork-defer per F-IR-03 | 4-6d |
 | **W-FBC-2** | F-B-04 full closure: (1) recovery prototype synthesis-side `--re-propose-all` enforcement on the recovery domain with `recovery_proposal_carryover_under_re_propose_all` carryover-uncertainty token + persona-style scenario tests P1/P5/P9; (2) multi-domain rollout to all 6 domains; (3) per-domain fingerprint primitive **only if option B is selected at design** (option A is the documented default per `reporting/docs/supersede_domain_coverage.md`; option C is explicitly out-of-v0.1.x-scope per the same doc and is NOT reopened by this cycle) | audit-chain | `src/health_agent_infra/core/synthesis.py`, `src/health_agent_infra/domains/<d>/policy.py` (all 6), `verification/tests/test_re_propose_all_*.py` (new) | v0.1.12 F-IR-01 + F-IR-R2-01 | 3-4d |
 | **CP6 application** | `strategic_plan_v1.md §6.3` verbatim edit per `v0_1_12/cycle_proposals/CP6.md` — replace 3-sentence DSL-as-moat framing with 4-element load-bearing-whole framing | governance | `reporting/plans/strategic_plan_v1.md` lines 407-411 | CP6 deferred application | 0.25d |
