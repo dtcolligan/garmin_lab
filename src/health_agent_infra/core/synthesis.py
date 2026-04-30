@@ -88,6 +88,66 @@ RECOMMENDATION_SCHEMA_BY_DOMAIN: dict[str, str] = {
 }
 
 
+# v0.1.13 W-FBC-2: --re-propose-all carryover-uncertainty threshold.
+# When the operator passes --re-propose-all, every domain's proposal_log
+# envelope is expected to have been authored within this window of `now`.
+# Any envelope older than this surfaces a
+# ``<domain>_proposal_carryover_under_re_propose_all`` token in the
+# canonical recommendation row — the audit-chain signal that the
+# operator's "re-propose everything" intent was honored for re-authored
+# domains but observably NOT honored for stale domains.
+RE_PROPOSE_ALL_FRESHNESS_THRESHOLD = timedelta(seconds=60)
+
+
+def _carryover_token_for_domain(domain: str) -> str:
+    """Stable name of the carryover-uncertainty token per domain.
+
+    Pattern fixed per design (``reporting/docs/supersede_domain_coverage.md``):
+    ``<domain>_proposal_carryover_under_re_propose_all``.
+    """
+
+    return f"{domain}_proposal_carryover_under_re_propose_all"
+
+
+def _load_proposal_envelope_authored_at(
+    conn: sqlite3.Connection,
+    *,
+    for_date_iso: str,
+    user_id: str,
+) -> dict[str, Optional[datetime]]:
+    """Return ``{proposal_id: authored_at}`` for the canonical-leaf row set.
+
+    "Authored at" prefers ``produced_at`` (the agent's own timestamp on
+    the proposal payload) and falls back to ``validated_at`` (the
+    runtime's stamp at writeback) when ``produced_at`` is NULL — the
+    latter is non-nullable per the proposal_log schema, so the function
+    always returns a usable timestamp for every canonical-leaf row.
+
+    Used by the ``--re-propose-all`` carryover detector in
+    :func:`run_synthesis`. Kept separate from
+    :func:`read_proposals_for_plan_key` because the freshness
+    timestamps live on the envelope columns, not in ``payload_json``.
+    """
+
+    rows = conn.execute(
+        "SELECT proposal_id, produced_at, validated_at FROM proposal_log "
+        "WHERE for_date = ? AND user_id = ? "
+        "AND superseded_by_proposal_id IS NULL",
+        (for_date_iso, user_id),
+    ).fetchall()
+    out: dict[str, Optional[datetime]] = {}
+    for row in rows:
+        stamp_iso = row["produced_at"] or row["validated_at"]
+        if stamp_iso is None:
+            out[row["proposal_id"]] = None
+            continue
+        try:
+            out[row["proposal_id"]] = datetime.fromisoformat(stamp_iso)
+        except ValueError:
+            out[row["proposal_id"]] = None
+    return out
+
+
 class SynthesisError(RuntimeError):
     """Raised when synthesis preconditions fail."""
 
@@ -643,6 +703,7 @@ def run_synthesis(
     now: Optional[datetime] = None,
     supersede: bool = False,
     expected_domains: Optional[frozenset[str]] = None,
+    re_propose_all: bool = False,
 ) -> SynthesisResult:
     """Run synthesis end-to-end inside a single SQLite transaction.
 
@@ -673,6 +734,22 @@ def run_synthesis(
     contract. Default ``None`` keeps the legacy "any non-zero
     proposals" behavior so test fixtures and the eval runner that pass
     minimal proposal sets still work.
+
+    ``re_propose_all`` (v0.1.13 W-FBC-2): the operator-belt-and-braces
+    flag from ``hai daily --re-propose-all``. When set, each domain's
+    canonical-leaf proposal_log envelope is checked against
+    :data:`RE_PROPOSE_ALL_FRESHNESS_THRESHOLD`. Any domain whose
+    envelope is older than ``now - threshold`` (i.e. the agent did
+    NOT freshly re-author the proposal in this synthesis cycle) gets
+    a ``<domain>_proposal_carryover_under_re_propose_all`` token
+    appended to the recommendation's ``uncertainty[]`` list — the
+    audit-chain signal that the operator's intent was observably not
+    honored for that domain. When the flag is False, no token fires
+    regardless of envelope age (the option-A default disposition lets
+    the agent decide which domains to re-propose). Per the design
+    doc at ``reporting/docs/supersede_domain_coverage.md`` (option A):
+    the runtime does not enforce that every domain re-propose, only
+    surfaces the operator-visible token when it doesn't.
     """
 
     if snapshot is None:
@@ -728,6 +805,16 @@ def run_synthesis(
                 f"inserted out-of-band. Refusing to synthesize."
             )
         seen_chain_keys[key] = p["proposal_id"]
+
+    # v0.1.13 W-FBC-2: load proposal envelope authored-at timestamps
+    # alongside the payload reads. The freshness columns live on the
+    # proposal_log table envelope (NOT inside payload_json), so the
+    # carryover detector needs a side query. Loaded unconditionally so
+    # the per-proposal lookup below stays branch-free; the dict is
+    # only consulted when ``re_propose_all`` is True.
+    envelope_authored_at = _load_proposal_envelope_authored_at(
+        conn, for_date_iso=for_date_iso, user_id=user_id,
+    )
 
     # Phase A
     phase_a_firings = evaluate_phase_a(snapshot, proposals, thresholds)
@@ -854,6 +941,37 @@ def run_synthesis(
 
     if skill_drafts is not None:
         drafts = _overlay_skill_drafts(drafts, skill_drafts)
+
+    # v0.1.13 W-FBC-2: --re-propose-all carryover-uncertainty emission.
+    # Walks each draft (one per canonical-leaf proposal) and, when the
+    # flag is set, appends a per-domain carryover token to
+    # ``uncertainty[]`` if the proposal's envelope authored-at is older
+    # than ``now - RE_PROPOSE_ALL_FRESHNESS_THRESHOLD``. Phase B only
+    # mutates ``action_detail`` (see ``apply_phase_b``), so the token
+    # added here survives the rest of the pipeline untouched and lands
+    # in ``recommendation_log.uncertainty_json`` at commit time. Surfaces
+    # via ``hai today`` rendering (``core.narration.render`` joins
+    # ``uncertainty[]`` into the per-domain block) and via
+    # ``hai explain`` (raw recommendation row).
+    if re_propose_all:
+        freshness_cutoff = now - RE_PROPOSE_ALL_FRESHNESS_THRESHOLD
+        for draft, proposal in zip(drafts, proposals):
+            authored_at = envelope_authored_at.get(proposal["proposal_id"])
+            # No timestamp recoverable → treat as stale (carryover fires).
+            # The defensive default protects against a hypothetical
+            # legacy row whose envelope columns are both NULL: the
+            # operator passed --re-propose-all and we have no positive
+            # evidence the proposal is fresh, so surfacing the token is
+            # the honest signal.
+            is_stale = authored_at is None or authored_at < freshness_cutoff
+            if is_stale:
+                token = _carryover_token_for_domain(proposal["domain"])
+                # Preserve any uncertainty the skill overlay added; the
+                # carryover token is additive, not a replacement.
+                existing = list(draft.get("uncertainty") or [])
+                if token not in existing:
+                    existing.append(token)
+                draft["uncertainty"] = existing
 
     # Phase B — evaluate, guard, apply.
     phase_b_firings = evaluate_phase_b(snapshot, drafts, thresholds)

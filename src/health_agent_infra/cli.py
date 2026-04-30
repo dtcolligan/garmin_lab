@@ -4931,11 +4931,14 @@ def _run_daily(
         )
         return exit_codes.USER_INPUT
 
-    # v0.1.12 W-FBC partial closure: surface --re-propose-all in the
-    # report so a downstream caller (and the persona harness) can
-    # observe the flag round-trip. Today the flag's runtime effect is
-    # scoped to the recovery domain via the carryover-uncertainty
-    # token in synthesis; v0.1.13 W-FBC-2 lifts to all six domains.
+    # v0.1.13 W-FBC-2 closure: --re-propose-all is now a runtime signal
+    # to the synthesis-side carryover-uncertainty detector. Pre-v0.1.13
+    # the flag was report-surface-only (v0.1.12 W-FBC partial closure);
+    # v0.1.13 wires it through ``run_synthesis(re_propose_all=...)``,
+    # which emits a per-domain
+    # ``<domain>_proposal_carryover_under_re_propose_all`` token on
+    # any recommendation whose proposal envelope is older than
+    # ``now - RE_PROPOSE_ALL_FRESHNESS_THRESHOLD`` (default 60s).
     re_propose_all_requested = bool(getattr(args, "re_propose_all", False))
     report: dict[str, Any] = {
         "as_of_date": as_of.isoformat(),
@@ -5131,6 +5134,7 @@ def _run_daily(
                 snapshot=snapshot,
                 agent_version=args.agent_version,
                 supersede=args.supersede,
+                re_propose_all=re_propose_all_requested,
             )
         except (SynthesisError, XRuleWriteSurfaceViolation) as exc:
             report["stages"]["synthesize"] = {
@@ -8398,13 +8402,20 @@ def build_parser() -> argparse.ArgumentParser:
     p_daily.add_argument(
         "--re-propose-all", action="store_true", dest="re_propose_all",
         help=(
-            "v0.1.12 W-FBC (partial closure of F-B-04): set the "
-            "report-surface field `re_propose_all_requested: true` "
-            "on the daily JSON output. **No synthesis-side runtime "
-            "effect at v0.1.12** — the flag's contract is honoured "
-            "but enforcement (recovery prototype + multi-domain "
-            "carryover-uncertainty token) is deferred to v0.1.13 "
-            "W-FBC-2. See reporting/docs/supersede_domain_coverage.md."
+            "v0.1.13 W-FBC-2 (closure of F-B-04, option A default per "
+            "reporting/docs/supersede_domain_coverage.md): operator "
+            "belt-and-braces signal that every domain's proposal "
+            "should have been freshly authored in this synthesis "
+            "cycle. Synthesis appends a per-domain "
+            "`<domain>_proposal_carryover_under_re_propose_all` token "
+            "to any recommendation whose proposal envelope was "
+            "authored outside the freshness window (default 60s) — "
+            "the audit-chain signal that the operator's intent was "
+            "observably not honored for that domain. The token "
+            "surfaces in `hai today` rationale prose and "
+            "`hai explain` recommendation rows. Also surfaces in "
+            "the daily report JSON as "
+            "`re_propose_all_requested: true`."
         ),
     )
     p_daily.add_argument("--skip-reviews", action="store_true",
