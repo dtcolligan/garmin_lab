@@ -31,6 +31,8 @@ disposition.
 | **A5 declarative persona expected-actions** (W-AK pulled forward from v0.1.14) | **in-cycle** | W-AK (v0.1.13) | PLAN §2.C. Precondition for v0.1.14 W58 prep. |
 | **C2 / W-LINT regulated-claim lint** | **in-cycle** | W-LINT (v0.1.13) | PLAN §2.C. First surface; lands before v0.2.0 weekly review. |
 | **W-29-prep cli.py boundary audit** | **in-cycle** | W-29-prep (v0.1.13) | PLAN §2.C. Per CP1; parser/capabilities regression test mandatory regardless of split decision. |
+| **L3 §6.3 strategic-plan framing edit (CP6)** | **in-cycle** *(also covered by §1)* | CP6 application (v0.1.13) | Cross-reference row added at D14 round 1 per F-PLAN-02. The reconciliation source row (`v0_1_12/CARRY_OVER.md` §3 line 58) maps to the same CP6-application workstream that v0.1.12 RELEASE_PROOF §5 line names; recorded in §1 above as the inheritance entry. Listed here too so this register's acceptance check #2 (every reconciliation §6 v0.1.13+ row disposed) is honest. |
+| **W-FBC-2 (full F-B-04 multi-domain closure)** | **in-cycle** *(also covered by §1)* | W-FBC-2 (v0.1.13) | Cross-reference row added at D14 round 1 per F-PLAN-02. The reconciliation source row (`v0_1_12/CARRY_OVER.md` §3 line 59 — "new W-id introduced by Codex F-PLAN-R2-04 in this cycle") maps to the same W-FBC-2 workstream that v0.1.12 RELEASE_PROOF §5 names; recorded in §1 above as the inheritance entry. Listed here too for honest acceptance-check coverage. |
 
 ## 3. Originally-planned v0.1.13 scope (tactical_plan §4.1)
 
@@ -56,6 +58,7 @@ These remain deferred to later cycles. Listed for traceability.
 
 | Item | Defer to | Reason |
 |---|---|---|
+| **W-Vb-3** persona-replay extension to P9/P11/P12 | v0.1.14 | fork-deferred at D14 round 1 per F-PLAN-06; v0.1.13 W-Vb closes P1+P4+P5 fully, P9/P11/P12 named here in honest partial-closure-naming convention (AGENTS.md "Patterns the cycles have validated"). New row added 2026-04-30. |
 | W-29 cli.py mechanical split | v0.1.14 | per CP1, conditional on W-29-prep verdict |
 | L2 W-DOMAIN-SYNC scoped contract test | v0.1.14 | per Codex F-PLAN-09 |
 | A12 judge-adversarial fixtures | v0.1.14 | folds into W-AI |
@@ -72,10 +75,13 @@ These remain deferred to later cycles. Listed for traceability.
 | **W-CF-UA** (intervals.icu Cloudflare User-Agent block fix) | **v0.1.12.1 hotfix** (branchpoint `v0.1.12` tag, three commits, lightweight RELEASE_PROOF at `reporting/plans/v0_1_12_1/RELEASE_PROOF.md`) | W-CF-UA (v0.1.13 PLAN §1.2 catalogue D — completeness only, NOT a v0.1.13 deliverable) |
 
 The fix is also present in the `cycle/v0.1.13` branch via cherry-
-pick from `hotfix/v0.1.12.1` (commit 636f5d3). The hotfix branch
-+ the cycle branch both carry the identical change at the file
-level; the hotfix branch additionally carries the version bump
-(0.1.12 → 0.1.12.1) + CHANGELOG entry, neither of which propagates
+pick from `hotfix/v0.1.12.1` (commit 636f5d3 carries the code +
+test diff; commit a10a238 carries the lightweight RELEASE_PROOF
+doc, cherry-picked in at D14 round 1 per F-PLAN-03 to make the
+in-tree provenance citation honest). The hotfix branch + the cycle
+branch both carry the identical code change at the file level; the
+hotfix branch additionally carries the version bump (0.1.12 →
+0.1.12.1) + CHANGELOG hotfix entry, neither of which propagates
 into the cycle branch (cycle/v0.1.13 will eventually bump to 0.1.13).
 
 ## 6. Phase 0 (D11) findings absorbed

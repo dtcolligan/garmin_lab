@@ -83,49 +83,53 @@ NOT a v0.1.13 deliverable.
 
 | W-id | Title | Severity | Files (primary) | Source | Effort |
 |---|---|---|---|---|---|
-| **W-Vb** | Persona-replay end-to-end (DomainProposal seeds across all 6 domains per persona; flip `apply_fixture()` to proposal-write branch; wire `hai demo start --persona <slug>` + `hai daily` to reach `synthesized`; clean-wheel build-install-subprocess test) | demo correctness | `src/health_agent_infra/core/demo/fixtures.py`, `src/health_agent_infra/demo/fixtures/p*/`, `verification/tests/test_demo_persona_replay_end_to_end.py` (new) | v0.1.12 F-IR-02 | 3-4d |
-| **W-N-broader** | `-W error::Warning` gate fix — audit each of the 49 + 1 sqlite3 connection-lifecycle leak sites surfaced by v0.1.12 Phase 0 audit; close conn correctly on every CLI command + helper path; restore broader-gate ship target | correctness | `core/state/store.py`, `core/explain/queries.py`, `core/intent/store.py`, `core/memory/store.py`, `core/state/projector.py`, `core/state/projectors/running_activity.py`, `core/state/snapshot.py`, `core/target/store.py`, `evals/runner.py`, `cli.py` handlers | v0.1.12 fork-defer per F-IR-03 | 4-6d |
-| **W-FBC-2** | F-B-04 full closure: (1) recovery prototype synthesis-side `--re-propose-all` enforcement on the recovery domain with `recovery_proposal_carryover_under_re_propose_all` carryover-uncertainty token + persona-style scenario tests P1/P5/P9; (2) multi-domain rollout to all 6 domains; (3) per-domain fingerprint primitive if option B/C chosen at design | audit-chain | `core/synthesis.py`, `domains/<d>/policy.py` (all 6), `verification/tests/test_re_propose_all_*.py` (new) | v0.1.12 F-IR-01 + F-IR-R2-01 | 3-4d |
+| **W-Vb** | Persona-replay end-to-end for the P1+P4+P5 named ship-set (DomainProposal seeds per persona across all 6 domains; flip `apply_fixture()` to proposal-write branch; wire `hai demo start --persona <slug>` + `hai daily` to reach `synthesized`; clean-wheel build-install-subprocess test). P9/P11/P12 fork-deferred to v0.1.14 W-Vb-3 (see §1.3). | demo correctness | `src/health_agent_infra/core/demo/fixtures.py`, `src/health_agent_infra/demo/fixtures/p1_dom_baseline.json` (extend) + `p4_*.json` + `p5_*.json` (new), `verification/tests/test_demo_persona_replay_end_to_end.py` (new) | v0.1.12 F-IR-02 | 3-4d |
+| **W-N-broader** | `-W error::Warning` gate fix — audit and close the 49 fail + 1 error sqlite3 connection-lifecycle leak surface surfaced by v0.1.12 Phase 0 audit; close conn correctly on every CLI command + helper path; restore broader-gate ship target | correctness | initial search surface (to validate during Phase 0 against the actual `-W error::Warning` failure list): `src/health_agent_infra/core/state/store.py`, `src/health_agent_infra/core/explain/queries.py`, `src/health_agent_infra/core/intent/store.py`, `src/health_agent_infra/core/memory/store.py`, `src/health_agent_infra/core/state/projector.py`, `src/health_agent_infra/core/state/projectors/running_activity.py`, `src/health_agent_infra/core/state/snapshot.py`, `src/health_agent_infra/core/target/store.py`, `src/health_agent_infra/evals/runner.py`, `src/health_agent_infra/cli.py` handlers. Authoritative file list to be derived from a fresh `pytest -W error::Warning` run at Phase 0 open and recorded in `audit_findings.md` before per-site fixes begin. | v0.1.12 fork-defer per F-IR-03 | 4-6d |
+| **W-FBC-2** | F-B-04 full closure: (1) recovery prototype synthesis-side `--re-propose-all` enforcement on the recovery domain with `recovery_proposal_carryover_under_re_propose_all` carryover-uncertainty token + persona-style scenario tests P1/P5/P9; (2) multi-domain rollout to all 6 domains; (3) per-domain fingerprint primitive **only if option B is selected at design** (option A is the documented default per `reporting/docs/supersede_domain_coverage.md`; option C is explicitly out-of-v0.1.x-scope per the same doc and is NOT reopened by this cycle) | audit-chain | `src/health_agent_infra/core/synthesis.py`, `src/health_agent_infra/domains/<d>/policy.py` (all 6), `verification/tests/test_re_propose_all_*.py` (new) | v0.1.12 F-IR-01 + F-IR-R2-01 | 3-4d |
 | **CP6 application** | `strategic_plan_v1.md §6.3` verbatim edit per `v0_1_12/cycle_proposals/CP6.md` — replace 3-sentence DSL-as-moat framing with 4-element load-bearing-whole framing | governance | `reporting/plans/strategic_plan_v1.md` lines 407-411 | CP6 deferred application | 0.25d |
 
 #### B. Originally planned v0.1.13 scope (tactical plan §4.1)
 
 | W-id | Title | Severity | Files (primary) | Source | Effort |
 |---|---|---|---|---|---|
-| **W-AA** | First-time-user onboarding flow — `hai init` walks profile + targets + auth | UX (release-blocker for theme) | `cli.py` init handler, `core/init/onboarding.py` (new) | tactical §4.1 | 2-3d |
-| **W-AB** | `hai capabilities --human` mode (end-user-readable, not agent-manifest) | UX | `cli.py` capabilities handler, `core/capabilities/render.py` (new human-mode formatter) | tactical §4.1 | 1d |
+| **W-AA** | First-time-user onboarding flow — `hai init` walks profile + targets + auth | UX (release-blocker for theme) | `src/health_agent_infra/cli.py` init handler, `src/health_agent_infra/core/init/onboarding.py` (new) | tactical §4.1 | 2-3d |
+| **W-AB** | `hai capabilities --human` mode (end-user-readable, not agent-manifest) | UX | `src/health_agent_infra/cli.py` capabilities handler, `src/health_agent_infra/core/capabilities/render.py` (new human-mode formatter) | tactical §4.1 | 1d |
 | **W-AC** | README rewrite — orientation, quickstart, troubleshooting | trust / docs | `README.md` | tactical §4.1 | 1-2d |
 | **W-AD** | Error-message quality pass — every USER_INPUT exit code carries actionable next-step | UX | `cli.py` error-rendering paths; new `verification/tests/test_user_input_messages_actionable.py` | tactical §4.1 | 1-2d |
-| **W-AE** | `hai doctor` expansion — onboarding-readiness check + gap diagnostics + intervals.icu probe-pull live-API check (closes the original F-DEMO-01 gap; the W-CF-UA hotfix patches the symptom, W-AE prevents recurrence detection-wise) | UX / operability | `core/doctor/checks.py`, `cli.py` doctor handler, new doctor probe shape | tactical §4.1 + F-DEMO-01 prevention | 1-2d |
+| **W-AE** | `hai doctor` expansion — onboarding-readiness check + gap diagnostics + intervals.icu probe-pull live-API check (closes the original F-DEMO-01 gap; the W-CF-UA hotfix patches the symptom, W-AE prevents recurrence detection-wise) | UX / operability | `src/health_agent_infra/core/doctor/checks.py`, `src/health_agent_infra/cli.py` doctor handler, new doctor probe shape | tactical §4.1 + F-DEMO-01 prevention | 1-2d |
 | **W-AF** | Public README quickstart smoke test (CI-runnable) | trust / regression | `verification/tests/test_readme_quickstart_smoke.py` (new), `.github/workflows/ci.yml` if CI integration is in scope | tactical §4.1 | 1d |
-| **W-AG** | `hai today` cold-start prose — different language for day-1 vs day-30 users (uses streak metric from `hai stats`) | UX | `cli.py` today handler, `core/render/today.py` if exists | tactical §4.1 | 1d |
+| **W-AG** | `hai today` cold-start prose — different language for day-1 vs day-30 users (uses streak metric from `hai stats`) | UX | `src/health_agent_infra/cli.py` today handler, `src/health_agent_infra/core/render/today.py` if exists | tactical §4.1 | 1d |
 
 #### C. Added at v0.1.12 ship per CP1 / reconciliation / Codex IR
 
 | W-id | Title | Severity | Files (primary) | Source | Effort |
 |---|---|---|---|---|---|
 | **W-29-prep** | cli.py boundary audit (boundary-table verification + parser/capabilities regression test scaffold) | governance prerequisite | `verification/tests/test_cli_parser_capabilities_regression.py` (new), `reporting/docs/cli_boundary_table.md` (new) | CP1 | 0.5d |
-| **W-LINT** | Regulated-claim lint — block "abnormal HRV", "clinical-grade", "biomarker", "risk score", and similar in user-facing prose surfaces (skill outputs + CLI rendered text) | safety / regulatory | `verification/tests/test_regulated_claim_lint.py` (new), `core/lint/regulated_claims.py` (new) | Reconciliation C2 | 1-2d |
+| **W-LINT** | Regulated-claim lint — block "abnormal HRV", "clinical-grade", "biomarker", "risk score", and similar in user-facing prose surfaces (skill outputs + CLI rendered text) | safety / regulatory | `verification/tests/test_regulated_claim_lint.py` (new), `src/health_agent_infra/core/lint/regulated_claims.py` (new) | Reconciliation C2 | 1-2d |
 | **W-AK** | Declarative persona expected-actions (pulled forward from v0.1.14; precondition for v0.1.14 W58 prep) | testing infrastructure | `verification/dogfood/personas/p*.py` add `expected_actions` declarations; harness asserts | Reconciliation A5 | 1d |
-| **W-A1C7** | Trusted-first-value rename + acceptance matrix — A1 names the gate language consistently across docs/code; C7 codifies the acceptance matrix as a contract test | governance / trust | `AGENTS.md`, `core/synthesis.py` if rename touches identifiers, `verification/tests/test_acceptance_matrix.py` (new) | Reconciliation A1+C7 | 1-2d (estimate; may revise post-design) |
+| **W-A1C7** | Trusted-first-value rename + acceptance matrix — A1 names the gate language consistently across docs/code; C7 codifies the acceptance matrix as a contract test | governance / trust | `AGENTS.md`, `src/health_agent_infra/core/synthesis.py` if rename touches identifiers, `verification/tests/test_acceptance_matrix.py` (new) | Reconciliation A1+C7 | 1-2d (estimate; may revise post-design) |
 | **W-CARRY** | v0.1.13 carry-over register (this cycle's CARRY_OVER.md) | audit-chain | `reporting/plans/v0_1_13/CARRY_OVER.md` (this dir) | convention | 0.5d |
 
 #### D. Pre-cycle ships (catalogue completeness only)
 
 | W-id | Title | Status | Notes |
 |---|---|---|---|
-| **W-CF-UA** | intervals.icu Cloudflare UA-block fix | **shipped in v0.1.12.1** (hotfix tier per D15) | Branchpoint `v0.1.12` tag; lightweight RELEASE_PROOF at `reporting/plans/v0_1_12_1/RELEASE_PROOF.md`. Cycle/v0.1.13 inherits the fix via cherry-pick from `hotfix/v0.1.12.1` as its first commit. Listed here so the workstream catalogue covers every code change between v0.1.12 ship and v0.1.13 ship. |
+| **W-CF-UA** | intervals.icu Cloudflare UA-block fix | **shipped in v0.1.12.1** (hotfix tier per D15) | Branchpoint `v0.1.12` tag; lightweight RELEASE_PROOF at `reporting/plans/v0_1_12_1/RELEASE_PROOF.md`. Cycle/v0.1.13 inherits both the code+test diff (commit 636f5d3) and the RELEASE_PROOF doc (commit a10a238, cherry-picked at D14 round 1 per F-PLAN-03 to make the in-tree provenance citation honest) from `hotfix/v0.1.12.1`. Listed here so the workstream catalogue covers every code change between v0.1.12 ship and v0.1.13 ship. |
 
-**Total scope: 16 workstreams** — 4 inherited, 7 originally planned,
-4 added-this-cycle, 1 pre-cycle ship for catalogue completeness.
+**Total scope: 17 workstreams** — 4 inherited, 7 originally planned,
+5 added-this-cycle, 1 pre-cycle ship for catalogue completeness.
 
-**Approximate effort:** 22-32 days, single-contributor. **Largest
+(Revised at D14 round 1 per F-PLAN-01: W-CARRY is a real workstream
+with its own per-WS contract in §2.C, not cycle scaffolding.)
+
+**Approximate effort:** 22.5-32.5 days, single-contributor. **Largest
 cycle in the v0.1.x track if it lands as scoped.**
 
 ### 1.3 Out of scope (named-deferred to later cycles)
 
 | Item | Defer to | Reason |
 |---|---|---|
+| **W-Vb-3** persona-replay extension to P9/P11/P12 (the three personas not in v0.1.13's P1/P4/P5 ship-set) | v0.1.14 | fork-deferred per F-PLAN-06 — v0.1.13 W-Vb closes P1+P4+P5 fully, with P9/P11/P12 named here in honest partial-closure-naming convention |
 | W-29 cli.py mechanical split (1 main + 1 shared + 11 handler-group, <2500 each) | v0.1.14 | per CP1, conditional on W-29-prep verdict |
 | L2 W-DOMAIN-SYNC scoped contract test | v0.1.14 | per reconciliation L2 + Codex F-PLAN-09 |
 | A12 judge-adversarial fixtures | v0.1.14 | folds into W-AI |
@@ -170,14 +174,22 @@ daily` reaches `synthesized` (not `proposal_log_empty`).
 
 - `src/health_agent_infra/core/demo/fixtures.py` — flip
   `apply_fixture()` from boundary-stop to proposal-write branch.
-- `src/health_agent_infra/demo/fixtures/p1_dom_baseline/`,
-  `p4_*`, `p5_*`, etc. — author full DomainProposal seeds across
-  all 6 domains per packaged persona (start with P1, P4, P5; expand
-  if budget allows).
+- `src/health_agent_infra/demo/fixtures/p1_dom_baseline.json`
+  (extend; currently a skeleton),
+  `src/health_agent_infra/demo/fixtures/p4_<slug>.json` (new),
+  `src/health_agent_infra/demo/fixtures/p5_<slug>.json` (new) —
+  author full DomainProposal seeds across all 6 domains per
+  packaged persona. Single-JSON-per-persona shape preserved (no
+  loader / package-data migration); the existing loader contract
+  at `src/health_agent_infra/core/demo/fixtures.py` resolves
+  `health_agent_infra/demo/fixtures/<slug>.json` via
+  `importlib.resources`. **Ship set is P1+P4+P5**; P9/P11/P12 are
+  fork-deferred to v0.1.14 W-Vb-3 per §1.3 + F-PLAN-06.
 - `verification/tests/test_demo_persona_replay_end_to_end.py` (new)
-  — assert `hai demo start --persona p1_dom_baseline && hai daily`
-  reaches `synthesized` state with a non-empty `proposal_log` and
-  a committed `daily_plan`.
+  — assert `hai demo start --persona <slug> && hai daily` reaches
+  `synthesized` state with a non-empty `proposal_log` and a
+  committed `daily_plan` for **each** of the three ship-set
+  personas.
 - `verification/tests/test_demo_clean_wheel_persona_replay.py` (new)
   — clean-wheel build → install in subprocess → run replay; asserts
   `importlib.resources` fixture path resolves and demo session
@@ -186,15 +198,23 @@ daily` reaches `synthesized` (not `proposal_log_empty`).
 **Tests:** 8-12 new test cases. Existing `test_demo_*` 25 cases must
 all pass unchanged.
 
-**Acceptance:**
+**Acceptance (revised at D14 round 1 per F-PLAN-06):**
 
-- `hai demo start --persona p1_dom_baseline` followed by `hai daily`
-  produces a `synthesized` daily plan (asserts via `hai today`
-  rendering text + `hai explain` audit-chain shape).
-- Clean-wheel subprocess test passes (no editable-install
-  dependencies leak into the test path).
+- `hai demo start --persona p1_dom_baseline && hai daily` produces a
+  `synthesized` daily plan.
+- `hai demo start --persona p4_<slug> && hai daily` produces a
+  `synthesized` daily plan.
+- `hai demo start --persona p5_<slug> && hai daily` produces a
+  `synthesized` daily plan.
+- All three ship-set personas asserted via `hai today` rendering
+  text + `hai explain` audit-chain shape.
+- Clean-wheel subprocess test passes for at least P1 (no editable-
+  install dependencies leak into the test path).
 - Original `~/.health_agent` tree byte-identical before/after demo
   session per existing isolation-contract tests.
+- P9 / P11 / P12 NOT covered by v0.1.13 acceptance; recorded as
+  partial-closure in PLAN §1.3 + CARRY_OVER §4 with destination
+  cycle `v0.1.14 W-Vb-3`.
 
 #### W-N-broader — Resource-warning gate fix
 
@@ -203,18 +223,22 @@ audit returned 49 fail + 1 error under `pytest -W error::Warning`.
 v0.1.13 audits each site, closes the connection-lifecycle bug at the
 helper path, and restores the broader-gate ship target.
 
-**Files (per v0.1.12 audit_findings.md):**
+**Files (initial search surface; authoritative list derived from a
+fresh `pytest -W error::Warning` run at Phase 0 open and recorded in
+`audit_findings.md` before per-site fixes begin — per F-PLAN-04
+provenance correction):**
 
-- `core/state/store.py` (primary connection-helper site)
-- `core/explain/queries.py`
-- `core/intent/store.py`
-- `core/memory/store.py`
-- `core/state/projector.py`
-- `core/state/projectors/running_activity.py`
-- `core/state/snapshot.py`
-- `core/target/store.py`
-- `evals/runner.py`
-- `cli.py` per-handler connection lifecycle
+- `src/health_agent_infra/core/state/store.py` (primary connection-
+  helper site)
+- `src/health_agent_infra/core/explain/queries.py`
+- `src/health_agent_infra/core/intent/store.py`
+- `src/health_agent_infra/core/memory/store.py`
+- `src/health_agent_infra/core/state/projector.py`
+- `src/health_agent_infra/core/state/projectors/running_activity.py`
+- `src/health_agent_infra/core/state/snapshot.py`
+- `src/health_agent_infra/core/target/store.py`
+- `src/health_agent_infra/evals/runner.py`
+- `src/health_agent_infra/cli.py` per-handler connection lifecycle
 
 **Tests:** Restore the broader-gate as the v0.1.13 ship-gate target:
 
@@ -252,16 +276,21 @@ side runtime enforcement on all 6 domains.
    uncertainty token. Persona-style scenario tests P1/P5/P9.
 2. **Multi-domain rollout.** Same enforcement applied to running,
    sleep, stress, strength, nutrition.
-3. **Per-domain fingerprint primitive** — if design option B or C
-   from `reporting/docs/supersede_domain_coverage.md` is chosen at
-   v0.1.13 cycle-open, ship the primitive; otherwise option A
-   carries.
+3. **Per-domain fingerprint primitive** — **option A is the
+   documented default** per `reporting/docs/supersede_domain_coverage.md`
+   (supersede means all domains re-propose, no per-domain
+   fingerprint required). Option B (per-domain fingerprints) is
+   the only design fork available; ship it ONLY if explicitly
+   selected at W-FBC-2 design phase. **Option C is explicitly
+   out-of-v0.1.x scope** per the same design doc and is not
+   reopened by v0.1.13 (revised at D14 round 1 per F-PLAN-07).
 
 **Files:**
 
-- `core/synthesis.py` — `--re-propose-all` synthesis-side branch.
-- `domains/<d>/policy.py` (all 6) — carryover-uncertainty token
-  emission.
+- `src/health_agent_infra/core/synthesis.py` — `--re-propose-all`
+  synthesis-side branch.
+- `src/health_agent_infra/domains/<d>/policy.py` (all 6) —
+  carryover-uncertainty token emission.
 - `verification/tests/test_re_propose_all_recovery_*.py`,
   `..._running_*.py`, etc. (new, ~6 files)
 
@@ -300,20 +329,40 @@ gate.
 6. Run `hai pull` to fetch initial wellness window.
 7. Surface `hai today` with day-1 prose (W-AG dependency).
 
-**Files:** `cli.py` init handler (extend existing init), new
-`core/init/onboarding.py` for the prompt flow + state-write
-sequencing.
+**Files:** `src/health_agent_infra/cli.py` init handler (extend
+existing init), new `src/health_agent_infra/core/init/onboarding.py`
+for the prompt flow + state-write sequencing.
 
-**Acceptance:**
+**Acceptance (revised at D14 round 1 per F-PLAN-08 — SLO split into
+deterministic test gate + operator demo SLO):**
 
-- New user (empty `~/.health_agent`) running `pipx install
+*Deterministic test gate (this is the ship-gate):*
+
+- `verification/tests/test_init_onboarding_flow.py` (new) walks the
+  prompt sequence with stubbed input AND a stubbed intervals.icu
+  fixture (replay-client shape, same as the existing
+  `ReplayWellnessClient`). Asserts the flow reaches a `synthesized`
+  daily plan in a single test invocation.
+- Each step is interrupt-resumable (KeyboardInterrupt mid-flow does
+  not corrupt state) — asserted by injecting `KeyboardInterrupt` at
+  each step boundary and verifying the partial state is recoverable
+  on next `hai init` invocation.
+
+*Operator demo SLO (target, not ship-gate):*
+
+- New user on broadband (≥10 Mbps), modern macOS / Linux, with
+  intervals.icu credentials at hand: `pipx install
   health-agent-infra && hai init` reaches a `synthesized` daily
   plan in under 5 minutes elapsed wall-clock.
-- Each step is interrupt-resumable (KeyboardInterrupt mid-flow does
-  not corrupt state).
-- Test surface: new
-  `verification/tests/test_init_onboarding_flow.py` walks the
-  prompt sequence with stubbed input.
+- If intervals.icu pull is slow (e.g., the documented Cloudflare-
+  rate-limit-window failure mode), the flow surfaces a "still
+  pulling — your watch may not have synced today's data yet" UX
+  message. **This is an allowed degraded state**, not an SLO
+  failure; the user can re-run `hai today` once the pull completes.
+- This SLO is documented in `reporting/docs/onboarding_slo.md`
+  (new) for operator reference; its measurement is a manual demo
+  protocol, not a CI gate. The risk register at §4 reflects this
+  split.
 
 #### W-AB — `hai capabilities --human`
 
@@ -361,18 +410,23 @@ Add to existing `hai doctor`:
    not just credentials present. **Closes the original F-DEMO-01
    detection gap that W-CF-UA fixed at the symptom layer.**
 
-**Files:** `core/doctor/checks.py` extension. Reuses the existing
-`Probe` protocol from v0.1.11 W-X.
+**Files:** `src/health_agent_infra/core/doctor/checks.py` extension.
+Reuses the existing `Probe` protocol from v0.1.11 W-X.
 
-**Acceptance:**
+**Acceptance (revised at D14 round 1 per F-PLAN-10 — triage script
+moved into the repo):**
 
 - `hai doctor` (default) flags onboarding gaps with actionable
   hints. Test surface covers "no intent rows", "no target rows",
   "no fresh wellness pull", "stale intervals.icu auth".
 - `hai doctor --deep` performs a live-API check against
-  intervals.icu and surfaces the exact error class (Cloudflare-
-  edge vs. credential-rejection vs. network) per the triage script
-  in `reference_doctor_intervals_icu_false_positive.md`.
+  intervals.icu and classifies the response into one of the four
+  cause classes documented at
+  `reporting/docs/intervals_icu_403_triage.md` (now an in-repo
+  versioned artifact, not a private memory note):
+  `OK` / `CAUSE_1_CLOUDFLARE_UA` / `CAUSE_2_CREDS` / `NETWORK` /
+  `OTHER`. Each class carries a specific actionable next-step in
+  the rendered output.
 
 #### W-AF — README quickstart smoke test
 
@@ -405,14 +459,43 @@ belongs to.
 **Files:**
 
 - `verification/tests/test_cli_parser_capabilities_regression.py`
-  (new) — full byte-equality assertion on `hai capabilities --json`
-  and full snapshot assertion on `hai --help` parser tree.
+  (new) — byte-stability assertion on `hai capabilities --json` +
+  snapshot assertion on `hai --help` parser tree. Snapshot baseline
+  established AFTER intentional v0.1.13 surface changes (W-AB
+  `--human` mode, W-AE `--deep` doctor extension) land — see
+  sequencing note below.
 - `reporting/docs/cli_boundary_table.md` (new) — name every
-  subcommand + its target handler-group + estimated LOC.
+  subcommand + its target handler-group + estimated LOC. Subcommand
+  count derived from the parser/capabilities manifest (NOT
+  hardcoded — initial enumeration found 24 top-level
+  `sub.add_parser(...)` registrations in `src/health_agent_infra/cli.py`
+  + 1 from `src/health_agent_infra/evals/cli.py` lines 84-90, but
+  the boundary table must read live from the parser).
 
-**Acceptance:** regression test in place + green; boundary table
-covers all 22 subcommands; v0.1.14 W-29 has a clear go/no-go
-verdict from the boundary audit.
+**Sequencing (revised at D14 round 1 per F-PLAN-11):**
+
+W-29-prep snapshot baseline is frozen AFTER W-AB and W-AE land,
+not before. Rationale: those workstreams add legitimate CLI surface
+(`hai capabilities --human`, `hai doctor --deep` classification
+output) that would otherwise produce false byte-equality
+regressions. Implementation order in v0.1.13:
+
+1. W-AB ships `--human` mode → capabilities manifest grows by one
+   row's flag list.
+2. W-AE ships `--deep` extension → doctor manifest entry expands.
+3. Other added W-ids (W-LINT, W-AK, W-A1C7) ship — these don't
+   touch capabilities.
+4. **W-29-prep snapshot frozen against post-(1+2+3) capabilities
+   state.** Regression test then catches v0.1.14 W-29 mechanical-
+   split-induced drift, which is its actual purpose.
+
+**Acceptance:** regression test in place + green against the
+post-W-AB/W-AE capabilities baseline; boundary table covers every
+subcommand the live parser registers (count derived, not
+hardcoded); v0.1.14 W-29 has a clear go/no-go verdict from the
+boundary audit. The verdict outcome (split / do-not-split / split-
+with-revisions) is recorded in v0.1.13 RELEASE_PROOF; v0.1.14 W-29
+gates on it per CP1.
 
 #### W-LINT — Regulated-claim lint
 
@@ -426,19 +509,53 @@ skill-rendered prose at write time.
 
 **Files:**
 
-- `core/lint/regulated_claims.py` (new) — static + runtime helpers.
+- `src/health_agent_infra/core/lint/regulated_claims.py` (new) —
+  static + runtime helpers.
 - `verification/tests/test_regulated_claim_lint.py` (new) — every
   packaged skill's rationale block scanned + asserted clean.
-- `cli.py` rendering paths — runtime check on text crossing the
-  CLI rendering boundary, with `USER_INPUT` exit when violated.
+- `src/health_agent_infra/cli.py` rendering paths — runtime check
+  on text crossing the CLI rendering boundary, with `USER_INPUT`
+  exit when violated.
 
-**Acceptance:**
+**Exception path constraints (revised at D14 round 1 per F-PLAN-09 —
+prevents the exception from becoming a wholesale loophole):**
+
+The exception path allows quoting regulated terms ONLY when ALL
+four constraints hold:
+
+1. **Allowlisted surface only.** The skill emitting the text must
+   be in a hard-coded allowlist (initially: `research`,
+   `expert-explainer`). No skill outside the allowlist gets the
+   exception. CLI rendering paths NEVER get the exception.
+2. **Citation required.** Each occurrence of a regulated term
+   must be accompanied by a provenance citation in the same
+   rationale block. The lint helper resolves the citation against
+   the allowlisted research source registry under
+   `src/health_agent_infra/core/research/`.
+3. **Quoted-term context only.** The regulated term must appear
+   inside an explicit quote, attribution, or definitional context
+   (e.g., "the literature defines biomarker as ..."), not as a
+   first-person claim.
+4. **Ordinary user-facing prose still blocked.** Rationale blocks
+   from non-allowlisted skills + all CLI rendering paths run
+   under the strict regime; no exception path applies there.
+
+**Acceptance (revised at D14 round 1 per F-PLAN-09):**
 
 - Lint test green on current packaged skills (no regressions).
-- Runtime check fires test-fixture violation correctly.
-- Documented exception path (e.g., research/expert-explainer skill
-  may quote regulated terms with provenance citation; this is the
-  one exception class).
+- Runtime check fires test-fixture violation correctly for the
+  strict regime.
+- **Negative test (`test_regulated_claim_exception_bounded`):**
+  asserts (a) a non-allowlisted skill quoting a regulated term
+  with provenance still fails the lint; (b) an allowlisted skill
+  quoting a regulated term WITHOUT provenance fails the lint;
+  (c) an allowlisted skill quoting a regulated term in first-
+  person framing (no quoted/attributed context) fails the lint;
+  (d) only the four-constraints-all-hold case passes.
+- **CLI rendering boundary test:** asserts the runtime lint
+  applies regardless of skill provenance — even an allowlisted
+  skill's output, IF it's about to cross into CLI prose, runs
+  under the strict regime.
 
 #### W-AK — Declarative persona expected-actions
 
@@ -465,8 +582,8 @@ trusted-first-value contract as a contract test.
 
 **Files:** TBD pending design — initial scope estimate:
 `AGENTS.md` (gate-language naming section), possibly identifiers in
-`core/synthesis.py` if a rename is required, new
-`verification/tests/test_acceptance_matrix.py`.
+`src/health_agent_infra/core/synthesis.py` if a rename is required,
+new `verification/tests/test_acceptance_matrix.py`.
 
 **Acceptance:** rename consistent across all surfaces; matrix
 contract test green; v0.1.13 cycle is the canonical naming source
@@ -498,12 +615,14 @@ reconciliation v0.1.13+ item from v0.1.12 CARRY_OVER §3 has a row.
 | **Pytest narrow gate** | `uv run pytest verification/tests -W error::pytest.PytestUnraisableExceptionWarning` exits 0 (current ship-gate, must remain green) |
 | **Mypy** | `uvx mypy src/health_agent_infra` reports 0 errors (held from v0.1.12) |
 | **Bandit** | `bandit -ll`: 0 unsuppressed Medium/High; Low ≤ 50 (D10 settled threshold) |
-| **Capabilities byte-stability** | `hai capabilities --json` deterministic (W-29-prep regression test green) |
+| **Capabilities byte-stability** | `hai capabilities --json` deterministic against the post-W-AB/W-AE baseline (W-29-prep regression test green; baseline frozen AFTER intentional v0.1.13 surface changes per F-PLAN-11 sequencing) |
 | **Persona matrix** | 12 personas, ≤ 1 finding total post-cycle, all with `expected_actions` declared (W-AK) |
-| **Demo regression** | `hai demo start --persona p1_dom_baseline && hai daily` reaches `synthesized` (W-Vb end-to-end) |
-| **Onboarding wall-clock** | New user `pipx install` → `hai init` → first `synthesized` plan: ≤ 5 minutes (W-AA) |
+| **Demo regression** | `hai demo start --persona <slug> && hai daily` reaches `synthesized` for **each** of P1 + P4 + P5 (W-Vb end-to-end ship-set; P9/P11/P12 fork-deferred to v0.1.14 W-Vb-3 per F-PLAN-06) |
+| **Onboarding deterministic test gate** | `test_init_onboarding_flow.py` green: stubbed-input + stubbed-intervals.icu run reaches `synthesized` (W-AA; this is the ship-gate, not the wall-clock SLO per F-PLAN-08) |
+| **Onboarding operator demo SLO** | Target: new-user `pipx install` → `hai init` → `synthesized` plan ≤ 5 min on broadband + modern hardware. Documented in `reporting/docs/onboarding_slo.md` (new); manual demo protocol, NOT a CI gate |
 | **README smoke test** | `test_readme_quickstart_smoke` green (W-AF) |
-| **Regulated-claim lint** | `test_regulated_claim_lint` green; 0 violations in packaged skills (W-LINT) |
+| **Regulated-claim lint** | `test_regulated_claim_lint` green; `test_regulated_claim_exception_bounded` green (negative tests prove the exception path is non-loophole per F-PLAN-09); 0 violations in packaged skills under the strict regime (W-LINT) |
+| **intervals.icu triage doc** | `reporting/docs/intervals_icu_403_triage.md` exists in-tree and is cited from W-AE acceptance (per F-PLAN-10 — moved out of private memory note into versioned project artifact) |
 | **Codex IR verdict** | SHIP or SHIP_WITH_NOTES at empirical settling (3 rounds typical) |
 | **CHANGELOG.md** | v0.1.13 entry with full Added/Changed/Fixed sections |
 | **RELEASE_PROOF.md** | declares `tier: substantive` per CP3/D15 |
@@ -514,23 +633,25 @@ reconciliation v0.1.13+ item from v0.1.12 CARRY_OVER §3 has a row.
 
 | Risk | Likelihood | Impact | Mitigation |
 |---|---|---|---|
-| W-N-broader 50-site refactor reveals deeper connection-lifecycle bug requiring schema-touching fix | medium | scope-expand | Phase 0 D11 audit will surface before implementation; if found, escalate to substantive-substantive (cycle re-scope) |
-| W-Vb persona-replay reveals proposal-log shape gaps in current state-snapshot contract | medium | scope-expand | Implement P1 first as smoke test; if gap found, route through `cycle_proposals/CP7.md` (new) before continuing |
-| W-FBC-2 multi-domain rollout exposes design choice (option A vs B vs C) deferred at v0.1.12 design phase | medium | architectural-decision | Codex D14 round 1 must surface the deferred design call; if option B/C selected, add fingerprint-primitive sub-W-id |
-| W-LINT false positives blocking legitimate research/expert-explainer skill content | medium | UX | Documented exception path with provenance-citation requirement; runtime lint runs at CLI boundary, not skill-internal |
-| W-AA onboarding wall-clock SLO not met due to network-dependent intervals.icu pull | low | UX | SLO measures from `pipx install` start to first `synthesized`; if intervals.icu pull is slow, surface "still pulling" UX rather than fail SLO |
-| Post-W-29-prep boundary audit verdict says "do not split" | low | governance | acceptable outcome; v0.1.14 W-29 gates on the verdict per CP1 |
-| 16-workstream scope exceeds single-contributor 4-week budget | medium | timeline-slip | risk-driven scope cuts per tactical_plan §9: cut W-AC + W-AF first (saves 2-3d); cut W-AK second (saves 1d); never cut W-N-broader / W-FBC-2 / W-Vb (inherited release-blocker shape) |
+| W-N-broader 50-site refactor reveals deeper connection-lifecycle bug requiring schema-touching fix | medium | scope-expand | Phase 0 D11 audit will surface before implementation; authoritative file list derived from a fresh `pytest -W error::Warning` run at Phase 0 open per F-PLAN-04; if found, escalate to substantive-substantive (cycle re-scope) |
+| W-Vb persona-replay reveals proposal-log shape gaps in current state-snapshot contract | medium | scope-expand | Implement P1 first as smoke test; if gap found, route through `cycle_proposals/CP7.md` (new) before continuing P4/P5; never route to P9/P11/P12 mid-cycle (they are honestly fork-deferred to v0.1.14 W-Vb-3 per F-PLAN-06) |
+| W-FBC-2 multi-domain rollout exposes design choice (option A default vs option B fork) | medium | architectural-decision | Per F-PLAN-07 + the design doc at `reporting/docs/supersede_domain_coverage.md`: option A is the default; option B is the only documented fork available; option C is explicitly out-of-v0.1.x scope. If option B is selected at design phase, add the per-domain fingerprint-primitive sub-W-id; otherwise option A carries cleanly |
+| W-LINT exception path becomes a wholesale loophole | low | safety / regulatory | Four-constraints-all-hold gate per F-PLAN-09 (allowlist + citation + quoted-context + ordinary-prose-still-blocked) + `test_regulated_claim_exception_bounded` negative test asserting each individual constraint fails when violated. CLI rendering boundary always runs strict regime regardless of skill provenance |
+| W-AA onboarding wall-clock SLO conflict between deterministic gate + operator SLO | low | governance / UX | SLO split per F-PLAN-08: deterministic test gate (stubbed) is the ship-gate; operator wall-clock SLO is a documented target with "still pulling" allowed degraded state, recorded in `reporting/docs/onboarding_slo.md` and not a CI gate |
+| W-29-prep capabilities byte-stability collides with W-AB/W-AE intentional CLI surface changes | medium | hidden-coupling | Per F-PLAN-11 sequencing: W-AB + W-AE land FIRST; W-29-prep snapshot baseline frozen AFTER. The regression test then catches v0.1.14 W-29 split-induced drift (its actual purpose), not v0.1.13's intentional surface growth |
+| Post-W-29-prep boundary audit verdict says "do not split" | low | governance | Acceptable outcome; v0.1.14 W-29 gates on the verdict per CP1 |
+| 17-workstream scope exceeds single-contributor 5-week budget (revised count per F-PLAN-01) | medium | timeline-slip | Risk-driven scope cuts per tactical_plan §9: cut W-AC + W-AF first (saves 2-3d); cut W-AK second (saves 1d); never cut W-N-broader / W-FBC-2 / W-Vb (inherited release-blocker shape) |
 
 ---
 
 ## 5. Effort estimate
 
-**22-32 days, single-contributor.** Largest cycle in the v0.1.x
-track if all 16 W-ids land. Realistic ship: **5-7 calendar weeks**
-from open assuming 4 hours/day average.
+**22.5-32.5 days, single-contributor** (revised at D14 round 1
+per F-PLAN-01 — W-CARRY's 0.5d roll-up included). Largest cycle in
+the v0.1.x track if all 17 W-ids land. Realistic ship: **5-7
+calendar weeks** from open assuming 4 hours/day average.
 
-If risk-driven cuts engage, effort drops to **18-25 days** (cut
+If risk-driven cuts engage, effort drops to **18.5-25.5 days** (cut
 W-AC + W-AF + W-AK).
 
 ---
