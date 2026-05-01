@@ -19,7 +19,7 @@ reporting/plans/
 ├── success_framework_v1.md            ← active value-measurement
 ├── risks_and_open_questions.md        ← active risk + decision register
 ├── v0_1_4/ … v0_1_13/                 ← per-cycle artifacts (frozen post-ship)
-├── v0_1_14/                           ← in-flight cycle (PLAN drafted; D14 plan-audit pending)
+├── v0_1_14/                           ← implementation complete; pending Codex IR + PyPI publish
 ├── post_v0_1_10/                      ← between-cycles work (demo, Phase 4 audit)
 ├── post_v0_1_13/                      ← post-v0.1.13 strategic research + audit chain + CPs
 ├── future_strategy_2026-04-29/        ← Claude/Codex deep strategy review
@@ -118,9 +118,12 @@ Cycle directories preserve their own history:
 - `v0_1_13/` — onboarding + W-Vb/W-N-broader/W-FBC-2 closure +
   governance prerequisites (shipped 2026-04-30, **largest cycle in
   the v0.1.x track at 17 W-ids**).
-- `v0_1_14/` — eval substrate + cli.py split + W-Vb-3 + 5 P0/P1
-  additions from post-v0.1.13 strategic research (14 W-ids; PLAN.md
-  drafted 2026-05-01; D14 plan-audit pending).
+- `v0_1_14/` — eval substrate + provenance + recovery path
+  (W-PROV-1 + W-AJ + W-AL + W-BACKUP + W-EXPLAIN-UX + W-FRESH-EXT +
+  W-DOMAIN-SYNC + W-AN closed; W-AH / W-AI / W-Vb-3 partial-closed
+  to v0.1.15; W-2U-GATE / W-29 deferred to v0.1.15). Implementation
+  complete 2026-05-01; pending Codex IR + PyPI publish. D14 settled
+  at round 4 PLAN_COHERENT.
 
 Each cycle directory typically contains:
 - `PLAN.md` — cycle scope.

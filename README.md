@@ -14,7 +14,7 @@ it is the boundary that lets an LLM work over health data without
 owning the policy engine, the database, or the final write path.
 
 [![PyPI](https://img.shields.io/pypi/v/health-agent-infra)](https://pypi.org/project/health-agent-infra/)
-[![Tests](https://img.shields.io/badge/tests-2493_passing-green)](verification/tests/)
+[![Tests](https://img.shields.io/badge/tests-2552_passing-green)](verification/tests/)
 [![Python](https://img.shields.io/badge/python-3.11+-blue)](pyproject.toml)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
@@ -49,8 +49,8 @@ agent without handing the model unchecked authority over personal health data.
 |---|---|
 | Domains | 6: recovery, running, sleep, stress, strength, nutrition |
 | Skills | 14 packaged markdown skills, including `intent-router` and `expert-explainer` |
-| CLI contract | 56 annotated `hai` commands with mutation class, idempotency, JSON mode, exit codes, and agent-safety metadata |
-| State | 22 SQLite migrations, local-only by default |
+| CLI contract | 59 annotated `hai` commands with mutation class, idempotency, JSON mode, exit codes, and agent-safety metadata |
+| State | 23 SQLite migrations, local-only by default |
 | Synthesis | 10 X-rule evaluators across two phases, committed in one transaction |
 | Verification | 2493 passing tests, 12-persona harness, 5-path trusted-first-value acceptance matrix |
 

@@ -11,6 +11,80 @@ Per-release detail lives under `reporting/plans/<version>/`.
 
 ---
 
+## [0.1.14] - 2026-05-01
+
+> **Theme.** Eval substrate + provenance + recovery path. Ship
+> the source-row provenance type that v0.2.0 W52 / W58D
+> consume (W-PROV-1); the LLM-judge harness scaffold + calibration
+> eval schema for v0.2.2 W58J (W-AJ + W-AL); the second-user
+> recovery surface (W-BACKUP); and the W-EXPLAIN-UX maintainer-
+> substitute review pass against P13 (low-domain-knowledge
+> persona). Foreign-machine onboarding empirical proof (W-2U-GATE)
+> deferred to v0.1.15 at the pre-implementation gate per PLAN.md
+> §1.3.1 path 2.
+>
+> **Tier (per CP3 D15):** substantive (13 W-ids; 8 closed,
+> 3 partial-closed with named v0.1.15 destinations, 2 deferred,
+> 1 absorbed).
+>
+> **D14 plan-audit:** PLAN_COHERENT at round 4 with the
+> `12 → 7 → 3 → 1-nit → CLOSE` settling signature (23 findings
+> cumulative, all ACCEPT). Twice-validated for substantive PLANs
+> at the 14-17 W-id range.
+
+### Added
+- W-PROV-1 source-row locator value type + recovery R6 demo.
+  Migration 023, `core/provenance/locator.py`,
+  `reporting/docs/source_row_provenance.md`.
+- W-BACKUP `hai backup` / `hai restore` / `hai export` (3 new
+  top-level CLI subcommands), `core/backup/`,
+  `reporting/docs/recovery.md`.
+- W-AJ LLM-judge harness scaffold (`core/eval/judge_harness.py`).
+- W-AL calibration-eval schema (`core/eval/calibration_schema.py`),
+  `reporting/docs/calibration_eval_design.md`.
+- W-AI 30 judge-adversarial fixtures (10 each: prompt_injection /
+  source_conflict / bias_probe).
+- W-AN `hai eval run --scenario-set <set>` flag.
+- W-EXPLAIN-UX P13 (low-domain-knowledge) persona,
+  `reporting/docs/explain_ux_review_2026_05.md` with 8 findings +
+  6 v0.2.0 W52 prose obligations + carries-forward-to-v0.1.15
+  section.
+- W-DOMAIN-SYNC `verification/tests/test_domain_sync_contract.py`.
+- W-FRESH-EXT extension for W-id refs across summary surfaces +
+  persona-runner pre-flight cleanup hook (F-PHASE0-01 absorption).
+- W-Vb-3 demo fixtures for P2 / P3 / P6 (cumulative 6 of 12 across
+  v0.1.13 + v0.1.14; remaining 6 fork-deferred to v0.1.15 W-Vb-4).
+- README opener: "domain-pinned AgentSpec for personal health"
+  framing per OQ-J option 2.
+- 5 cycle proposals at `reporting/plans/post_v0_1_13/cycle_proposals/`.
+
+### Deferred (with named destinations)
+- W-2U-GATE foreign-machine onboarding empirical proof →
+  v0.1.15 (no candidate at gate; PLAN §1.3.1 path 2).
+- W-29 cli.py 9217-line mechanical split → v0.1.15.
+- W-AH 35 → 120+ scenario expansion → v0.1.15 W-AH-2.
+- W-AI `hai eval review` CLI → v0.1.15 W-AI-2.
+- W-Vb-3 P7..P12 demo-replay → v0.1.15 W-Vb-4.
+
+### Test surface
+- 2493 → 2552 (+59) tests passing.
+- pytest broader (-W error::Warning): held clean since v0.1.13 ship.
+- mypy: 0 errors @ 127 source files.
+- bandit -ll: 46 Low / 0 Medium / 0 High.
+- ruff: clean.
+- Capabilities byte-stability snapshots regenerated for the
+  named-change-accepted W-AN + W-BACKUP + W-PROV-1 surfaces.
+
+### Documentation
+- `reporting/docs/source_row_provenance.md` (new).
+- `reporting/docs/recovery.md` (new).
+- `reporting/docs/explain_ux_review_2026_05.md` (new).
+- `reporting/docs/calibration_eval_design.md` (new).
+- `reporting/docs/agent_cli_contract.md` regenerated (59
+  commands).
+
+---
+
 ## [0.1.13] - 2026-04-30
 
 > **Theme.** Largest cycle in the v0.1.x track at 17 workstreams.

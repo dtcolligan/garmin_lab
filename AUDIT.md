@@ -4,6 +4,28 @@ Health Agent Infra uses structured Codex review before substantive releases.
 The review is not a badge; the artifact is the value. This file indexes the
 existing release-cycle audit records so they are visible from the repo root.
 
+## v0.1.14 - 2026-05-01
+
+Eval substrate + provenance + recovery path. 13 W-ids at PLAN open
+(post-W-2U-GATE-defer): 8 closed, 3 partial-closed with named v0.1.15
+destinations (W-AH / W-AI / W-Vb-3), 2 deferred (W-2U-GATE / W-29),
+1 absorbed (W-AM into W-AI). Pre-implementation gate invoked PLAN.md
+§1.3.1 path 2 to defer W-2U-GATE foreign-machine onboarding empirical
+proof (no candidate on file at gate). **Tier:** substantive.
+
+| Round | Codex response | Maintainer response |
+|---|---|---|
+| Plan-audit 1-4 | [`codex_plan_audit_response.md`](reporting/plans/v0_1_14/codex_plan_audit_response.md) (+ rounds 2-4; settled at PLAN_COHERENT round 4 with 12 → 7 → 3 → 1-nit → CLOSE signature; 23 cumulative findings, all ACCEPT) | rounds 1-4 |
+| Implementation review | [`codex_implementation_review_response.md`](reporting/plans/v0_1_14/codex_implementation_review_response.md) (pending Codex; prompt at [`codex_implementation_review_prompt.md`](reporting/plans/v0_1_14/codex_implementation_review_prompt.md)) | pending |
+
+**Outcome:** pending Codex IR. Test surface: 2552 passed, 3 skipped
+(+59 vs v0.1.13). All ship gates green: pytest broader, mypy 0 @ 127,
+bandit 46 Low / 0 Med / 0 High, ruff clean, capabilities byte-stable
+post-snapshot regen for the named-change-accepted W-AN + W-BACKUP +
+W-PROV-1 surfaces. Release proof:
+[`reporting/plans/v0_1_14/RELEASE_PROOF.md`](reporting/plans/v0_1_14/RELEASE_PROOF.md).
+Report: [`reporting/plans/v0_1_14/REPORT.md`](reporting/plans/v0_1_14/REPORT.md).
+
 ## v0.1.13 - 2026-04-30
 
 Largest cycle in the v0.1.x track at 17 workstreams. Three parallel themes:
