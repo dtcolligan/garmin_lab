@@ -40,7 +40,7 @@ This file is a high-level pointer; for actual scope, read those plans.
 ## Next
 
 - **v0.1.14 — eval substrate + cli.py split + W-Vb-3 + 5 P0/P1
-  additions (14 W-ids, 30-40 days).** Detailed scope in
+  additions (14 W-ids, 32-45 days).** Detailed scope in
   `reporting/plans/tactical_plan_v0_1_x.md` §5; full PLAN under
   D14 plan-audit before opening.
 - **v0.2.0 — weekly review + deterministic factuality (Path A

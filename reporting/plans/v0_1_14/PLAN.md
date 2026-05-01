@@ -441,7 +441,7 @@ and exempted explicitly.
 | Risk | Trigger | Mitigation |
 |---|---|---|
 | W-2U-GATE surfaces structural P0 blocker | Foreign user cannot reach `synthesized` | Cycle reshapes around fix per §1.3 sequencing constraint; downstream work moves to v0.1.15 without prejudice; treat as good outcome |
-| W-2U-GATE candidate doesn't materialize | OQ-I unresolved by Phase 0 gate | §1.3.1 candidate-absence procedure: hold cycle / defer W-2U-GATE to v0.1.15 / re-author PLAN + re-D14. Maintainer chooses |
+| W-2U-GATE candidate doesn't materialize | OQ-I unresolved by **pre-implementation gate** (R3-02 corrected timing per §1.3.1 r2 update) | §1.3.1 candidate-absence procedure: **hold W-2U-GATE / implementation** (Phase 0 bug-hunt may proceed) / defer W-2U-GATE to v0.1.15 / re-author PLAN + re-D14. Maintainer chooses |
 | W-PROV-1 schema design needs major change | Recovery R-rule demo reveals locator type insufficient (e.g., needs to span multiple tables) | v0.1.14 splits into substrate (W-PROV-1 only) + features (rest); v0.2.0 W52 absorbs the redesign |
 | W-29 split breaks capabilities snapshot | Byte-stability regression test fails post-split | W-29-prep boundary table + green verdict already cleared this; rollback the split if regression appears at IR. Note §3 ship-gate diff classes: W-29 must be **byte-identical** (zero diff allowed) |
 | W-Vb-3 partial-closes again | Same shape as v0.1.13 (3-at-a-time) | Honest partial-closure naming with v0.1.15 destination per AGENTS.md "Honest partial-closure naming" pattern; W-Vb-3 owns P2-P12 only (per F-PLAN-06) |
@@ -537,6 +537,16 @@ strategic_plan_v1.md Wave 3 (F-PLAN-11 corrected the original
 ---
 
 ## 7. Provenance
+
+> **Reconciliation row-label citation convention (per F-PLAN-R3-03):**
+> Throughout this PLAN and tactical_plan_v0_1_x.md, citations to
+> reconciliation row labels (A1..A12, L1..L6, C1..C10, D1..D4) refer
+> to `reporting/plans/future_strategy_2026-04-29/reconciliation.md`
+> (the 2026-04-29 Claude/Codex deep-strategy review) unless
+> otherwise stated with a full path. The 2026-05-01
+> `reporting/plans/post_v0_1_13/reconciliation.md` file (which
+> consolidates the post-v0.1.13 strategic-research audit chain) does
+> not use these row labels.
 
 This PLAN is the direct output of:
 

@@ -794,6 +794,17 @@ substance, downstream split per reconciliation C6).
 
 ## 13. Provenance + evolution
 
+> **Reconciliation row-label citation convention (per v0.1.14 D14
+> round 3 F-PLAN-R3-03):** Throughout this tactical plan and
+> v0_1_14/PLAN.md, citations to reconciliation row labels
+> (A1..A12, L1..L6, C1..C10, D1..D4) refer to
+> `reporting/plans/future_strategy_2026-04-29/reconciliation.md`
+> (the 2026-04-29 Claude/Codex deep-strategy review) unless
+> otherwise stated with a full path. The 2026-05-01
+> `reporting/plans/post_v0_1_13/reconciliation.md` file (which
+> consolidates the post-v0.1.13 strategic-research audit chain) does
+> not use these row labels.
+
 **Authored:** 2026-04-27 by Claude in extended planning session.
 
 **Sources:**
