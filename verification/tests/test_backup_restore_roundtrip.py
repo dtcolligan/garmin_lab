@@ -325,6 +325,123 @@ def test_restore_refuses_jsonl_entry_without_jsonl_extension(tmp_path):
 # F-IR-05: stale-extra-log clearing for point-in-time restore
 # ---------------------------------------------------------------------------
 
+def _build_bundle_missing_member(tmp_path, *, drop_db: bool, drop_jsonl: bool):
+    """Build a bundle whose tar is missing required members but whose
+    manifest still references them. Used for F-IR-R2-01 preflight tests.
+    """
+
+    import tarfile
+    import tempfile
+
+    src_db = tmp_path / "src" / "state.db"
+    src_db.parent.mkdir(parents=True, exist_ok=True)
+    head = _seed_state_db_with_one_row(src_db)
+    src_audit = tmp_path / "src" / "audit"
+    _seed_jsonl(src_audit)
+
+    bundle = tmp_path / "incomplete.tar.gz"
+    manifest = {
+        "bundle_format_version": "1",
+        "hai_version": "0.1.14-incomplete",
+        "schema_version": head,
+        "created_at": "2026-05-01T00:00:00+00:00",
+        "state_db_size_bytes": src_db.stat().st_size,
+        "jsonl_files": ["recommendation_log.jsonl", "review_outcomes.jsonl"],
+    }
+    with tarfile.open(bundle, "w:gz") as tf:
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".json", delete=False, encoding="utf-8"
+        ) as mfh:
+            json.dump(manifest, mfh, sort_keys=True)
+            mfh_path = Path(mfh.name)
+        try:
+            tf.add(mfh_path, arcname="manifest.json")
+        finally:
+            mfh_path.unlink(missing_ok=True)
+        if not drop_db:
+            tf.add(src_db, arcname="state.db")
+        if not drop_jsonl:
+            for log in src_audit.glob("*.jsonl"):
+                tf.add(log, arcname=f"jsonl/{log.name}")
+        else:
+            # Drop only review_outcomes.jsonl so the manifest-vs-tar
+            # mismatch is one specific listed log.
+            tf.add(
+                src_audit / "recommendation_log.jsonl",
+                arcname="jsonl/recommendation_log.jsonl",
+            )
+    return bundle, head
+
+
+def test_restore_refuses_missing_state_db_without_mutating_destination(tmp_path):
+    """F-IR-R2-01: a bundle missing state.db must not delete stale
+    destination logs before refusing."""
+
+    bundle, head = _build_bundle_missing_member(
+        tmp_path, drop_db=True, drop_jsonl=False,
+    )
+    dst_db = tmp_path / "dst" / "state.db"
+    dst_audit = tmp_path / "dst" / "audit"
+    dst_audit.mkdir(parents=True, exist_ok=True)
+    stale = dst_audit / "stale.jsonl"
+    stale.write_text(
+        json.dumps({"stale": True}) + "\n", encoding="utf-8"
+    )
+
+    with pytest.raises(BackupError, match="state.db"):
+        restore_backup(
+            bundle_path=bundle,
+            state_db_path=dst_db,
+            base_dir=dst_audit,
+            expected_schema_version=head,
+        )
+
+    # Destination unmutated.
+    assert stale.exists(), (
+        "F-IR-R2-01: stale destination log was deleted before restore "
+        "verified bundle completeness"
+    )
+    assert not dst_db.exists()
+
+
+def test_restore_refuses_manifest_listed_jsonl_missing_from_tar(tmp_path):
+    """F-IR-R2-01: a manifest-listed JSONL member that is absent from
+    the tar must refuse before mutation; the same-named stale log at
+    the destination must not be left in place."""
+
+    bundle, head = _build_bundle_missing_member(
+        tmp_path, drop_db=False, drop_jsonl=True,
+    )
+    dst_db = tmp_path / "dst" / "state.db"
+    dst_audit = tmp_path / "dst" / "audit"
+    dst_audit.mkdir(parents=True, exist_ok=True)
+    # Pre-populate the SAME-NAMED stale log at destination — pre-fix
+    # this would have been left in place because it's in the manifest's
+    # bundle_logs set so the stale-clearing loop skipped it.
+    stale_same_name = dst_audit / "review_outcomes.jsonl"
+    stale_same_name.write_text(
+        json.dumps({"old_run": True}) + "\n", encoding="utf-8"
+    )
+
+    with pytest.raises(BackupError, match="review_outcomes.jsonl"):
+        restore_backup(
+            bundle_path=bundle,
+            state_db_path=dst_db,
+            base_dir=dst_audit,
+            expected_schema_version=head,
+        )
+
+    # Destination unmutated.
+    assert not dst_db.exists()
+    # Stale same-name still has its old content (refusal happened
+    # before any mutation).
+    contents = json.loads(stale_same_name.read_text(encoding="utf-8").strip())
+    assert contents == {"old_run": True}, (
+        "F-IR-R2-01: same-named stale log was modified despite "
+        "refused restore"
+    )
+
+
 def test_restore_clears_stale_jsonl_files_not_in_bundle(tmp_path):
     """Restore is a point-in-time operation. Stale audit logs at the
     destination that are not present in the bundle's manifest must be

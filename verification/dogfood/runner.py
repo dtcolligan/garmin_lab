@@ -820,23 +820,45 @@ def _preflight_demo_session_check() -> None:
     demo's scratch state. v0.1.14 Phase 0 caught this on a fresh sweep;
     the runner pre-flight prevents recurrence.
 
-    F-IR-03 (Codex IR round 1): the original implementation only
-    refused on orphan markers, missing the high-risk **valid active
-    marker** case. The fix below refuses on any active marker
-    (orphan or valid), naming both kinds in the failure message.
+    Three failure modes refuse with ``SystemExit(2)``:
 
-    Raises ``SystemExit(2)`` if any demo session is active. Returns
-    silently otherwise.
+    1. **Valid active marker** (F-IR-03 round 1): real session in
+       progress; the maintainer must end it before running personas.
+    2. **Corrupt or schema-mismatched marker** (F-IR-R2-02 round 2):
+       ``get_active_marker()`` raises ``DemoMarkerError``. The fix
+       routes through ``cleanup_orphans()`` and refuses; without this
+       the preflight would propagate ``DemoMarkerError`` instead of
+       ``SystemExit(2)``, leaving the marker in place.
+    3. **Orphan marker** (corrupted or scratch-root-missing): caught
+       by ``cleanup_orphans()`` returning a non-empty list.
+
+    Returns silently when no marker is present.
     """
 
     from health_agent_infra.core.demo.session import (
+        DemoMarkerError,
         cleanup_orphans,
         get_active_marker,
         is_demo_active,
     )
 
     if is_demo_active():
-        marker = get_active_marker()
+        # F-IR-R2-02: get_active_marker raises DemoMarkerError on
+        # corrupt JSON / schema mismatch / scratch-root-missing.
+        # Catch it, route through cleanup_orphans, and refuse via
+        # SystemExit(2) so the W-FRESH-EXT acceptance contract holds.
+        try:
+            marker = get_active_marker()
+        except DemoMarkerError as exc:
+            cleaned = cleanup_orphans()
+            print(
+                f"verification/dogfood/runner: refusing — demo marker "
+                f"is invalid ({exc}). cleanup_orphans removed: "
+                f"{cleaned!r}. Re-run after confirming no live demo "
+                f"session needed those scratch dirs.",
+                file=sys.stderr,
+            )
+            raise SystemExit(2) from exc
         marker_id = marker.marker_id if marker is not None else "<unparseable>"
         print(
             f"verification/dogfood/runner: refusing to start with an "
@@ -850,9 +872,9 @@ def _preflight_demo_session_check() -> None:
         raise SystemExit(2)
 
     # Even when no marker is active by reading the marker file, sweep
-    # for unreadable / partially-written markers; refuse if cleanup
-    # finds any. This catches the narrow "marker file got corrupted"
-    # path that `is_demo_active` returns False for.
+    # for orphan markers (e.g., a partial write that left a marker
+    # but no scratch root). This catches edge cases is_demo_active
+    # returns False for.
     cleaned = cleanup_orphans()
     if cleaned:
         print(

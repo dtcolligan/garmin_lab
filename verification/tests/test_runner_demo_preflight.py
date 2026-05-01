@@ -56,3 +56,69 @@ def test_preflight_passes_when_no_marker(tmp_path, monkeypatch):
 
     # No session opened — should return without raising.
     _preflight_demo_session_check()
+
+
+def test_preflight_refuses_on_corrupt_marker_json(tmp_path, monkeypatch):
+    """F-IR-R2-02: a marker file with corrupt JSON must cause SystemExit(2),
+    not propagate DemoMarkerError."""
+
+    import json as _json
+
+    cache_root = tmp_path / "cache"
+    monkeypatch.setenv("XDG_CACHE_HOME", str(cache_root))
+    monkeypatch.setenv("HOME", str(tmp_path / "home"))
+
+    # Hand-write a corrupt marker file at the demo_marker_path location.
+    from health_agent_infra.core.demo.session import demo_marker_path
+    marker = demo_marker_path()
+    marker.parent.mkdir(parents=True, exist_ok=True)
+    marker.write_text("{not valid json", encoding="utf-8")
+    assert marker.exists()
+
+    from verification.dogfood.runner import _preflight_demo_session_check
+
+    with pytest.raises(SystemExit) as exc:
+        _preflight_demo_session_check()
+    assert exc.value.code == 2
+
+
+def test_preflight_refuses_on_marker_with_missing_scratch_root(
+    tmp_path, monkeypatch
+):
+    """F-IR-R2-02: a valid-looking marker pointing at a missing scratch
+    root raises DemoMarkerError from get_active_marker. The preflight
+    must catch + route through cleanup + SystemExit(2)."""
+
+    import json as _json
+
+    cache_root = tmp_path / "cache"
+    monkeypatch.setenv("XDG_CACHE_HOME", str(cache_root))
+    monkeypatch.setenv("HOME", str(tmp_path / "home"))
+
+    from health_agent_infra.core.demo.session import (
+        DEMO_MARKER_SCHEMA_VERSION,
+        demo_marker_path,
+    )
+    marker = demo_marker_path()
+    marker.parent.mkdir(parents=True, exist_ok=True)
+    nowhere = tmp_path / "nope"  # deliberately not created
+    marker.write_text(
+        _json.dumps({
+            "schema_version": DEMO_MARKER_SCHEMA_VERSION,
+            "marker_id": "demo_test_corrupt",
+            "scratch_root": str(nowhere),
+            "db_path": str(nowhere / "state.db"),
+            "base_dir_path": str(nowhere / "base"),
+            "config_dir_path": str(nowhere / "config"),
+            "started_at": "2026-05-01T00:00:00+00:00",
+            "persona_slug": None,
+        }),
+        encoding="utf-8",
+    )
+    assert marker.exists()
+
+    from verification.dogfood.runner import _preflight_demo_session_check
+
+    with pytest.raises(SystemExit) as exc:
+        _preflight_demo_session_check()
+    assert exc.value.code == 2

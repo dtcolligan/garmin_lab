@@ -30,12 +30,12 @@
 
 ## 2. Quality gates
 
-### 2.1 Test surface (post-IR-round-1 fixes)
+### 2.1 Test surface (post-IR-round-2 fixes)
 
 | Gate | Target | Result |
 |---|---|---|
-| Pytest narrow | ≥ 2540 | **2561 passed, 3 skipped, 0 failed** (post-IR-r1 fix-and-reland; +9 from F-IR-01 / F-IR-02 / F-IR-03 / F-IR-04 / F-IR-05 regression tests) |
-| Pytest broader (-W error::Warning) | clean | **2561 passed, 3 skipped, 0 failed, 0 errors** (F-IR-01 fixed: closed sqlite handles in W-PROV-1 tests via try/finally) |
+| Pytest narrow | ≥ 2540 | **2565 passed, 3 skipped, 0 failed** (post-IR-r2 fix-and-reland; +13 vs round 0's 2552 from new regression tests covering F-IR-01..07 + F-IR-R2-01..02) |
+| Pytest broader (-W error::Warning) | clean | **2565 passed, 3 skipped, 0 failed, 0 errors** |
 | Mypy | 0 errors | **0 errors @ 127 source files** |
 | Bandit -ll | 0 Med/High; ≤ 50 Low | **46 Low / 0 Medium / 0 High** |
 | Ruff | clean | **All checks passed** |

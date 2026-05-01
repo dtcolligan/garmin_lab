@@ -209,13 +209,80 @@ def restore_backup(
                 f"outside base_dir."
             )
 
+    # F-IR-R2-01: validate bundle completeness BEFORE any destination
+    # mutation. Round-1 cleared stale destination logs first, then
+    # discovered missing tar members — leaving the destination
+    # mutated by a refused restore. The fix below preflight-reads
+    # every required member into memory (state.db + every manifest-
+    # listed jsonl), and only performs destination writes (clearing
+    # stale + writing new) once every member is confirmed present.
+    state_db_path.parent.mkdir(parents=True, exist_ok=True)
+    base_dir.mkdir(parents=True, exist_ok=True)
+
+    with tarfile.open(bundle_path, "r:gz") as tf:
+        # Preflight 1: state.db must exist and be readable.
+        try:
+            db_member = tf.getmember(_DB_NAME_IN_BUNDLE)
+        except KeyError as exc:
+            raise BackupError(
+                f"bundle missing {_DB_NAME_IN_BUNDLE!r}; refusing "
+                f"before any destination mutation"
+            ) from exc
+        db_fh = tf.extractfile(db_member)
+        if db_fh is None:
+            raise BackupError(
+                f"could not read {_DB_NAME_IN_BUNDLE} from bundle; "
+                f"refusing before any destination mutation"
+            )
+        db_payload = db_fh.read()
+
+        # Preflight 2: every manifest-listed jsonl member must exist
+        # AND be readable. Per maintainer disposition (Codex round-2
+        # OQ): manifest entries are the bundle's contract; absence
+        # is malformed and refuses the whole restore.
+        jsonl_payloads: dict[str, bytes] = {}
+        for basename in manifest.jsonl_files:
+            arcname = f"{_JSONL_DIR_IN_BUNDLE}/{basename}"
+            try:
+                jl_member = tf.getmember(arcname)
+            except KeyError as exc:
+                raise BackupError(
+                    f"bundle manifest lists {basename!r} but tar "
+                    f"member {arcname!r} is missing; refusing before "
+                    f"any destination mutation"
+                ) from exc
+            jl_fh = tf.extractfile(jl_member)
+            if jl_fh is None:
+                raise BackupError(
+                    f"could not read {arcname!r} from bundle; refusing "
+                    f"before any destination mutation"
+                )
+            jsonl_payloads[basename] = jl_fh.read()
+
+    # Preflight 3: every destination write path stays under base_dir
+    # (defence-in-depth alongside the earlier basename validation).
+    base_dir_resolved = base_dir.resolve()
+    for basename in manifest.jsonl_files:
+        dest = (base_dir / basename).resolve()
+        try:
+            dest.relative_to(base_dir_resolved)
+        except ValueError as exc:
+            raise BackupError(
+                f"bundle restore would write outside base_dir "
+                f"({dest} not under {base_dir_resolved}); refusing "
+                f"before any destination mutation"
+            ) from exc
+
+    # Preflight passed. From here, every write is committed; refusal
+    # paths above ensured no destination mutation occurs on
+    # malformed bundles.
+
     # F-IR-05: clear stale `*.jsonl` files at the destination so
     # restore is a true point-in-time restore. Existing JSONL files
     # not present in the bundle's manifest would otherwise leak
     # between backups (older state.db + newer audit logs is incoherent).
-    base_dir.mkdir(parents=True, exist_ok=True)
     bundle_logs = set(manifest.jsonl_files)
-    for existing in sorted(base_dir.iterdir()) if base_dir.exists() else []:
+    for existing in sorted(base_dir.iterdir()):
         if (
             existing.is_file()
             and existing.suffix == ".jsonl"
@@ -223,43 +290,15 @@ def restore_backup(
         ):
             existing.unlink()
 
-    state_db_path.parent.mkdir(parents=True, exist_ok=True)
+    # state.db
+    with state_db_path.open("wb") as out:
+        out.write(db_payload)
 
-    with tarfile.open(bundle_path, "r:gz") as tf:
-        # state.db
-        try:
-            db_member = tf.getmember(_DB_NAME_IN_BUNDLE)
-        except KeyError as exc:
-            raise BackupError(
-                f"bundle missing {_DB_NAME_IN_BUNDLE!r}"
-            ) from exc
-        db_fh = tf.extractfile(db_member)
-        if db_fh is None:
-            raise BackupError(f"could not read {_DB_NAME_IN_BUNDLE} from bundle")
-        with state_db_path.open("wb") as out:
-            out.write(db_fh.read())
-
-        # JSONL files (already validated above for safe basenames).
-        for basename in manifest.jsonl_files:
-            arcname = f"{_JSONL_DIR_IN_BUNDLE}/{basename}"
-            try:
-                jl_member = tf.getmember(arcname)
-            except KeyError:
-                continue  # missing optional log file — non-fatal
-            jl_fh = tf.extractfile(jl_member)
-            if jl_fh is None:
-                continue
-            dest = (base_dir / basename).resolve()
-            # Defence-in-depth: ensure resolved dest stays under base_dir.
-            try:
-                dest.relative_to(base_dir.resolve())
-            except ValueError as exc:
-                raise BackupError(
-                    f"bundle restore would write outside base_dir "
-                    f"({dest} not under {base_dir.resolve()}); refusing"
-                ) from exc
-            with dest.open("wb") as out:
-                out.write(jl_fh.read())
+    # JSONL files
+    for basename, payload in jsonl_payloads.items():
+        dest = base_dir / basename
+        with dest.open("wb") as out:
+            out.write(payload)
 
     return manifest
 
