@@ -1,11 +1,13 @@
 # State Model v1
 
-Status: **authoritative** for the shipped `v0.1.8` runtime.
-
-The source of truth is the live SQLite schema under
-`src/health_agent_infra/core/state/migrations/001..021.sql`. This
-document is the human-readable map of that schema and of the runtime
-rules that sit around it.
+Status: human-readable map of the v1 runtime state model. The
+**source of truth is the live SQLite schema** under
+`src/health_agent_infra/core/state/migrations/`. This document was
+written against the v0.1.8 surface and may lag as later releases
+add migrations (023 live as of v0.1.14.1: `022_daily_plan_state_fingerprint`,
+`023_source_row_locator`). Trust the migration files for the
+authoritative shape; trust this doc for the human-readable
+narrative + invariants.
 
 ## Purpose
 

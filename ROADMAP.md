@@ -12,20 +12,31 @@ This file is a high-level pointer; for actual scope, read those plans.
 
 ## Now
 
-- **v0.1.14 IR CLOSED at round 3 SHIP_WITH_NOTES; pending PyPI publish (2026-05-01).**
-  13 W-ids at PLAN open (post-W-2U-GATE-defer): 8 closed, 3 partial-
-  closed with named v0.1.15 destinations (W-AH / W-AI / W-Vb-3),
-  2 deferred (W-2U-GATE / W-29), 1 absorbed (W-AM into W-AI).
-  Substrate-first sequencing: W-PROV-1 source-row locator, W-AJ
-  judge-harness scaffold, W-AL FActScore-aware calibration schema —
-  v0.2.0 W52 + W58D + v0.2.2 W58J consume these without re-design.
-  Plus W-BACKUP `hai backup` / `hai restore` / `hai export` recovery
-  path; W-EXPLAIN-UX maintainer-substitute review with 8 findings +
-  6 v0.2.0 W52 prose obligations + carries-forward-to-v0.1.15
-  section; W-DOMAIN-SYNC contract test; W-FRESH-EXT extension +
-  F-PHASE0-01 persona-runner pre-flight absorption. D14 settled at
-  round 4 with the 12 → 7 → 3 → 1-nit → CLOSE signature
-  (twice-validated). Test surface: 2552 passed (+59 vs v0.1.13).
+- **v0.1.14.1 shipped (2026-05-02).** Hardening cycle: Garmin-live
+  unreliability surfaced as a structured capabilities signal. Single
+  workstream (W-GARMIN-MANIFEST-SIGNAL). `hai capabilities --json`
+  exposes `commands[hai pull].flags[--source].choice_metadata.garmin_live.reliability == "unreliable"`
+  (plus `reason` + `prefer_instead`); `_resolve_pull_source` emits a
+  stderr warning at resolution time when the resolved source is
+  `garmin_live`. Purely additive — manifest `schema_version` unchanged.
+  Audit chain abbreviated per D15 hardening latitude (no external
+  Codex IR). Test surface: 2581 passed (+15 vs v0.1.14).
+  See [`reporting/plans/v0_1_14_1/RELEASE_PROOF.md`](reporting/plans/v0_1_14_1/RELEASE_PROOF.md).
+- **v0.1.14 shipped (2026-05-01).** Eval substrate + provenance +
+  recovery path. 13 W-ids at PLAN open (post-W-2U-GATE-defer): 8
+  closed, 3 partial-closed with named v0.1.15 destinations
+  (W-AH / W-AI / W-Vb-3), 2 deferred (W-2U-GATE / W-29), 1 absorbed
+  (W-AM into W-AI). Substrate-first sequencing: W-PROV-1 source-row
+  locator, W-AJ judge-harness scaffold, W-AL FActScore-aware
+  calibration schema — v0.2.0 W52 + W58D + v0.2.2 W58J consume these
+  without re-design. Plus W-BACKUP `hai backup` / `hai restore` /
+  `hai export` recovery path; W-EXPLAIN-UX maintainer-substitute
+  review with 8 findings + 6 v0.2.0 W52 prose obligations + carries-
+  forward-to-v0.1.15 section; W-DOMAIN-SYNC contract test;
+  W-FRESH-EXT extension + F-PHASE0-01 persona-runner pre-flight
+  absorption. D14 settled at round 4 with the 12 → 7 → 3 → 1-nit →
+  CLOSE signature (twice-validated). IR closed at round 3
+  SHIP_WITH_NOTES. Test surface: 2566 passed (+73 vs v0.1.13).
   See [`reporting/plans/v0_1_14/RELEASE_PROOF.md`](reporting/plans/v0_1_14/RELEASE_PROOF.md).
 - **v0.1.13 shipped (2026-04-30).** Largest cycle in the v0.1.x track
   at 17 workstreams. Closed all v0.1.12 named-deferred items
@@ -42,17 +53,31 @@ This file is a high-level pointer; for actual scope, read those plans.
 
 ## Next
 
-- **v0.1.15 — W-2U-GATE foreign-machine onboarding empirical proof
-  (carry-forward from v0.1.14 pre-implementation gate defer) +
-  W-29 cli.py mechanical split + W-AH-2 scenario expansion 35 →
-  120+ + W-AI-2 `hai eval review` CLI + W-Vb-4 persona-replay
-  residual P7..P12.** Cycle authoring after v0.1.14 ship.
+- **v0.1.15 — second-user candidate package / prep engineering.**
+  W-29 cli.py mechanical split (1 main + 11 handler-group, byte-stable
+  manifest) + W-AH-2 scenario expansion 35 → 120+ + W-AI-2
+  `hai eval review` CLI + W-AM-2 4 fork-deferred escalate-tagged
+  scenarios + W-Vb-4 persona-replay residual P7..P12 + post-v0.1.14
+  isolation/surgical-cleanup workstream (F-PV14-01 + F-PV14-02 from
+  `reporting/plans/post_v0_1_14/carry_over_findings.md`) if accepted
+  at PLAN open. **Ship claim:** "ready for foreign-machine onboarding
+  test," not second-user proven. Cycle authoring after v0.1.14.1
+  ship.
+- **v0.1.16 — non-maintainer foreign-machine onboarding empirical
+  proof.** W-2U-GATE recorded foreign-machine onboarding session
+  (carry-forward from v0.1.14 pre-implementation gate defer + the
+  v0.1.15 prep package), W-EXPLAIN-UX empirical foreign-user pass
+  consuming the v0.1.14 review doc's carries-forward-to-v0.1.15
+  section, P0 onboarding-fail fixes, P1 fixes or named deferrals.
+  **Ship claim:** non-maintainer reached `synthesized` under gate.
 - **v0.2.0 — weekly review + deterministic factuality (Path A
   release 1 of 4).** W52 weekly review with source-row locators
   (uses v0.1.14 W-PROV-1), W58D deterministic claim-block (blocking
   from day 1), W-FACT-ATOM atomic decomposition, plus 4 doc-only
   adjuncts (W-MCP-THREAT, W-COMP-LANDSCAPE, W-NOF1-METHOD,
-  W-2U-GATE-2). One schema group per release (honors C6).
+  W-2U-GATE-2 second foreign-machine session, sequenced after
+  v0.1.16 W-2U-GATE first-foreign-user lands). One schema group per
+  release (honors C6).
 - **v0.2.1 — insight ledger (Path A release 2 of 4).** W53 only;
   one schema group.
 - **v0.2.2 — LLM judge shadow-by-default (Path A release 3 of 4).**
@@ -92,20 +117,23 @@ Full non-goals are in
 
 ```text
 v0.1.13 onboarding + governance prereqs (shipped 2026-04-30)
-    -> v0.1.14 eval substrate + cli.py split + W-Vb-3 + 5 P0/P1 additions (14 W-ids)
-        -> v0.2.0 W52 weekly review + W58D deterministic factuality (Path A 1/4)
-            -> v0.2.1 W53 insight ledger (Path A 2/4)
-                -> v0.2.2 W58J LLM judge shadow + W-JUDGE-BIAS panel (Path A 3/4)
-                    -> v0.2.3 W58J promote to blocking + W-30 capabilities freeze (Path A 4/4)
-                        -> v0.3 MCP plan (consumes v0.2.0 W-MCP-THREAT artifact)
-                            -> v0.4 MCP prereqs (least-privilege scope + threat-model done)
-                                -> v0.4-or-v0.5 MCP read surface ships
-                                -> v0.5 N-of-1 substrate (read-only UI decision-checkpoint)
-                                     -> 90+ days of accumulated triples
-                                     -> v0.6 personal-evidence estimator
-                                         -> v0.7 governed adaptation
-                                             -> 3+ months zero-incident
-                                             -> v1.0 stable contract
+    -> v0.1.14 eval substrate + provenance + recovery path (8 W-ids closed; W-29 deferred) (shipped 2026-05-01)
+        -> v0.1.14.1 hardening: garmin_live structured-signal trap (shipped 2026-05-02)
+            -> v0.1.15 second-user candidate package (W-29 cli.py split + W-AH-2 + W-AI-2 + W-Vb-4 prep)
+                -> v0.1.16 first non-maintainer foreign-machine onboarding (W-2U-GATE empirical proof)
+                    -> v0.2.0 W52 weekly review + W58D deterministic factuality (Path A 1/4)
+                        -> v0.2.1 W53 insight ledger (Path A 2/4)
+                            -> v0.2.2 W58J LLM judge shadow + W-JUDGE-BIAS panel (Path A 3/4)
+                                -> v0.2.3 W58J promote to blocking + W-30 capabilities freeze (Path A 4/4)
+                                    -> v0.3 MCP plan (consumes v0.2.0 W-MCP-THREAT artifact)
+                                        -> v0.4 MCP prereqs (least-privilege scope + threat-model done)
+                                            -> v0.4-or-v0.5 MCP read surface ships
+                                            -> v0.5 N-of-1 substrate (read-only UI decision-checkpoint)
+                                                 -> 90+ days of accumulated triples
+                                                 -> v0.6 personal-evidence estimator
+                                                     -> v0.7 governed adaptation
+                                                         -> 3+ months zero-incident
+                                                         -> v1.0 stable contract
 ```
 
 The Path A 4-release v0.2.x split (CP-PATH-A) honors reconciliation

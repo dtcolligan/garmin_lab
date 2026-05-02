@@ -1,8 +1,8 @@
 # Planning Tree — Reading Order Index
 
-> **Last updated:** 2026-05-01 (post-v0.1.13 strategic research +
-> Codex audit-chain rounds 1+2 closed; CPs applied; v0.1.14 PLAN.md
-> drafted under D14 plan-audit).
+> **Last updated:** 2026-05-02 (v0.1.14.1 hardening cycle shipped;
+> Garmin-live unreliability surfaced as structured capabilities
+> signal; v0.1.15 / v0.1.16 split surfaced for foreign-user gate).
 
 This is the orientation guide to the `reporting/plans/` tree.
 Read this when you're returning cold and need to find the right
@@ -19,9 +19,11 @@ reporting/plans/
 ├── success_framework_v1.md            ← active value-measurement
 ├── risks_and_open_questions.md        ← active risk + decision register
 ├── v0_1_4/ … v0_1_13/                 ← per-cycle artifacts (frozen post-ship)
-├── v0_1_14/                           ← implementation complete; pending Codex IR + PyPI publish
+├── v0_1_14/                           ← shipped 2026-05-01 (eval substrate + provenance + recovery path)
+├── v0_1_14_1/                         ← shipped 2026-05-02 (hardening: garmin_live structured signal)
 ├── post_v0_1_10/                      ← between-cycles work (demo, Phase 4 audit)
 ├── post_v0_1_13/                      ← post-v0.1.13 strategic research + audit chain + CPs
+├── post_v0_1_14/                      ← post-v0.1.14 carry-over findings (F-PV14-01/02 → v0.1.15)
 ├── future_strategy_2026-04-29/        ← Claude/Codex deep strategy review
 ├── historical/                        ← 9 superseded planning docs
 └── docs_overhaul/                     ← docs-overhaul review record
@@ -45,13 +47,19 @@ If you only have time for one: `strategic_plan_v1.md`.
 
 **Read in order:**
 
-1. `tactical_plan_v0_1_x.md` § 2 — current release-in-flight.
-2. `v0_1_13/PLAN.md` (or whichever cycle is open) — workstream
-   contracts.
-3. `v0_1_13/CARRY_OVER.md` — items deferred to/from this cycle.
-4. `v0_1_13/audit_findings.md` — last release's Phase 0 findings list.
+1. `tactical_plan_v0_1_x.md` — current release-in-flight rows
+   (v0.1.15 candidate-package prep + v0.1.16 first foreign-machine
+   onboarding empirical proof).
+2. `v0_1_14/RELEASE_PROOF.md` §5 + `v0_1_14/REPORT.md` — the
+   most-recent substantive cycle's named carry-overs.
+3. `post_v0_1_14/carry_over_findings.md` — F-PV14-01 + F-PV14-02
+   (CSV-fixture isolation + `hai sync purge` surface) recommended
+   as a single workstream for v0.1.15.
+4. The opening cycle's `PLAN.md` once authored.
 
-If you only have time for one: the open cycle's `PLAN.md`.
+If you only have time for one: the open cycle's `PLAN.md` (or, when
+no cycle is open, `tactical_plan_v0_1_x.md` for the next two
+release rows).
 
 ## I want to know how we evaluate correctness.
 
@@ -121,9 +129,13 @@ Cycle directories preserve their own history:
 - `v0_1_14/` — eval substrate + provenance + recovery path
   (W-PROV-1 + W-AJ + W-AL + W-BACKUP + W-EXPLAIN-UX + W-FRESH-EXT +
   W-DOMAIN-SYNC + W-AN closed; W-AH / W-AI / W-Vb-3 partial-closed
-  to v0.1.15; W-2U-GATE / W-29 deferred to v0.1.15). Implementation
-  complete 2026-05-01; pending Codex IR + PyPI publish. D14 settled
-  at round 4 PLAN_COHERENT.
+  to v0.1.15; W-2U-GATE / W-29 deferred to v0.1.15). Shipped
+  2026-05-01. D14 settled at round 4 PLAN_COHERENT; IR settled at
+  round 3 SHIP_WITH_NOTES.
+- `v0_1_14_1/` — hardening cycle: Garmin-live unreliability surfaced
+  as structured capabilities signal (W-GARMIN-MANIFEST-SIGNAL).
+  Shipped 2026-05-02 as a hardening tier (D15) with abbreviated
+  audit chain (no external Codex IR). Test surface: 2581 passed.
 
 Each cycle directory typically contains:
 - `PLAN.md` — cycle scope.

@@ -121,16 +121,19 @@ write a cycle proposal in `reporting/plans/`; do not act unilaterally.
   was validation/diff/auditability, not re-implementation.
 - **W47 is cut.** Keep release-proof/changelog discipline, but do not add a
   working-tree-sensitive changelog test.
-- **W29 / W30 scheduled.** cli.py split scheduled for v0.1.14
-  conditional on v0.1.13 boundary-audit verdict (parser /
-  capabilities regression test mandatory regardless).
-  Capabilities-manifest schema freeze scheduled for **v0.2.3**
-  after all v0.2.x schema additions land (**W52 + W58D claim-block
-  (v0.2.0), W53 (v0.2.1), W58J (v0.2.2)**). (Origin: v0.1.12 CP1 +
-  CP2, paired acceptance; v0.2.x destination updated by
-  post-v0.1.13 CP-PATH-A + CP-W30-SPLIT, OQ-B answered Path A
-  2026-05-01; W58D claim-block added to v0.2.0 schema-group list
-  per v0.1.14 D14 round 1 F-PLAN-10.)
+- **W29 / W30 scheduled.** cli.py split scheduled for **v0.1.15**
+  (deferred from v0.1.14 at the 2026-05-01 pre-implementation gate;
+  v0.1.13 W-29-prep boundary-audit verdict was green and the
+  parser/capabilities regression test landed, so the mechanical
+  split itself is the v0.1.15 deliverable). Capabilities-manifest
+  schema freeze scheduled for **v0.2.3** after all v0.2.x schema
+  additions land (**W52 + W58D claim-block (v0.2.0), W53 (v0.2.1),
+  W58J (v0.2.2)**). (Origin: v0.1.12 CP1 + CP2, paired acceptance;
+  v0.2.x destination updated by post-v0.1.13 CP-PATH-A +
+  CP-W30-SPLIT, OQ-B answered Path A 2026-05-01; W58D claim-block
+  added to v0.2.0 schema-group list per v0.1.14 D14 round 1
+  F-PLAN-10; v0.1.14 → v0.1.15 W-29 destination updated 2026-05-02
+  post-v0.1.14.1 ship.)
 - **Garmin Connect is not the default live source.** Login is rate-limited
   and unreliable. Default to intervals.icu when configured. As of
   v0.1.14.1 (W-GARMIN-MANIFEST-SIGNAL), this is also a *structured*
@@ -405,8 +408,10 @@ CI runs `verification/tests/`. The suite includes docs and skill/CLI drift check
 - Do not add a wearable source until the per-domain evidence contract is
   broadened.
 - Do not split `cli.py` or freeze the capabilities manifest schema before
-  their scheduled cycles (v0.1.14 / v0.2.3). (Origin: v0.1.12 CP1 + CP2;
-  v0.2.x destination updated by post-v0.1.13 CP-W30-SPLIT.)
+  their scheduled cycles (v0.1.15 / v0.2.3). (Origin: v0.1.12 CP1 + CP2;
+  v0.2.x destination updated by post-v0.1.13 CP-W30-SPLIT; v0.1.14 →
+  v0.1.15 cli.py-split destination updated 2026-05-02 post-v0.1.14.1
+  ship to reflect the v0.1.14 pre-implementation defer.)
 - Do not add micronutrient or food-taxonomy features.
 - Do not treat raw SQLite reads as the normal inspection surface; use
   `hai today`, `hai explain`, and `hai doctor`.

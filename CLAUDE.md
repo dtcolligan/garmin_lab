@@ -55,13 +55,16 @@ uv run hai capabilities --json
 uv run hai capabilities --markdown > reporting/docs/agent_cli_contract.md
 uv run hai doctor
 
-# Persona matrix (12 personas, ~5 min)
+# Persona matrix (13 personas, ~5 min; P13 is matrix-only — added
+# v0.1.14 W-EXPLAIN-UX as a low-domain-knowledge maintainer-substitute
+# reader for `hai explain` confusion review)
 uv run python -m verification.dogfood.runner /tmp/persona_run
 
-# Warning gates
+# Warning gates (broader gate restored at v0.1.13 W-N-broader; clean
+# through v0.1.14.1 ship-time)
 uv run pytest verification/tests \
     -W error::pytest.PytestUnraisableExceptionWarning -q   # narrow (v0.1.11+)
-uv run pytest verification/tests -W error::Warning -q      # broader (deferred)
+uv run pytest verification/tests -W error::Warning -q      # broader (v0.1.13+)
 ```
 
 The project venv intentionally does not bundle `mypy`, `bandit`, or
@@ -75,7 +78,7 @@ A release cycle produces the following files under
 
 | Phase | Files |
 |---|---|
-| Scope | `PLAN.md`, `CARRY_OVER.md` |
+| Scope | `PLAN.md`, `CARRY_OVER.md` (when present) |
 | D14 plan-audit | `codex_plan_audit_prompt.md` → `codex_plan_audit_response*.md` (rounds 1-N) + `_response_response.md` companions |
 | Phase 0 (D11) | `audit_findings.md` |
 | Governance | `cycle_proposals/CP{1..N}.md` |

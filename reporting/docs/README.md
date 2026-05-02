@@ -18,7 +18,10 @@ itself (docs / artifacts / plans / experiments), see
 - [`x_rules.md`](x_rules.md) — full X-rule catalogue with
   triggers, tiers, effects, and config keys.
 - [`state_model_v1.md`](state_model_v1.md) — table-by-table state
-  schema (migrations 001-021 live).
+  schema. The migrations themselves at
+  `src/health_agent_infra/core/state/migrations/` are the source of
+  truth; this doc may lag the latest migration when a release adds
+  schema (currently 023 live as of v0.1.14.1).
 
 ## Onboarding
 

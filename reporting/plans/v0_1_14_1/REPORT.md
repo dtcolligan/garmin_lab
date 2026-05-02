@@ -2,6 +2,7 @@
 
 **Tier (D15):** hardening.
 **Date:** 2026-05-02.
+**Status:** SHIPPED. Commit `856e689`. PyPI publish complete.
 
 ## 1. Why this cycle existed
 
@@ -130,5 +131,13 @@ with different parsing contracts.
 7. ✅ `agent_cli_contract.md` regenerated.
 8. ✅ Version 0.1.14 → 0.1.14.1.
 9. ✅ CHANGELOG.md, AGENTS.md updated.
-10. ⏳ Codex IR (single-round target).
-11. ⏳ Maintainer commit + PyPI publish.
+10. ✅ Codex IR skipped per D15 hardening latitude — internal sweep
+    + test gates + mypy/bandit/ruff clean were the ship evidence.
+11. ✅ Maintainer committed (`856e689`) and ran PyPI publish via the
+    standard release toolchain.
+
+This cycle shipped as a **hardening** cycle (D15) with an
+abbreviated audit chain — single Codex IR round was not required
+given the single-WS, purely-additive scope. The pattern fits the
+v0.1.12.1 Cloudflare User-Agent hotfix shape: hardening tier earns
+its keep on incident-driven, narrowly-scoped releases.

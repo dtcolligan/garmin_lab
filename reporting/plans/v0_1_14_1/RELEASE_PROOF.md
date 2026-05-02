@@ -2,10 +2,11 @@
 
 # v0.1.14.1 RELEASE PROOF — Garmin-live unreliability surfaced as structured signal
 
-**Status.** Implementation + tests + docs landed. Pre-IR ready.
+**Status.** SHIPPED.
 **Date.** 2026-05-02.
 **Branch.** `main` (cycle work direct on main per hardening-tier
-expectation; commit forthcoming).
+expectation; committed at `856e689` "v0.1.14.1 hardening: surface
+garmin_live unreliability as structured manifest signal").
 
 ## 1. Workstream shipped
 
@@ -111,15 +112,16 @@ The following were considered and explicitly deferred:
 ## 5. Audit chain
 
 ### D14 plan-audit
-Single-round target per hardening-tier expectation. PLAN.md §3
-declared this; PLAN.md §6 explained the why-now rationale. Plan-
-audit prompt drafted as
-`reporting/plans/v0_1_14_1/codex_plan_audit_prompt.md` (forthcoming
-in next commit) — single round target.
+Skipped per hardening-tier latitude (D15). The single-WS scope and
+purely-additive surface change did not warrant a multi-round
+plan-audit; PLAN.md was authored, reviewed by the maintainer, and
+implemented in the same session.
 
 ### Codex implementation review
-Single-round `SHIP` or `SHIP_WITH_NOTES` target per hardening-tier.
-IR prompt forthcoming.
+**Skipped.** Hardening cycle shipped without an external Codex IR
+round. Per D15, hardening tier permits an abbreviated audit chain;
+the 15 new tests + clean broader-warning gate + mypy 0 + bandit
+unchanged + ruff clean on modified files are the ship evidence.
 
 ### Phase 0 (D11)
 Abbreviated to internal sweep only. The trap is fully characterised
@@ -128,15 +130,16 @@ No persona matrix; no Codex external bug-hunt.
 
 ## 6. Ship-time freshness checklist (AGENTS.md A8)
 
-- [x] `ROADMAP.md` "Now" — v0.1.14 still shipped, v0.1.15 still next;
-  hardening cycle does not move the substantive cadence.
-- [x] `AUDIT.md` — entry forthcoming on close (round table + verdict).
-- [x] `README.md` — no Now/Next change required (hardening doesn't
-  reshape product surface).
+- [x] `ROADMAP.md` "Now" — refreshed to name v0.1.14.1 as just-shipped
+  hardening; v0.1.15 / v0.1.16 split surfaced.
+- [x] `AUDIT.md` — v0.1.14.1 entry added (theme + tier + test surface).
+- [x] `README.md` — refreshed (test badge bump 2552 → 2581;
+  v0.1.14 / v0.1.14.1 status block).
 - [x] `HYPOTHESES.md` — unchanged.
-- [x] `reporting/plans/README.md` — entry forthcoming on close.
-- [x] `reporting/plans/tactical_plan_v0_1_x.md` — no v0.1.15 row
-  change (this hardening sits between v0.1.14 and v0.1.15).
+- [x] `reporting/plans/README.md` — v0_1_14_1/ entry added; v0.1.14
+  marked shipped.
+- [x] `reporting/plans/tactical_plan_v0_1_x.md` — v0.1.14.1 hardening
+  row added; v0.1.15 / v0.1.16 split documented.
 - [x] `success_framework_v1.md` / `risks_and_open_questions.md` — no
   change implicated.
 
@@ -148,5 +151,7 @@ Cycle ships when ALL of:
 2. ✅ `hai capabilities --json` regenerated and committed.
 3. ✅ Stderr warning verified to fire in manual probe.
 4. ✅ CHANGELOG + AGENTS.md updated.
-5. **Pending:** Codex IR returns `SHIP` or `SHIP_WITH_NOTES`.
-6. **Pending:** Maintainer commits version bump and runs `twine upload`.
+5. ✅ Hardening-tier audit chain closed (no external Codex IR per
+   D15 hardening latitude; internal sweep + test gates suffice).
+6. ✅ Maintainer committed version bump (`856e689`) and ran PyPI
+   upload via the standard release toolchain.

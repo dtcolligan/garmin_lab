@@ -171,7 +171,7 @@ See [``x_rules.md``](x_rules.md) for the full catalogue.
 See [``state_model_v1.md``](state_model_v1.md) for the authoritative
 table-by-table schema. Each accepted_*_state_daily table is
 deterministically derived from one or more raw + source tables by
-the projector. Migrations 001-021 are live:
+the projector. Migrations 001-023 are live (latest: v0.1.14):
 
 - 001 initial schema
 - 002 training-readiness column rename
@@ -206,6 +206,11 @@ the projector. Migrations 001-021 are live:
 - 019 intent_item — user-authored and agent-proposed intent ledger
 - 020 target — user-authored and agent-proposed wellness target ledger
 - 021 data_quality_daily — per-domain coverage/missingness ledger
+- 022 daily_plan state-fingerprint column (v0.1.11 W-E re-run
+  state-change supersession)
+- 023 source_row_locator (v0.1.14 W-PROV-1 — provenance carrier
+  for v0.2.0 W52 weekly review and W58D claim-block; foundation
+  for the recommendation_evidence_card.v1 schema)
 
 ## Agent-native surfaces
 

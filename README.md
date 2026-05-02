@@ -1,20 +1,22 @@
 # Health Agent Infra
 
-Health Agent Infra is a **domain-pinned AgentSpec implementation for
-personal health** — a local governance runtime that turns a
-natural-language health agent into a bounded operator. You talk to the
-agent, the agent invokes the local `hai` CLI, and deterministic Python
-owns rules, validation, state, and commits. The runtime defines a
-contract (the `hai capabilities` manifest); the agent operates against
-that contract; the contract refuses anything outside it.
+Health Agent Infra is a local governed runtime for personal-health
+agents. It implements an AgentSpec-style contract: an agent can inspect
+`hai capabilities`, operate only through validated CLI commands, and
+rely on deterministic Python for policy, state, validation, and
+commits. You talk to the agent, the agent invokes the local `hai` CLI,
+and the runtime defines + enforces what the agent is allowed to do.
 
-It is both a working single-user package and a reference architecture
-for the code/skill split. It is not a chatbot or a hosted coaching app;
-it is the boundary that lets an LLM work over health data without
+It is a working single-user package — dogfooded daily by the
+maintainer — and a reference architecture for the code/skill split.
+External-user readiness has not yet been empirically proven; the
+v0.1.15 / v0.1.16 split exists to prepare and then prove
+foreign-machine onboarding. It is not a chatbot or a hosted coaching
+app; it is the boundary that lets an LLM work over health data without
 owning the policy engine, the database, or the final write path.
 
 [![PyPI](https://img.shields.io/pypi/v/health-agent-infra)](https://pypi.org/project/health-agent-infra/)
-[![Tests](https://img.shields.io/badge/tests-2552_passing-green)](verification/tests/)
+[![Tests](https://img.shields.io/badge/tests-2581_passing-green)](verification/tests/)
 [![Python](https://img.shields.io/badge/python-3.11+-blue)](pyproject.toml)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
@@ -52,7 +54,7 @@ agent without handing the model unchecked authority over personal health data.
 | CLI contract | 59 annotated `hai` commands with mutation class, idempotency, JSON mode, exit codes, and agent-safety metadata |
 | State | 23 SQLite migrations, local-only by default |
 | Synthesis | 10 X-rule evaluators across two phases, committed in one transaction |
-| Verification | 2493 passing tests, 12-persona harness, 5-path trusted-first-value acceptance matrix |
+| Verification | 2581 passing tests, 13-persona harness, 5-path trusted-first-value acceptance matrix |
 
 ## Why it is different
 
@@ -74,10 +76,18 @@ agent without handing the model unchecked authority over personal health data.
   and `hai stats`; these surfaces reconcile supersede chains and hide schema
   churn that raw SQL will not.
 
-v0.1.13 ships public-surface hardening + onboarding (`hai capabilities --human`,
-`hai doctor --deep` with 5-class probe-pull classification, `hai today` cold-start
-prose, regulated-claim lint, declarative persona expected-actions, trusted-first-value
-acceptance matrix). The release-by-release audit index is in [AUDIT.md](AUDIT.md).
+**Current state.** v0.1.14 (2026-05-01) shipped the eval substrate +
+provenance + recovery path: source-row locator type (W-PROV-1),
+`hai backup` / `hai restore` / `hai export`, LLM-judge harness scaffold
+(no model invocation yet), FActScore-aware calibration schema, and a
+P13 low-domain-knowledge persona for `hai explain` confusion review.
+v0.1.14.1 (2026-05-02) shipped a hardening cycle that surfaces
+Garmin-live unreliability as a structured signal in `hai capabilities
+--json` (per-choice `choice_metadata` block + stderr warning at pull
+resolution). The dogfooded single-user system works; non-maintainer
+foreign-machine onboarding is still pending and is split across
+v0.1.15 (candidate-package prep) and v0.1.16 (W-2U-GATE empirical
+proof). The release-by-release audit index is in [AUDIT.md](AUDIT.md).
 
 ## What the loop looks like
 

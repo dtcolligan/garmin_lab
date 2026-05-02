@@ -276,6 +276,8 @@ release-time check.
 **Target:**
 - v0.1.10: 8 personas, ~minutes.
 - v0.1.11: 12 personas, < 5 min.
+- v0.1.14: 13 personas (P13 added for `hai explain` confusion
+  review under W-EXPLAIN-UX), < 5 min.
 - v1.0: ≤ 15 min for whatever count exists then. If it exceeds,
   parallelise or sub-set.
 

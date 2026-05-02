@@ -24,8 +24,10 @@ This directory has four subdirectories, each with a distinct role.
 | [`plans/eval_strategy/v1.md`](plans/eval_strategy/v1.md) | active — how correctness is measured |
 | [`plans/success_framework_v1.md`](plans/success_framework_v1.md) | active — how project value is measured |
 | [`plans/risks_and_open_questions.md`](plans/risks_and_open_questions.md) | active — what could derail + decisions needed |
-| [`plans/v0_1_11/`](plans/v0_1_11/) | active — most recent shipped cycle (v0.1.10–v0.1.11 also under their own dirs) |
+| [`plans/v0_1_14_1/`](plans/v0_1_14_1/) | active — most recent shipped cycle (hardening, 2026-05-02). Earlier cycles (v0.1.10 onward) live under their own dirs. |
 | [`plans/post_v0_1_10/`](plans/post_v0_1_10/) | active — between-cycles work (demo + Phase 4 audit plans) |
+| [`plans/post_v0_1_13/`](plans/post_v0_1_13/) | active — post-v0.1.13 strategic research + audit chain + 5 CPs |
+| [`plans/post_v0_1_14/`](plans/post_v0_1_14/) | active — post-v0.1.14 carry-over findings (F-PV14-01/02 → v0.1.15) |
 | [`plans/future_strategy_2026-04-29/`](plans/future_strategy_2026-04-29/) | active — Claude/Codex deep strategy review + reconciliation |
 | [`plans/historical/`](plans/historical/) | superseded — 9 pre-2026-04-27 planning docs (multi_release_roadmap, post_v0_1_roadmap, agent_operable_runtime_plan, launch_notes, skill_harness_rfc, phase_0_*, phase_2_5_*). Provenance only. |
 | [`plans/docs_overhaul/codex_review.md`](plans/docs_overhaul/codex_review.md) | historical — docs-overhaul review record |

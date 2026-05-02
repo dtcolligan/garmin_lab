@@ -4,6 +4,32 @@ Health Agent Infra uses structured Codex review before substantive releases.
 The review is not a badge; the artifact is the value. This file indexes the
 existing release-cycle audit records so they are visible from the repo root.
 
+## v0.1.14.1 - 2026-05-02
+
+Garmin-live unreliability surfaced as a structured signal in the
+capabilities manifest. `hai capabilities --json` now exposes
+`flags[].choice_metadata` with a `garmin_live → {reliability:
+"unreliable", reason: ..., prefer_instead: "intervals_icu"}` block on
+both `hai pull --source` and `hai daily --source`; `_resolve_pull_source`
+emits a single stderr warning when the resolved source is `garmin_live`.
+Single workstream (W-GARMIN-MANIFEST-SIGNAL); purely additive — manifest
+`schema_version` unchanged. **Tier:** hardening.
+
+| Round | Codex response | Maintainer response |
+|---|---|---|
+| Plan-audit | (skipped per D15 hardening latitude) | n/a |
+| Implementation review | (skipped per D15 hardening latitude — internal sweep + test gates were the ship evidence) | n/a |
+
+**Outcome:** Shipped as a hardening cycle without an external Codex
+audit round. Test surface: 2581 passed, 3 skipped (+15 vs v0.1.14).
+Broader-warning gate (`-W error::Warning`) clean. Mypy 0 errors @ 127
+source files. Bandit 46 Low / 0 Medium / 0 High (unchanged from v0.1.14
+baseline). Ruff clean on modified files. Capabilities snapshot
+regenerated; diff is purely additive (two `choice_metadata` blocks).
+Release proof:
+[`reporting/plans/v0_1_14_1/RELEASE_PROOF.md`](reporting/plans/v0_1_14_1/RELEASE_PROOF.md).
+Report: [`reporting/plans/v0_1_14_1/REPORT.md`](reporting/plans/v0_1_14_1/REPORT.md).
+
 ## v0.1.14 - 2026-05-01
 
 Eval substrate + provenance + recovery path. 13 W-ids at PLAN open
