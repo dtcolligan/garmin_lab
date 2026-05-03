@@ -17,7 +17,7 @@ You take unstructured human input — narration, transcribed human speech, half-
 
 **This runs before any domain-skill invocation.** It is the low-friction entry point: the agent learns what the runtime needs from the user, asks once, then produces recommendations.
 
-### Step 1 — enumerate gaps
+### Step 1 — enumerate gaps + read W-A presence
 
 ```bash
 hai intake gaps --as-of <today> --user-id <u> --evidence-json <hai clean output>
@@ -40,11 +40,33 @@ The JSON response carries:
     ...
   ],
   "gap_count": 4,
-  "gating_gap_count": 4
+  "gating_gap_count": 4,
+  "present": {
+    "nutrition": {"logged": true, "submission_id": "...", "meals_count": 2},
+    "gym": {"logged": true, "session_id": "...", "set_count": 11},
+    "readiness": {"logged": false},
+    "sleep": {"logged": true, "source": "intervals_icu"},
+    "weigh_in": {"logged": false, "reason": "intake_surface_not_yet_implemented"}
+  },
+  "is_partial_day": true,
+  "is_partial_day_reason": "timestamp 10:17 < end-of-day cutoff 18:00 ...",
+  "target_status": "present"
 }
 ```
 
 When `gap_count` is 0, skip the rest of this protocol. Synthesize directly.
+
+### Step 1b — choose framing from the W-A `present` block (v0.1.15)
+
+Before composing the question, **read `present.{nutrition, gym, readiness, sleep}.logged` from the W-A extension**. These four signals choose between two framings:
+
+- **Recap-first** when any of `present.nutrition.logged`, `present.gym.logged`, `present.readiness.logged`, or `present.sleep.logged` is true. The user has already logged something today; lead by acknowledging what's on the books, then ask only for what's missing.
+  - Example: "I see your readiness check + 11 gym sets are logged for today. Two things still open: stress (1–5) and macros for breakfast — what were they?"
+- **Forward-march** when all four `present.*.logged` flags are false. Fresh morning; lead with the standard four-anchor flow (sleep → weigh-in → breakfast → plan-for-the-day) per the maintainer's daily-cycle convention.
+
+If `is_partial_day=true` AND `target_status in ("absent", "unavailable")`, the runtime W-D arm-1 suppresses nutrition classification automatically (you'll see `nutrition_status="insufficient_data"` in the snapshot). Don't second-guess that — surface the suppression honestly: "Nutrition's open until end-of-day; I'm holding off on classifying partial-day intake against an unset target."
+
+**Do NOT branch on `present.weigh_in.logged` in v0.1.15.** The `hai intake weight` surface (W-B) is deferred to v0.1.17, so `present.weigh_in.logged` is always false today; conditioning on it would create a dead path that lights up unexpectedly when W-B ships. The runtime emits `weigh_in: {logged: false, reason: "intake_surface_not_yet_implemented"}` consistently — read it for awareness, do not branch on it. (Verbalizing a weigh-in prompt to the user without expecting a state row is fine.)
 
 ### Step 2 — compose ONE natural question
 
