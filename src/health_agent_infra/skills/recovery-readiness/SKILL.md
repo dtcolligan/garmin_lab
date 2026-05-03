@@ -1,7 +1,7 @@
 ---
 name: recovery-readiness
-description: Produce a bounded RecoveryProposal for today's session by consuming the runtime-computed `classified_state` + `policy_result` and applying judgment-only steps — action matrix, rationale prose, vendor cross-check, follow-up composition. The runtime already did every band, every score, and every policy rule; this skill does not re-derive them.
-allowed-tools: Read, Bash(hai state snapshot *), Bash(hai state read *), Bash(hai clean *), Bash(hai propose *), Bash(hai review *), Bash(hai intent list *), Bash(hai target list *)
+description: Produce a bounded RecoveryProposal for today's session by consuming the runtime-computed `classified_state` + `policy_result` and applying judgment-only steps — action matrix, rationale prose, and vendor cross-check. The runtime already did every band, every score, and every policy rule; this skill does not re-derive them.
+allowed-tools: Read, Bash(hai state snapshot *), Bash(hai state read *), Bash(hai clean *), Bash(hai propose *), Bash(hai intent list *), Bash(hai target list *)
 disable-model-invocation: false
 ---
 
@@ -66,20 +66,14 @@ Examples: `sleep_debt=<band>`, `resting_hr_vs_baseline=<band>`, `hrv_vs_baseline
 
 Start with `classified_state.uncertainty` (already sorted + deduped). Append any tokens you added (e.g. `*_unavailable_at_source` derived from the snapshot's `missingness` token, `agent_vendor_readiness_disagreement`, `training_readiness_weighting_disagreement`). Re-sort alphabetically; deduplicate.
 
-### 7. Follow-up
+### 7. Stop at the proposal boundary
 
-`review_at` = next morning **after `issued_at`** at `07:00:00+00:00` (not after `for_date`; R4 measures from `issued_at`).
-
-`review_question` by action:
-
-- `proceed_with_planned_session` → "Did today's session feel appropriate for your recovery?"
-- `downgrade_hard_session_to_zone_2` → "Did yesterday's downgrade to Zone 2 improve how today feels?"
-- `downgrade_session_to_mobility_only` → "Did yesterday's mobility-only day help your recovery?"
-- `rest_day_recommended` → "Did yesterday's rest day help your recovery?"
-- `defer_decision_insufficient_signal` → "Did you decide on a session yesterday? How did it go?"
-- `escalate_for_user_review` → "You had a persistent signal we flagged. Did you take any action?"
-
-`review_event_id` format: `rev_<review_date>_<user_id>_<recommendation_id>`.
+This skill does **not** schedule follow-up reviews. `follow_up`,
+`review_at`, `review_question`, `review_event_id`,
+`recommendation_id`, and `daily_plan_id` are synthesis/daily-owned
+surfaces and are forbidden in proposal payloads. The runtime attaches
+review scheduling only after `hai synthesize` / `hai daily` commits a
+final recommendation.
 
 ## Output
 

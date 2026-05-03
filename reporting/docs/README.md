@@ -4,6 +4,12 @@ Current v1 documentation for Health Agent Infra. Start with
 ``current_system_state.md`` if you need the latest shipped truth;
 start with ``architecture.md`` if this is your first architecture read.
 
+The current docs should make one thing obvious: Health Agent Infra is
+not a health chatbot. It is a local governed runtime that gives a
+shell-capable agent durable state, deterministic interpretation,
+bounded write paths, review memory, recovery tooling, and auditable
+explanations for personal-health decisions.
+
 For a one-page orientation of the top-level repo layout (what each
 top-level directory is, what is active vs historical), see
 [`../../REPO_MAP.md`](../../REPO_MAP.md). For a map of `reporting/`
@@ -26,6 +32,28 @@ itself (docs / artifacts / plans / experiments), see
   `src/health_agent_infra/core/state/migrations/` are the source of
   truth; this doc may lag the latest migration when a release adds
   schema (currently 025 live as of v0.1.15).
+
+## Read by job
+
+| You need to | Read |
+|---|---|
+| Know what shipped and what is still unproven | [`current_system_state.md`](current_system_state.md) |
+| Understand the runtime shape | [`architecture.md`](architecture.md), then [`state_model_v1.md`](state_model_v1.md) |
+| Understand why the product exists | [`personal_health_agent_positioning.md`](personal_health_agent_positioning.md), [`memory_model.md`](memory_model.md), [`query_taxonomy.md`](query_taxonomy.md) |
+| Operate the package from an agent | [`agent_integration.md`](agent_integration.md), [`agent_cli_contract.md`](agent_cli_contract.md) |
+| Inspect why a recommendation changed | [`explainability.md`](explainability.md), [`x_rules.md`](x_rules.md) |
+| Check safety and scope boundaries | [`non_goals.md`](non_goals.md), [`privacy.md`](privacy.md), [`recovery.md`](recovery.md) |
+| Extend the runtime | [`how_to_add_a_domain.md`](how_to_add_a_domain.md), [`domains/README.md`](domains/README.md), [`how_to_add_a_pull_adapter.md`](how_to_add_a_pull_adapter.md) |
+
+## Current-vs-provenance rule
+
+Docs directly under this directory are intended as current operating
+docs unless their header says otherwise. Cycle docs under
+`reporting/plans/v0_*/`, launch drafts, and dated review artifacts
+are provenance: useful for why a decision happened, not automatically
+current product truth. When they disagree, prefer
+`current_system_state.md`, generated CLI capabilities, migrations,
+and tests.
 
 ## Onboarding
 

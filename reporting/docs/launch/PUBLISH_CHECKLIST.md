@@ -2,8 +2,9 @@
 
 This file records the first PyPI publish workflow for v0.1.0. It is retained
 as release history, not as the current publish checklist. The current public
-package is v0.1.8; use `pyproject.toml`, `CHANGELOG.md`, and the active release
-plan for any future publish.
+package is v0.1.15.1; use `pyproject.toml`, `CHANGELOG.md`,
+`reporting/docs/current_system_state.md`, and the active release plan
+for any future publish.
 
 **Nothing here should be executed as-is for a current release** — PyPI releases
 are visible and hard to un-ship.

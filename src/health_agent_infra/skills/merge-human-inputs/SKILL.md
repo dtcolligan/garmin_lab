@@ -1,7 +1,7 @@
 ---
 name: merge-human-inputs
 description: Partition unstructured user narration into the typed `hai intake` commands the runtime expects. Use when the user volunteers information outside a form — readiness, gym sets, nutrition, subjective stress, or free-text context. Also drives the session-start gap-filling protocol: read `hai intake gaps`, compose ONE consolidated question, route the answer. You route; you do not interpret.
-allowed-tools: Read, Write, Bash(hai pull *), Bash(hai intake *)
+allowed-tools: Read, Write, Bash(hai pull *), Bash(hai clean *), Bash(hai daily *), Bash(hai intake *)
 disable-model-invocation: false
 ---
 
@@ -54,7 +54,8 @@ The JSON response carries:
 }
 ```
 
-When `gap_count` is 0, skip the rest of this protocol. Synthesize directly.
+When `gap_count` is 0, skip the rest of this protocol and return to
+the daily orchestration path.
 
 ### Step 1b — choose framing from the W-A `present` block (v0.1.15)
 
@@ -87,8 +88,6 @@ After the intakes land, rerun `hai daily --skip-pull --supersede` so the updated
 ### Session-end gap-fill (nutrition primarily)
 
 Priority-2 gaps (nutrition) belong at end-of-day, not morning. When the user says "I'm done eating for the day" or a similar cue, run `hai intake gaps` again; nutrition will still be open; log then synthesize-supersede.
-
-## Available intake surface
 
 ## Available intake surface
 

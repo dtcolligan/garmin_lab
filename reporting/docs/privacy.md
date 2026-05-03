@@ -4,10 +4,13 @@ Health Agent Infra is **local-first** by design. This document is an honest
 account of what the runtime stores, where it lives, who can read it, and
 how to inspect, export, or delete it.
 
-The short version: every byte of your health data lives on your machine.
-The runtime never phones home. The agent surfaces (Claude Code, Codex,
-local LLM, MCP) read your data through the CLI; they do not have a
-side-channel.
+The short version: HAI stores its health state on your machine and
+has no package telemetry. Pull commands contact only the source you
+configure (for example intervals.icu); the runtime does not send data
+to a HAI service because no such service exists. The agent surfaces
+(Claude Code, Codex, local LLM, MCP) read your data through the CLI;
+they do not have a runtime side-channel, but any hosted agent may still
+be governed by its own provider data policy.
 
 ## What gets stored locally
 
@@ -19,9 +22,10 @@ side-channel.
 | Pull JSONL outputs | wherever you redirect `hai pull > foo.json` | Only when you redirect | Raw upstream evidence for the day; the runtime doesn't write a default location |
 | Wearable credentials | OS keychain (`hai_garmin`, `hai_intervals_icu`) | `hai auth garmin` / `hai auth intervals-icu` | Pull adapters use these to authenticate to upstream services |
 
-Nothing else. There is no telemetry, no error reporter, no anonymous-usage
-beacon. If you want to confirm: `lsof -p <hai pid>` and grep for
-network connections.
+Nothing else. There is no HAI telemetry, no error reporter, and no
+anonymous-usage beacon. If you want to confirm runtime behavior:
+`lsof -p <hai pid>` and grep for network connections while running
+the command you care about.
 
 ## File permissions
 

@@ -1,20 +1,26 @@
 ---
 name: reporting
-description: Narrate a TrainingRecommendation (and optionally its supporting state + outcome history) to the end user in plain language. Use when the user asks what today's recommendation is, why it was made, or how past sessions have gone.
-allowed-tools: Read, Bash(hai review *)
+description: Narrate committed recommendations and their audit trail to the end user in plain language. Use when the user asks what today's plan is, why it was made, or how past sessions have gone.
+allowed-tools: Read, Bash(hai today *), Bash(hai explain *), Bash(hai review summary *)
 disable-model-invocation: false
 ---
 <!-- regulated-claim-lint: meta-document -->
 
 # Reporting
 
-Your job is to make a recommendation and its audit trail legible to the user, without adding new judgment. You read the structured output from the recovery-readiness skill (or a persisted recommendation JSON) and produce a human-readable summary.
+Your job is to make a committed recommendation and its audit trail
+legible to the user, without adding new judgment. You read final
+runtime output from `hai today`, `hai explain`, or persisted
+recommendation rows. You do **not** narrate raw domain proposals as
+final advice; X-rule mutations and review scheduling happen after
+proposal authoring.
 
 ## Inputs
 
-- A `TrainingRecommendation` JSON, either from the current run or fetched from `reporting/artifacts/.../recommendation_log.jsonl`.
-- Optionally: `cleaned_evidence` and `raw_summary` for that date (the inputs that drove the recommendation).
-- Optionally: recent `ReviewOutcome` records (from `summarize_review_history` counts).
+- `hai today` output for the canonical committed plan.
+- `hai explain` output when the user asks why a plan changed or wants
+  the planned -> adapted -> performed audit chain.
+- Optionally: recent review counts from `hai review summary`.
 
 ## Voice
 
@@ -24,12 +30,13 @@ Your job is to make a recommendation and its audit trail legible to the user, wi
 
 ## What to surface
 
-The recommendation has five things worth surfacing. In this order:
+The committed recommendation has five things worth surfacing. In this order:
 
 1. **The action** — one sentence. "Proceed with your planned session" or "Downgrade to Zone 2 for 45 minutes" etc. Translate the enum to human language.
 2. **Why** — the rationale, not copied verbatim but synthesised. One sentence per signal that moved the needle (sleep, soreness, HR, HRV, load). If a policy rule softened or escalated, say so.
 3. **Confidence and coverage** — one sentence. "Full coverage today, high confidence" / "Sparse coverage (no HRV today), confidence capped at moderate" / "Insufficient signal — I deferred a specific recommendation."
-4. **Follow-up** — one sentence. "I'll ask you tomorrow morning whether the session felt right."
+4. **Follow-up** — one sentence if the committed recommendation
+   includes a review question or scheduled review event.
 5. **Goal alignment** — one sentence if `action_detail.active_goal` is set. "You're in a strength block — session parameters are the coach's call."
 
 ## What NOT to surface
@@ -55,10 +62,15 @@ Run `hai review summary --user-id <id> [--domain <d>] [--base-dir <root>]` to ge
 
 - Markdown headers and bullets are fine if the user is reading in a terminal or editor.
 - Plain prose if the user is listening to TTS.
-- Always end with the follow-up — the user should know what happens next.
+- End with the follow-up only when the committed plan or review
+  surface includes one.
 
 ## Invariants
 
-- You add no new judgment. The recommendation is the authoritative record; you translate it.
+- You add no new judgment. The committed recommendation is the
+  authoritative record; you translate it.
 - You never claim outcomes the record doesn't claim.
+- You never present a `DomainProposal` as final advice. If synthesis
+  has not committed, tell the user the runtime is still before the
+  final write boundary.
 - You never recommend overriding the recommendation. If the user asks "should I ignore this?", surface that the record is already persisted (via `hai synthesize`) and they can record a `not_followed` outcome via `hai review record`; the choice is theirs, not yours.

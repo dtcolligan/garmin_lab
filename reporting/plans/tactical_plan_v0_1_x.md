@@ -607,7 +607,7 @@ contract in `reporting/plans/v0_1_15/PLAN.md` §2 and final state in
 ### 5B.2 Acceptance
 
 - Each WS: see `v0_1_15/PLAN.md` §2 per-WS contract.
-- Ship claim: package published as a foreign-user-ready candidate
+- Ship claim: package published as an external-user candidate
   after D15 IR closed. The recorded session remains load-bearing
   empirical evidence, but its findings route to v0.1.16 per the
   publish-first pivot.

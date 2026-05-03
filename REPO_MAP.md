@@ -74,11 +74,13 @@ checked-in repo shape.
   capabilities --json`; `current_system_state.md` is the current-truth
   summary),
   `reporting/plans/README.md` (reading-order index),
-  `reporting/plans/strategic_plan_v1.md` (canonical strategic plan),
-  `reporting/plans/tactical_plan_v0_1_x.md` (canonical tactical plan),
+  `reporting/plans/strategic_plan_v1.md` (canonical strategic plan,
+  pending a post-v0.1.15.1 refresh),
+  `reporting/plans/tactical_plan_v0_1_x.md` (canonical tactical plan,
+  with shipped-history sections that should be read as provenance),
   `reporting/plans/eval_strategy/`, `reporting/plans/success_framework_v1.md`,
   `reporting/plans/risks_and_open_questions.md`, and the current/future
-  cycle workspaces (`v0_1_15/`, `v0_1_16/`, `v0_1_17/`) plus
+  cycle workspaces (`v0_1_15_1/`, `v0_1_16/`, `v0_1_17/`) plus
   `reporting/plans/post_v0_1_15/` between-cycle notes.
 - **SUPERSEDED 2026-04-27**: `reporting/plans/historical/multi_release_roadmap.md` —
   preserved as historical provenance; do not act on its release

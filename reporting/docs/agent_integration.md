@@ -1,8 +1,10 @@
 # Agent Integration
 
-How a Claude Code agent (or equivalent shell-capable agent) installs and uses
-Health Agent Infra v1. The human product loop is natural language; the agent
-translates that intent into validated `hai` commands.
+How a shell-capable agent installs and uses Health Agent Infra v1.
+Claude Code is the first compatible host surface, but the durable
+contract is the local `hai` CLI plus `hai capabilities --json`. The
+human product loop is natural language; the agent translates that
+intent into validated `hai` commands.
 
 The package ships two things the agent consumes:
 
@@ -22,8 +24,9 @@ boundaries.
 ## Install
 
 ```bash
-cd /path/to/health_agent_infra
-pip install -e .                # or `pip install health-agent-infra`
+pipx install health-agent-infra
+# or, from a dev checkout:
+pip install -e .
 hai setup-skills                # copies skills to ~/.claude/skills/
 hai state init                  # creates the SQLite state DB + applies migrations
 ```
@@ -54,7 +57,9 @@ Typical daily loop:
    commands. Source resolution (v0.1.6+): explicit ``--source`` >
    legacy ``--live`` (= garmin_live; rate-limited) > intervals.icu
    when credentials are configured > csv fixture fallback. The
-   supported live source is intervals.icu.
+   supported live source is intervals.icu. Since v0.1.15, CSV fixture
+   writes to the canonical state DB are refused by default unless the
+   caller explicitly opts in or uses a demo/non-canonical destination.
 3. Agent runs ``hai clean``; intake paths project their own rows, and
    ``hai state reproject`` can rebuild from JSONL audit logs when needed.
 4. Agent reads ``hai state snapshot --as-of <date> --user-id <u>``.
@@ -115,6 +120,21 @@ Any agent with both:
 
 can drive this package. The wire contract is JSON at the three
 determinism boundaries.
+
+## Operating posture
+
+An agent should treat `hai` as a governed tool surface, not as a
+suggestion. Before a session it should read `hai capabilities --json`
+for command existence, mutation class, flags, JSON behavior, and
+exit-code semantics. It should prefer `hai daily`, `hai today`,
+`hai explain`, `hai doctor`, and `hai stats` over raw SQLite reads
+unless it is explicitly debugging the runtime.
+
+When a command returns `USER_INPUT`, the correct response is usually
+to ask the user for the missing state or run the next safe setup
+command, not to retry with guessed flags. When a command refuses a
+source, schema, clinical claim, or write boundary, the refusal is part
+of the product contract.
 
 ## Determinism boundaries
 

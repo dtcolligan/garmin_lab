@@ -1,5 +1,8 @@
 # Show HN launch post — three drafts + recommendation
 
+**Status:** launch draft, not current product truth. Refresh against
+`reporting/docs/current_system_state.md` before reuse.
+
 The three framings from the v2 plan, each drafted as a complete Show HN
 post. My recommendation is at the bottom.
 
@@ -27,7 +30,7 @@ something you'd say out loud.
 
 I got tired of health apps that give me opaque recommendations I can't
 audit and that phone home with data I'd rather keep local. So I built
-the thing I wanted: a single-user runtime where I talk to a Claude Code
+the thing I wanted: a single-user runtime where I talk to a shell-capable
 agent in natural language, the agent operates a local CLI, and Python owns
 the rules, state, validation, and commits. The package has no telemetry or
 hosted backend; live pulls only call the source I configure.
@@ -45,9 +48,10 @@ code never improvises coaching prose. That split is what makes the agent
 recommendations auditable instead of hand-wavy — every rule firing
 lands in a typed table you can SELECT against.
 
-What ships today: six domains, 14 packaged skills, 52 annotated CLI
-commands, 21 SQLite migrations, 10 cross-domain X-rule evaluators, 28
-packaged deterministic eval scenarios, and 2081 collected tests. Each domain
+What ships today: six domains, 14 packaged skills, 60 annotated CLI
+commands, 25 SQLite migrations, 11 cross-domain X-rules, 28
+packaged deterministic eval scenarios, and a v0.1.15.1 release gate of
+2631 passed tests. Each domain
 has its own state projection, rule set, and readiness skill; synthesis
 reconciles them via codified cross-domain rules. `hai daily` runs the morning
 loop.
@@ -82,15 +86,16 @@ boundary, or why I think local-first agents need to look like this.
 
 Most "AI health" projects lean hard on model capability and very
 little on constraints. Health Agent Infra is the opposite: the user talks to
-a Claude Code agent, but the agent operates inside a deterministic frame of
-Python tools, with judgment limited to composing rationale over an
-already-bounded action set.
+a shell-capable health agent, but the agent operates inside a deterministic
+frame of Python tools, with judgment limited to composing rationale over an
+already-bounded action set. Claude Code is the first compatible host, not the
+product boundary.
 
 Architecture in one paragraph: a local SQLite DB holds cross-domain
 state projections for six health domains (recovery, running, sleep,
 stress, strength, nutrition). A morning orchestrator — `hai daily` —
 pulls fresh data, cleans it, projects accepted state, snapshots the
-cross-domain bundle, and emits it to a Claude Code agent. The agent
+cross-domain bundle, and emits it to the host agent. The agent
 invokes per-domain skills that emit typed `DomainProposal` objects.
 A synthesis pass runs codified cross-domain rules (X-rules) over the
 proposals, mutating drafts atomically. Every firing lands in
@@ -109,9 +114,11 @@ The invariants that matter:
   source (intervals.icu or best-effort Garmin Connect) with the user's own
   credentials in the OS keyring.
 
-It's MIT-licensed, runs on macOS and Linux, requires Python 3.11+
-and Claude Code. Current shape: 52 annotated CLI commands, 14 packaged skills,
-2081 collected tests, 28 packaged eval scenarios, atomic audit chain end-to-end.
+It's MIT-licensed, runs on macOS and Linux, requires Python 3.11+,
+and is currently packaged around Claude Code as the first compatible
+agent surface. Current shape: 60 annotated CLI commands, 14 packaged
+skills, 2631 passing release-gate tests, 28 packaged eval scenarios,
+atomic audit chain end-to-end.
 
 Install: `pipx install health-agent-infra && hai init && hai auth
 intervals-icu`.

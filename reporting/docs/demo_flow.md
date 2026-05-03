@@ -340,7 +340,8 @@ End-to-end, the demo demonstrates:
   fresh wearable evidence; row-level read consistency.
 - **Volume-spike coverage gate** (W-B) — sparse-history users
   no longer over-escalated.
-- **CLI flag harmonisation** (W-Y) — `--as-of` works on every
-  civil-date subcommand.
+- **CLI flag harmonisation** (W-Y) — `--as-of` works on the main
+  civil-date planning/read surfaces; `hai pull` keeps its source-adapter
+  `--date` flag.
 - **Capabilities exposure** (W-S) — agents read proposal
   contracts from the manifest.

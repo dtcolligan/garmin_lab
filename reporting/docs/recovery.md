@@ -37,20 +37,20 @@ overwrites:
 - Every JSONL log at `$HAI_BASE_DIR` / `~/.health_agent`.
 
 **Restore refuses on schema mismatch.** This is the load-bearing
-safety check. If you backed up under wheel `v0.1.13` (schema 22)
-and try to restore against an installed `v0.1.14` (schema 23):
+safety check. If you backed up under wheel `v0.1.14` (schema 23)
+and try to restore against an installed `v0.1.15.1` (schema 25):
 
 ```
-hai restore: schema mismatch — bundle schema_version=22 does not
-match installed wheel head=23. Restore refuses by default. Either
-install a wheel matching the bundle's schema (was hai_version='0.1.13')
+hai restore: schema mismatch - bundle schema_version=23 does not
+match installed wheel head=25. Restore refuses by default. Either
+install a wheel matching the bundle's schema (was hai_version='0.1.14')
 or restore against an empty DB and run `hai state migrate` to
 bring the bundle's data forward.
 ```
 
 The recovery procedure:
 
-1. Install the matching wheel: `pipx install 'health-agent-infra==0.1.13' --force`.
+1. Install the matching wheel: `pipx install 'health-agent-infra==0.1.14' --force`.
 2. Restore the bundle: `hai restore <bundle.tar.gz>`.
 3. Upgrade: `pipx install 'health-agent-infra' --force`.
 4. Run forward migrations: `hai state migrate`.

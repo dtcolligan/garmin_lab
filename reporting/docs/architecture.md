@@ -1,13 +1,18 @@
 # Architecture
 
 Health Agent Infra is an agent-native governed runtime for a multi-domain
-personal health agent. The user speaks to a Claude Code agent (or equivalent)
-in natural language; the agent operates the local `hai` CLI. It reads a
-cross-domain state snapshot, invokes domain-specific skills to emit
-per-domain proposals, and lets deterministic synthesis reconcile them into
-bounded per-domain recommendations. Every deterministic guarantee lives in
-code; every judgment call lives in a skill; the contract between them is
-typed.
+personal health agent. The user speaks to a shell-capable agent in natural
+language; the agent operates the local `hai` CLI. It reads a cross-domain
+state snapshot, invokes domain-specific skills to emit per-domain proposals,
+and lets deterministic synthesis reconcile them into bounded per-domain
+recommendations. Every deterministic guarantee lives in code; every judgment
+call lives in a skill; the contract between them is typed.
+
+The architecture exists to close the common failure modes of agentic health
+software: no durable state, nondeterministic interpretation, unsafe writes,
+weak validation, source/freshness ambiguity, cross-domain drift, opaque
+recommendations, and prompt-only governance. The LLM is deliberately not the
+database, policy engine, migration layer, or final write path.
 
 This doc covers *how* the runtime is wired. For the framing layer
 (what this project is, how roles split across runtime / coach / memory
@@ -277,7 +282,6 @@ src/health_agent_infra/
         writeback/
             proposal.py             # DomainProposal validation + JSONL
             outcome.py              # review-outcome validation
-            recommendation.py       # BoundedRecommendation validation helper
         explain/                    # hai explain queries + renderer
         memory/ intent/ target/     # user memory + v0.1.8 ledgers
         data_quality/               # data_quality_daily projection
@@ -287,7 +291,7 @@ src/health_agent_infra/
             projector.py            # orchestrator
             projectors/{recovery,running_activity,sleep,stress,strength,nutrition}.py
             # accepted running daily projection still lives in projector.py
-            migrations/001…021.sql
+            migrations/001…025.sql
         clean/                      # hai clean deterministic prep
         pull/                       # CSV fixture, intervals.icu, Garmin live + auth
         review/                     # schedule / record / summarize
@@ -330,6 +334,13 @@ src/health_agent_infra/evals/       # packaged deterministic eval runner
 ```
 
 ## CLI surface (v1)
+
+This section is a workflow sketch, not the exhaustive command
+contract. The authoritative command list, flags, mutation classes,
+idempotency, JSON behavior, and agent-safety metadata are generated
+from the live argparse tree at
+[`agent_cli_contract.md`](agent_cli_contract.md) and
+`hai capabilities --json`.
 
 ```
 hai auth intervals-icu | garmin               # keyring credential storage

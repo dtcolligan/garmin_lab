@@ -1,8 +1,8 @@
 # Planning Tree — Reading Order Index
 
 > **Last updated:** 2026-05-03 (v0.1.15.1 hotfix follows the v0.1.15
-> publish-first release; foreign-user-ready package on PyPI; W-2U-GATE recorded session
-> against the named foreign-user candidate pending as empirical-validation feeding v0.1.16).
+> publish-first package release; recorded foreign-user validation
+> remains pending and feeds v0.1.16).
 
 This is the orientation guide to the `reporting/plans/` tree.
 Read this when you're returning cold and need to find the right
@@ -21,11 +21,11 @@ reporting/plans/
 ├── v0_1_4/ … v0_1_13/                 ← per-cycle artifacts (frozen post-ship)
 ├── v0_1_14/                           ← shipped 2026-05-01 (eval substrate + provenance + recovery path)
 ├── v0_1_14_1/                         ← shipped 2026-05-02 (hardening: garmin_live structured signal)
-├── v0_1_15/                           ← shipped 2026-05-03 (foreign-user-ready package; publish-first pivot)
+├── v0_1_15/                           ← shipped 2026-05-03 (publish-first package cycle)
 ├── v0_1_15_1/                         ← hotfix 2026-05-03 (Linux keyring fall-through)
 ├── v0_1_16/                           ← next empirical-fix workspace (authors after foreign-user candidate transcript)
 ├── v0_1_17/                           ← maintainability + eval consolidation workspace
-├── post_v0_1_10/                      ← between-cycles work (demo, Phase 4 audit)
+├── post_v0_1_10/                      ← historical between-cycle handoff (demo, Phase 4 audit)
 ├── post_v0_1_13/                      ← post-v0.1.13 strategic research + audit chain + CPs
 ├── post_v0_1_14/                      ← post-v0.1.14 carry-over findings + research notes
 ├── post_v0_1_15/                      ← post-v0.1.15 internal-docs audit + between-cycle notes
@@ -138,7 +138,7 @@ Cycle directories preserve their own history:
   as structured capabilities signal (W-GARMIN-MANIFEST-SIGNAL).
   Shipped 2026-05-02 as a hardening tier (D15) with abbreviated
   audit chain (no external Codex IR). Test surface: 2581 passed.
-- `v0_1_15/` — foreign-user-ready package published 2026-05-03.
+- `v0_1_15/` — package release published 2026-05-03.
   Six W-ids shipped (W-GYM-SETID, F-PV14-01, W-A, W-C, W-D arm-1,
   W-E); W-2U-GATE reframed from pre-publish ship gate to post-publish
   empirical validation feeding v0.1.16. Migration head 25. Test

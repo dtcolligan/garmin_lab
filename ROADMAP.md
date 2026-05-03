@@ -135,7 +135,7 @@ Full non-goals are in
 v0.1.13 onboarding + governance prereqs (shipped 2026-04-30)
     -> v0.1.14 eval substrate + provenance + recovery path (8 W-ids closed; W-29 deferred) (shipped 2026-05-01)
         -> v0.1.14.1 hardening: garmin_live structured-signal trap (shipped 2026-05-02)
-            -> v0.1.15 foreign-user-ready package (published 2026-05-03)
+            -> v0.1.15 publish-first package (published 2026-05-03)
                 -> v0.1.15.1 Linux keyring hotfix
                     -> v0.1.16 empirical fixes from the named foreign-user candidate's post-publish session
                         -> v0.1.17 maintainability + eval consolidation

@@ -1086,9 +1086,10 @@ def test_cli_clean_never_populates_manual_stress_score(tmp_path):
 def test_recovery_readiness_skill_allows_hai_state_snapshot():
     """Recovery-readiness's allowed-tools must grant the bash invocations
     its protocol depends on: ``hai state snapshot`` to load the evidence
-    bundle, ``hai propose`` to persist the RecoveryProposal (per v0.1.4
-    D2; the legacy ``hai writeback`` path was retired), and
-    ``hai review`` for follow-up schedule inspection.
+    bundle and ``hai propose`` to persist the RecoveryProposal (per
+    v0.1.4 D2; the legacy ``hai writeback`` path was retired). Follow-up
+    scheduling is synthesis/daily-owned, so this domain skill must not
+    grant itself ``hai review``.
     """
     from importlib.resources import files
 
@@ -1104,7 +1105,7 @@ def test_recovery_readiness_skill_allows_hai_state_snapshot():
         "hai writeback was retired in v0.1.4 D2; recovery-readiness "
         "now uses hai propose like the other five domain skills."
     )
-    assert "hai review" in allowed_line
+    assert "hai review" not in allowed_line
 
 
 # ---------------------------------------------------------------------------

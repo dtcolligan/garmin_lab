@@ -1,7 +1,7 @@
 ---
 name: intent-router
 description: Authoritative mapping from user natural-language intent to `hai` CLI workflow sequences. Reads the `hai capabilities --json` manifest as the source of truth for which commands exist, what they mutate, and what exit codes they return. Never mutates state itself — it composes invocations of other `hai` subcommands that cross the determinism boundaries. Always surfaces the proposed pipeline before any mutation command runs. Teaches the agent `hai` the way Claude already knows `gh`.
-allowed-tools: Read, Bash(hai capabilities *), Bash(hai state snapshot *), Bash(hai state read *), Bash(hai state reproject *), Bash(hai state init *), Bash(hai state migrate *), Bash(hai pull *), Bash(hai clean *), Bash(hai propose *), Bash(hai synthesize *), Bash(hai today *), Bash(hai explain *), Bash(hai memory *), Bash(hai review *), Bash(hai intake *), Bash(hai daily *), Bash(hai doctor *), Bash(hai config show *), Bash(hai exercise search *), Bash(hai eval *), Bash(hai auth status *)
+allowed-tools: Read, Bash(hai capabilities *), Bash(hai state snapshot *), Bash(hai state read *), Bash(hai state reproject *), Bash(hai state init *), Bash(hai state migrate *), Bash(hai pull *), Bash(hai clean *), Bash(hai propose *), Bash(hai synthesize *), Bash(hai today *), Bash(hai explain *), Bash(hai memory *), Bash(hai intent list *), Bash(hai intent training list *), Bash(hai intent training add-session *), Bash(hai intent sleep set-window *), Bash(hai target list *), Bash(hai target set *), Bash(hai target nutrition *), Bash(hai review *), Bash(hai intake *), Bash(hai daily *), Bash(hai doctor *), Bash(hai config show *), Bash(hai exercise search *), Bash(hai eval *), Bash(hai auth status *)
 disable-model-invocation: false
 ---
 
@@ -89,7 +89,6 @@ User wants today's evidence to be current on-device. Pipeline:
 ```
 hai pull --date <today>                        # writes-sync-log
 hai clean --evidence-json <pull output>        # writes-state
-hai state reproject                            # writes-state; idempotent (refuses on synthesis-side rows; pass --cascade-synthesis if a full rebuild is intended)
 ```
 
 Source resolution (v0.1.6+): explicit `--source` > legacy `--live`
@@ -103,6 +102,11 @@ intervals.icu, stop and tell the user to run `hai auth
 intervals-icu` themselves (operator-only per the manifest — you
 must not attempt it). A CSV-fixture pull (`--source csv`) works
 without credentials; use it for offline / test runs.
+
+`hai state reproject` is not part of routine refresh. It is a
+rebuild/repair surface for replaying raw evidence or JSONL audit
+logs. Use it only when the user asks to rebuild state or a runtime
+message directs you there.
 
 ### 2. Daily planning — *"what should I do today?", "plan my day"*
 
@@ -201,10 +205,20 @@ confirm with the user which one they're reporting on before writing.
 For readiness self-reports ("I slept badly"), use `hai intake
 readiness` instead — that's per-day state, not a review outcome.
 
-### 5. Memory / goals / constraints — *"remember that...", "I want to...", "my constraint is..."*
+### 5. Memory / intent / targets — *"remember that...", "I plan to...", "my target is..."*
 
-Persistent user context lives in the user_memory table (migration
-007). Route `remember / prefer / goal / injury` intents to:
+Do not collapse every durable user statement into memory. The runtime
+has three ledgers with different governance semantics:
+
+| User statement | Ledger | Route |
+|---|---|---|
+| "Remember I prefer morning sessions" | memory | `hai memory set` |
+| "I plan to run intervals tomorrow" | intent | `hai intent training add-session` |
+| "My target is 3100 kcal / 160g protein" | target | `hai target nutrition` or `hai target set` |
+
+Persistent context lives in the user_memory table (migration 007).
+Route `remember / prefer / durable constraint / background context`
+intents to:
 
 ```
 hai memory set --category <goal|preference|constraint|context> \
@@ -220,6 +234,14 @@ hai memory archive --memory-id <umem_id>
 User memory never feeds back into thresholds or policy in this
 cycle — it's bounded read-only context. Do not promise the system
 will "learn" or "adapt" from a memory entry.
+
+Intent rows (`hai intent ...`) and target rows (`hai target ...`) are
+user-state commitments. If you write them as an agent, stamp the
+agent actor/source so W57 keeps them proposed unless the command is
+explicitly user-authored. Never run `hai intent commit`,
+`hai intent archive`, `hai target commit`, or `hai target archive`;
+the capabilities manifest marks those non-agent-safe because they
+activate or deactivate user state.
 
 ## Mutation confirmation
 

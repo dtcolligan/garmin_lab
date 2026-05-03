@@ -1,13 +1,16 @@
 # Reading Tour
 
 A 10-minute guided read of the v1 multi-domain runtime, for someone
-(including future-you) coming back cold.
+(including future-you) coming back cold. For exact version, schema
+head, command count, and release posture, read
+[`current_system_state.md`](current_system_state.md) first.
 
 ## 1. What you're looking at
 
 Health Agent Infra is **agent-native infrastructure**, not a health app. The
-user speaks to an agent in natural language; the agent operates the local
-`hai` CLI. The package ships two things to an agent like Claude Code:
+user speaks to a shell-capable agent in natural language; the agent operates
+the local `hai` CLI. Claude Code is the first compatibility surface, not the
+architecture boundary. The package ships two things to the agent:
 
 - **A CLI called ``hai``** with deterministic subcommands for
   pulling evidence, running intake, projecting state, classifying
@@ -42,7 +45,7 @@ reporting/
     plans/                   # roadmap + release/audit plans
     experiments/             # Phase 0.5 / 2.5 throwaway prototypes
 verification/
-    tests/                   # unit + contract + integration (2081 collected)
+    tests/                   # unit + contract + integration (2631 passed at v0.1.15.1)
     evals/                   # dev-reference docs + Phase E skill-harness pilot
 ```
 
@@ -62,7 +65,8 @@ deterministic runtime behaviour on frozen scenarios.
 - [`x_rules.md`](x_rules.md) — the full cross-domain X-rule
   catalogue, including sentence-form human explanations per rule.
 - [`state_model_v1.md`](state_model_v1.md) — table-by-table state
-  schema (through migration 021 in v0.1.8).
+  schema (schema head 025 as of v0.1.15.1; migrations remain the
+  source of truth).
 - [`explainability.md`](explainability.md) — `hai explain` and the
   three-state audit bundle (planned → adapted → performed).
 - [`agent_cli_contract.md`](agent_cli_contract.md) — generated
@@ -223,16 +227,17 @@ hai review summary --domain recovery
 | "How do I add a pull adapter?" | [how_to_add_a_pull_adapter.md](how_to_add_a_pull_adapter.md) |
 | "Why is feature X not included?" | [non_goals.md](non_goals.md) |
 | "How does an agent install this?" | [agent_integration.md](agent_integration.md) |
-| "Is it tested?" | ``verification/tests/`` (2081 collected) |
+| "Is it tested?" | ``verification/tests/`` plus the latest release gate in [current_system_state.md](current_system_state.md) |
 | "Does it have evals?" | ``verification/evals/`` + ``hai eval run --domain <d>`` |
 | "Does it run on live wearable data?" | ``hai auth intervals-icu`` then ``hai pull --source intervals_icu`` |
 | "How did we get here?" | [AUDIT.md](../../AUDIT.md) + release folders under ``reporting/plans/`` |
 
 ## 10. One honest caveat
 
-This is a personal-use runtime. Not hosted, not multi-user, not
-clinical, not polished for general install. Its audience is a
-Claude agent driving a single user's daily health signals through a
+This is a personal-use runtime. It is published and installable, but
+still single-user, local-first, non-clinical, and intentionally narrow.
+Its audience is an agent driving one user's health state through a
 bounded, auditable pipeline. If a section of the docs stops matching
-the code, the likely cause is drift — trust the code + tests + git
-log over the docs, and update the docs.
+the code, the likely cause is drift — trust the generated CLI
+capabilities, migrations, tests, and current-system-state doc over
+older prose, then update the docs.

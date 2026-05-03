@@ -1,6 +1,7 @@
 ---
 name: strength-intake
 description: Convert a user's narrated strength session into structured `hai intake gym` calls. Judgment-only — all name resolution and parsing lives in code.
+allowed-tools: Read, Write, Bash(hai exercise search *), Bash(hai intake gym *)
 when_to_use: >
   When the user describes a resistance-training session in free text
   ("back squats 5×5 at 100kg, then bench 4×5 at 80kg") and the

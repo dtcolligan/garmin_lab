@@ -1,63 +1,51 @@
-# v0.1.15 cycle — workspace
+# v0.1.15 cycle - frozen post-ship entry point
 
-**Status:** **D14 closed at round 4** (post-Phase-0 ratification round, 2026-05-03 evening). Rounds 1-3 chain: 12 → 7 → 3 (halving held, closed in-place). Phase 0 (D11) bug-hunt surfaced **F-PHASE0-01 (revises-scope)** + 3 nits + persona matrix 13/13 clean. F-PHASE0-01 Option A applied to PLAN. Round 4 PLAN_COHERENT_WITH_REVISIONS with 2 close-in-place findings (**F-R4-01** W-C command-contract tightening + **F-R4-02** stale-prose cluster). Both AGREED + applied + closed in-place per round-4 prompt Step 4. **Phase 1 implementation opens next.** Triage detail in `codex_plan_audit_round_4_response_response.md`.
+**Status:** shipped and published on 2026-05-03. v0.1.15 was the
+external-user package cycle; v0.1.15.1 later hotfixed Linux
+keyring fall-through without changing schema.
 
-**Tier:** substantive — see PLAN.md §1.4 for the scope-restructure provenance and §1.4 for the cycle-tier escalation triggers.
+**Tier:** substantive. D14 plan audit settled at round 4 after the
+Phase 0 F-PHASE0-01 revision; D15 implementation review settled at
+round 3 with one nit-class note. The cycle is closed. Do not use this
+directory as an open implementation checklist.
 
-**Theme:** foreign-user candidate package + recorded gate session as ship claim.
+## What shipped
 
-## Reading order for the cycle session
+- W-GYM-SETID: `gym_set.set_id` includes exercise slug; migration 024
+  rewrites old-format ids while preserving correction rows.
+- F-PV14-01: CSV fixture pulls are default-denied against canonical
+  state unless the caller opts in or uses a demo/non-canonical target.
+- W-A: `hai intake gaps` emits the presence block, partial-day signal,
+  and nutrition target-status enum.
+- W-C: `hai target nutrition` writes four atomic macro target rows
+  over the existing `target` table; migration 025 extends nutrition
+  target types with `carbs_g` and `fat_g`.
+- W-D arm-1: partial-day/no-target nutrition suppresses to
+  `nutrition_status='insufficient_data'`.
+- W-E: `merge-human-inputs` consumes the W-A presence block for
+  recap-vs-forward-march framing.
 
-1. `PLAN.md` (this directory) — open scope, 7 W-ids, 15-24 days estimated (revised round 4 per F-PHASE0-01 Option A; was 16-25 at round 3).
-2. `AGENTS.md` — operating contract; pay attention to D124-135 (W-29 redestination — see PLAN.md §3) and D11 Phase 0 bug-hunt pattern.
-3. `reporting/plans/README.md` — planning-tree reading-order index.
-4. `reporting/plans/tactical_plan_v0_1_x.md` — v0.1.15 / v0.1.16 / v0.1.17 rows post-restructure.
-5. `reporting/plans/post_v0_1_14/agent_state_visibility_findings.md` — W-A through W-E source detail.
-6. `reporting/plans/post_v0_1_14/carry_over_findings.md` — F-PV14-01 detail.
-7. `reporting/plans/v0_1_14/RELEASE_PROOF.md` and `v0_1_14_1/` — last-shipped state + W-2U-GATE inheritance chain.
-8. `reporting/plans/v0_1_17/README.md` — what was deferred from this cycle's round-0 over-scoping.
+## Read in order
 
-## Scope provenance — three rounds in one evening + two D14 audit rounds
+1. `RELEASE_PROOF.md` - ship proof, gates, and workstream closure.
+2. `REPORT.md` - post-ship narrative.
+3. `PLAN.md` - final scoped plan and acceptance criteria.
+4. `audit_findings.md` - Phase 0 findings, especially F-PHASE0-01.
+5. `codex_plan_audit_round_4_response.md` and
+   `codex_plan_audit_round_4_response_response.md` - final D14 close.
+6. `codex_implementation_review_round_3_response.md` - final D15 IR
+   close.
 
-- **Mid-day round 0:** original "v0.1.15 = mechanical hardening only" framing per `agent_state_visibility_findings.md` recommendation. W-29 + carry-overs.
-- **Evening round 0:** maintainer override expanded to 16 catalogued slots (W-D counted as two arms; mechanical + daily-loop hardening + eval substrate + foreign-user gate combined). 39-60 days.
-- **Evening round 0 self-audit + round 1:** Claude-led audit against the second-user objective surfaced ~50% over-scoping. Maintainability + eval moved to **v0.1.17** (new). v0.1.15 stayed at 7 slots focused on the gate.
-- **D14 round 1 (2026-05-03 morning):** Codex audit closed PLAN_COHERENT_WITH_REVISIONS, 12 findings. Maintainer applied 12/12 in PLAN round 2 + cross-doc fan-out (`tactical_plan_v0_1_x.md` §5B/§5C/§5D, `AGENTS.md` Do-Not-Do + active-repo declaration, `agent_state_visibility_findings.md` recommendation rewrite).
-- **D14 round 2 (2026-05-03 mid-day):** Codex audit closed PLAN_COHERENT_WITH_REVISIONS, 7 findings (within the empirical halving range). Maintainer applied 7/7 in PLAN round 3 + cross-doc fan-out (typed `target_status` enum, effort propagation, F-PV14-02 selective-restore correction, ship-gate completeness).
-- **D14 round 3 (2026-05-03 afternoon):** Codex audit closed PLAN_COHERENT_WITH_REVISIONS with 3 nit-class findings, recommended close-in-place. Maintainer applied 3/3 in PLAN final + minor cross-doc fan-out (tactical §5B P-tier alignment + typo + status; PLAN §4 risks rewritten to typed enum; PLAN §2.G "tagged commit" → "commit SHA"; restore citation expanded to handler + parser ranges). Halving signature: 12 → 7 → 3.
-- **Phase 0 / D11 bug-hunt (2026-05-03 evening):** internal sweep + audit-chain probe + persona matrix (13/13 clean). Surfaced **F-PHASE0-01 (revises-scope)** — W-C `nutrition_target` table proposal duplicates the existing `target` table (migration 020, in tree since v0.1.8 W50). Plus 3 nits. Maintainer chose F-PHASE0-01 Option A (extend existing table). PLAN §2.B/§2.D/§2.E/§4/§5 + cross-doc fan-out applied. Q2 (foreign-user candidate) closed: named candidate on file, path (a) cycle proceeds.
-- **D14 round 4 (2026-05-03 evening):** Codex audit closed PLAN_COHERENT_WITH_REVISIONS with 2 close-in-place findings — F-R4-01 (W-C command-contract tightening: source/status pairing; atomic helper; natural-key idempotency; `_VALID_TARGET_TYPE` extension) + F-R4-02 (stale-prose cluster). Both AGREED + applied + closed in-place. OQ-10 per-row commit default ratified. **D14 closed. Phase 1 implementation opens next.**
+Earlier prompts and response files remain provenance. They are not
+current instructions.
 
-PLAN.md §1.4 + §9 record the scope-decision and audit-round provenance in detail.
+## What moved forward
 
-## First actions for the cycle session
+- v0.1.16 owns empirical fixes from the recorded foreign-user session
+  against the published package, plus the `hai explain` foreign-user
+  pass.
+- v0.1.17 owns maintainability and eval consolidation work that was
+  deliberately removed from v0.1.15 scope.
 
-1. ✅ Read order above (this README is the entry point).
-2. ✅ Author PLAN.md (done 2026-05-02 evening).
-3. **NEXT:** Copy `_templates/codex_plan_audit_prompt.template.md` into this dir as `codex_plan_audit_prompt.md`. Customise the "Why this round" + step-1 reading list + step-2 audit questions for this cycle.
-4. Hand both PLAN.md and codex_plan_audit_prompt.md to the maintainer for the Codex round-1 launch.
-
-## D14 plan-audit settled expectation
-
-Substantive tier with small W-id count (7) → 2-4 rounds expected per AGENTS.md empirical norm. Halving signature held end-to-end through round 3: 12 → 7 → 3, closed in-place. **Round 4 (post-Phase-0 F-PHASE0-01 ratification)** fires on a small-surface revision (§2.B/§2.D/§2.E/§4/§5 + 3 nit fixes); single-round close expected (PLAN_COHERENT or 1-2 nits close-in-place).
-
-## Phase 0 (D11) scope
-
-Substantive tier requires full Phase 0 bug-hunt: internal sweep + audit-chain probe + persona matrix + Codex external audit per the standard prompt template. Findings consolidate to `audit_findings.md` with `cycle_impact` tags. Phase 0 fires after D14 PLAN_COHERENT and before W-29 implementation opens — except W-29 isn't in this cycle, so Phase 0 fires before W-GYM-SETID + W-A (the first parallelizable Phase 1 workstreams).
-
-## Implementation review settled expectation
-
-Empirical settling: 3 rounds, 5→2→1-nit. Substantive tier; no shortcut to 2 rounds.
-
-## Ship gates
-
-See PLAN.md §6.
-
-## Cross-references
-
-- `PLAN.md` (open scope)
-- `v0_1_17/README.md` (deferred work register)
-- `post_v0_1_14/agent_state_visibility_findings.md`
-- `post_v0_1_14/carry_over_findings.md`
-- `_templates/codex_plan_audit_prompt.template.md`
-- `_templates/codex_implementation_review_prompt.template.md`
+For current shipped truth, start at
+`reporting/docs/current_system_state.md`.

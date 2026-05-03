@@ -6,8 +6,8 @@ proof and is not yet a v0.1.16 PLAN.
 
 ## Documents
 
-- [`internal_docs_audit.md`](internal_docs_audit.md) — post-publish
-  internal-docs audit and fix report.
+- [`internal_docs_audit.md`](internal_docs_audit.md) — research-backed
+  internal-docs audit, fixes applied, and remaining docs backlog.
 
 ## Boundary
 

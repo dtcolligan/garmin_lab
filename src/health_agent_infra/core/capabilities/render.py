@@ -54,6 +54,7 @@ JSON; this markdown is an at-a-glance overview for humans.
 |---|---|
 | ``yes`` | Same inputs produce the same persisted state after every call. |
 | ``yes-with-supersede`` | Idempotent via an explicit ``--supersede`` flag that versions. |
+| ``yes-with-replace`` | Idempotent via an explicit ``--replace`` flag that revises the current leaf. |
 | ``no`` | Append-only, order-sensitive, or interactive. |
 | ``n/a`` | Read-only; idempotency doesn't apply. |
 

@@ -67,8 +67,8 @@ is an opt-in two-pass path: `hai synthesize --bundle-only`, then
 `recovery - running - sleep - stress - strength - nutrition`
 
 Each ships its own `domains/<d>/{schemas,classify,policy}.py` plus a
-matching skill. The synthesis layer reconciles proposals through 10 X-rule
-evaluators across two phases.
+matching skill. The synthesis layer reconciles proposals through 11 X-rules:
+10 Phase A rules and one Phase B adjustment rule.
 
 ## Agent Contract
 

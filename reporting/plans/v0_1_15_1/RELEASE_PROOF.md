@@ -2,7 +2,8 @@
 
 # v0.1.15.1 RELEASE PROOF - Linux keyring fall-through hardening
 
-**Status.** HOTFIX_READY locally; push + PyPI publish held for maintainer.
+**Status.** shipped and published; PyPI current version verified as
+`0.1.15.1`.
 **Date.** 2026-05-03.
 **Branch.** `main`.
 **Scope source.** [`HOTFIX_SCOPE.md`](HOTFIX_SCOPE.md).
@@ -55,19 +56,14 @@ small doc items + public candidate-name scrub.
   method hardening can land in v0.1.16 or later.
 - No CI-green-before-publish workflow redesign; defer to v0.1.16+
   planning if the maintainer wants a process change.
-- No push or PyPI upload by Codex. Maintainer runs those commands.
+- Push and PyPI upload were maintainer-owned.
 
-## 6. Publish commands for maintainer
+## 6. Publish verification
 
-```bash
-git push origin main
-bash /tmp/hai-publish-0.1.15.1.sh
-```
-
-After publish:
+Post-publish verification:
 
 ```bash
 curl -s https://pypi.org/pypi/health-agent-infra/json | python3 -c "import json,sys; print('latest:', json.load(sys.stdin)['info']['version'])"
 ```
 
-Expected: `latest: 0.1.15.1`.
+Expected and observed: `latest: 0.1.15.1`.

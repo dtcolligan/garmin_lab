@@ -145,7 +145,8 @@ from outcomes — remains explicitly out of scope.
 Counterpoint for clarity — these ARE in v1:
 
 - Six domains with classify + policy + skill per domain.
-- Synthesis with 10 X-rule evaluators across two phases.
+- Synthesis with 11 X-rules across two phases: 10 Phase A rules and
+  one Phase B adjustment rule.
 - Schema-validated boundaries for propose, synthesize, review, intake,
   intent, and target paths.
 - Atomic SQLite transactions around daily_plan commits.

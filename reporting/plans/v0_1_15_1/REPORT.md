@@ -2,7 +2,8 @@
 
 **Tier (D15):** hotfix.
 **Date:** 2026-05-03.
-**Status:** HOTFIX_READY locally; push + PyPI publish held for maintainer.
+**Status:** shipped and published; PyPI current version verified as
+`0.1.15.1`.
 
 ## 1. Why this hotfix existed
 
@@ -65,6 +66,6 @@ also carries two small doc fixes and the public candidate-name scrub.
 
 1. Post-v0.1.15 internal-docs sweep committed separately.
 2. v0.1.15.1 hotfix implemented and verified locally.
-3. Maintainer pushes `main`.
-4. Maintainer publishes the wheel/sdist from `dist/`.
-5. Maintainer verifies PyPI reports `0.1.15.1`.
+3. Maintainer pushed `main`.
+4. Maintainer published the wheel/sdist from `dist/`.
+5. Maintainer verified PyPI reports `0.1.15.1`.

@@ -25,8 +25,9 @@ This directory has four subdirectories, each with a distinct role.
 | [`plans/success_framework_v1.md`](plans/success_framework_v1.md) | active — how project value is measured |
 | [`plans/risks_and_open_questions.md`](plans/risks_and_open_questions.md) | active — what could derail + decisions needed |
 | [`plans/v0_1_15_1/`](plans/v0_1_15_1/) | active — most recent hotfix cycle (Linux keyring fall-through hardening, 2026-05-03). Earlier cycles (v0.1.10 onward) live under their own dirs. |
-| [`plans/v0_1_15/`](plans/v0_1_15/) | frozen — foreign-user-ready package, published 2026-05-03. |
-| [`plans/post_v0_1_10/`](plans/post_v0_1_10/) | active — between-cycles work (demo + Phase 4 audit plans) |
+| [`plans/v0_1_15/`](plans/v0_1_15/) | frozen — package release, published 2026-05-03. |
+| [`plans/v0_1_15_1/`](plans/v0_1_15_1/) | frozen — latest hotfix cycle (Linux keyring fall-through, 2026-05-03). |
+| [`plans/post_v0_1_10/`](plans/post_v0_1_10/) | historical — between-cycles handoff (demo + Phase 4 audit plans) |
 | [`plans/post_v0_1_13/`](plans/post_v0_1_13/) | active — post-v0.1.13 strategic research + audit chain + 5 CPs |
 | [`plans/post_v0_1_14/`](plans/post_v0_1_14/) | active — post-v0.1.14 carry-over findings (F-PV14-01/02 → v0.1.15) |
 | [`plans/post_v0_1_15/`](plans/post_v0_1_15/) | active — post-v0.1.15 internal-docs audit and between-cycle notes |
