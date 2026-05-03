@@ -3903,6 +3903,9 @@ def cmd_intake_gaps(args: argparse.Namespace) -> int:
         compute_intake_gaps,
         compute_intake_gaps_from_state_snapshot,
     )
+    from health_agent_infra.core.intake.presence import (
+        compute_presence_block,
+    )
     from health_agent_infra.core.state import (
         build_snapshot,
         open_connection,
@@ -3920,6 +3923,19 @@ def cmd_intake_gaps(args: argparse.Namespace) -> int:
             file=sys.stderr,
         )
         return exit_codes.USER_INPUT
+
+    # v0.1.15 W-A: compute the presence block once per invocation. Both
+    # output paths (--from-state-snapshot and --evidence-json) get the
+    # same `present` + `is_partial_day` + `target_status` keys so an
+    # agent driving the CLI can rely on the W-A contract regardless of
+    # which derivation source the caller picked.
+    presence_conn = open_connection(db_path)
+    try:
+        presence_block = compute_presence_block(
+            presence_conn, as_of=as_of, user_id=user_id,
+        )
+    finally:
+        presence_conn.close()
 
     # v0.1.11 W-W: --from-state-snapshot is the new offline-derivation
     # path (Codex F-DEMO-04). Mutually exclusive with --evidence-json.
@@ -3954,6 +3970,8 @@ def cmd_intake_gaps(args: argparse.Namespace) -> int:
         except StalenessRefusal as exc:
             print(f"hai intake gaps: {exc}", file=sys.stderr)
             return exit_codes.USER_INPUT
+        # v0.1.15 W-A: merge the presence block into the payload.
+        payload.update(presence_block)
         _emit_json(payload)
         return exit_codes.OK
 
@@ -3994,7 +4012,7 @@ def cmd_intake_gaps(args: argparse.Namespace) -> int:
         d = g.to_dict()
         d["derived_from"] = "pull_evidence"
         gap_dicts.append(d)
-    _emit_json({
+    payload = {
         "as_of_date": as_of.isoformat(),
         "user_id": user_id,
         "computed": True,
@@ -4002,7 +4020,10 @@ def cmd_intake_gaps(args: argparse.Namespace) -> int:
         "gaps": gap_dicts,
         "gap_count": len(gaps),
         "gating_gap_count": sum(1 for g in gaps if g.blocks_coverage),
-    })
+    }
+    # v0.1.15 W-A: presence block + is_partial_day + target_status.
+    payload.update(presence_block)
+    _emit_json(payload)
     return exit_codes.OK
 
 
