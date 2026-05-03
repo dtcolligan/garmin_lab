@@ -34,6 +34,14 @@ That breaks down in predictable ways:
 | Weak validation | Plans are generated as prose before the system proves that required evidence and constraints are present. |
 | Opaque recommendations | The user cannot reconstruct why a recommendation changed after sleep, stress, nutrition, or training load shifted. |
 | No review loop | The system does not reliably learn whether yesterday's recommendation was followed or useful. |
+| Source and freshness ambiguity | The agent treats stale data, fixture data, live-source failures, and missing credentials as if they were equivalent. |
+| Cross-domain drift | Running, recovery, sleep, stress, strength, and nutrition get planned independently even though the useful recommendation depends on their interaction. |
+| Calibration overconfidence | A fresh install can sound confident before it has enough personal history to support that confidence. |
+| Ungoverned goals and targets | The agent can silently change user intent, nutrition targets, or training direction without a commit boundary. |
+| Fragile recovery | Local health history can become hard to inspect, migrate, back up, or restore after schema or package changes. |
+| Agent-contract drift | The agent follows stale instructions after the CLI, schema, or safety contract changes. |
+| Prompt-only governance | Safety depends on telling the model to behave instead of constraining the tools it can call. |
+| Privacy boundary collapse | Sensitive health data is scattered across chat memory, ad hoc files, and tool logs because there is no canonical local state boundary. |
 
 Health Agent Infra fixes those failure modes by moving the durable,
 deterministic, and auditable parts into local software. The LLM stays
@@ -48,6 +56,14 @@ typed daily state, classifies each domain, applies deterministic policy
 rules, lets the agent propose bounded actions, and commits the final
 plan through an auditable transaction.
 
+It also gives the agent operational surfaces that a plain chat agent
+does not have: source freshness checks, credential diagnostics,
+structured intake gaps, explicit user commit gates for targets and
+intent, backup/restore/export, and an explanation surface that
+reconstructs recommendations from persisted rows. Generated capability
+docs, contract tests, scenario fixtures, and persona runs keep the
+agent-facing surface from drifting silently as the runtime changes.
+
 In practice:
 
 1. You converse with the agent about training, recovery, sleep,
@@ -60,7 +76,10 @@ In practice:
    policy rules, validation, and cross-domain X-rules.
 5. Markdown skills help the agent explain uncertainty, ask better
    questions, and write rationale.
-6. The runtime, not the LLM, performs the final state write.
+6. The runtime blocks missing or unsafe states, applies cross-domain
+   adjustments, and performs the final state write.
+7. Review, explanation, and recovery commands make the result
+   inspectable after the fact.
 
 The core rule:
 
@@ -69,17 +88,23 @@ The core rule:
 ## Where the product stands
 
 The current published package is `health-agent-infra==0.1.15.1`
-from 2026-05-03. It is the v0.1.15 foreign-user-ready package plus a
-Linux keyring hotfix.
+from 2026-05-03. It is the v0.1.15 single-user package plus a Linux
+keyring hotfix.
 
 | Area | Current state |
 |---|---|
 | Daily loop | Working and dogfooded: pull, clean, snapshot, gap detection, proposal gate, synthesis, `hai today`. |
 | Health-state database | Local SQLite, 25 migrations, six accepted-state domains, audit rows for proposals/plans/reviews. |
-| Wearable input | intervals.icu preferred; Garmin live is supported but marked unreliable; CSV fixture for demos/tests. |
-| Manual intake | Readiness, gym, nutrition macros, stress, notes, targets, intent/training rows. |
+| Wearable and source handling | intervals.icu preferred; Garmin live is supported but marked unreliable; CSV fixture is guarded from canonical state by default. |
+| Manual intake | Readiness, gym sets, exercise taxonomy, nutrition macros, stress, notes, targets, intent/training rows. |
 | Agent contract | 60 annotated commands with mutation class, idempotency, JSON mode, exit codes, and agent-safety metadata. |
+| Validation and gap handling | `hai daily` and `hai intake gaps` expose missing evidence, present-domain state, partial-day nutrition status, and proposal-gate state. |
+| Explanation and audit | `hai today`, `hai explain`, `hai stats`, and persisted proposal/planned/adapted rows reconstruct what happened. |
 | Review loop | `hai review record` and `hai review summary` persist outcomes and re-link through superseded plans. |
+| Recovery and portability | `hai backup`, `hai restore`, and `hai export` preserve local state and refuse incompatible schema restores by default. |
+| Calibration | Cold-start behavior is explicit; some domains relax early coverage blocks while recovery, sleep, and nutrition remain conservative. |
+| Agent operability | Machine-readable capabilities, generated CLI docs, JSON modes, exit codes, and skills are maintained as part of the product surface. |
+| Verification | Pytest coverage, deterministic scenario fixtures, persona harnesses, Bandit, mypy, and release proofs guard the runtime contract. |
 | Weekly review | Not shipped as a product loop yet; v0.2.0 is planned to build weekly review on existing provenance rows. |
 | Planning | Daily planning works; longer-horizon planning is deliberately constrained and staged behind future review/evidence substrate. |
 | External validation | PyPI package published; recorded non-maintainer session pending as empirical validation feeding v0.1.16. |
@@ -98,6 +123,20 @@ Current and working. The agent can help plan today by pulling wearable
 data, asking for missing self-report, checking readiness, generating
 bounded domain proposals, and committing one audited daily plan.
 
+### Intake and correction loop
+
+Current and working. The agent can turn user narration into structured
+readiness, stress, nutrition, note, target, intent, and gym rows. Gym
+intake includes exercise taxonomy handling and per-set state; nutrition
+is daily macros-only by design.
+
+### Source-quality loop
+
+Current and working. The runtime tracks sync freshness, distinguishes
+fixture vs live sources, warns on stale `for_date` divergence, exposes
+credential status, and marks Garmin live as unreliable in the agent
+capabilities manifest.
+
 ### Review loop
 
 Current and working. The user records whether yesterday's
@@ -105,12 +144,26 @@ recommendation was followed and whether it helped. Review outcomes are
 stored locally and linked back to the canonical recommendation even
 when the day was re-authored.
 
+### Explanation loop
+
+Current and working. The agent can answer "why did this change?" by
+running `hai explain` over persisted proposal, planned, X-rule firing,
+daily plan, and recommendation rows. The explanation is reconstructed
+from state, not regenerated from memory.
+
 ### Target and planning loop
 
 Partially current. The runtime can store governed targets and intent
 rows, including nutrition macro targets, but it does not let the agent
 silently activate user-state changes. Agent-proposed targets still
 require explicit user commit.
+
+### Recovery loop
+
+Current and working. A user can back up, restore, and export local
+state. Restore checks the package/schema head before overwriting a
+destination so a backup from one version is not silently applied to an
+incompatible runtime.
 
 ### Weekly review loop
 
@@ -124,6 +177,12 @@ that substrate into a weekly review surface.
 Future. The project is deliberately building daily state, review
 memory, and evidence provenance before giving an agent broader
 planning authority.
+
+### Evaluation and regression loop
+
+Internal but active. The repo includes a pytest suite, persona harness,
+packaged deterministic eval runner, scenario fixtures, and generated
+CLI-contract checks so agent-facing behavior does not drift silently.
 
 ## How it feels to use
 
@@ -149,6 +208,14 @@ The agent talks; the runtime governs.
   are projected into typed state before recommendations are made.
 - **Validated write path.** The agent cannot bypass the CLI contract
   to mutate state directly.
+- **Source honesty.** Fixture data, live-source failures, stale syncs,
+  and missing credentials are visible to the agent instead of being
+  collapsed into vague "no data" prose.
+- **Cross-domain planning without free-form authority.** X-rules let
+  sleep, recovery, nutrition, stress, running, and strength constrain
+  each other mechanically before prose is written.
+- **User-governed commitments.** Agent-proposed targets and intent
+  rows do not become active just because an agent suggested them.
 - **Code and skills have separate jobs.** Python owns bands, R-rules,
   X-rules, validation, supersession, and commits. Markdown skills own
   explanation, uncertainty, and clarification.
@@ -207,6 +274,11 @@ When proposals are needed, the agent uses the domain skills and writes
 one bounded `DomainProposal` per expected domain with `hai propose`.
 Then `hai daily` or `hai synthesize` completes the atomic commit.
 
+The daily loop is not the whole product; it is the first complete
+agent-operable loop. The same state and provenance model is what
+weekly review, longer-horizon planning, and future evaluation surfaces
+build on.
+
 The full integration contract is in
 [`reporting/docs/agent_integration.md`](reporting/docs/agent_integration.md).
 
@@ -260,6 +332,12 @@ The current runtime covers six daily domains:
 | strength | gym set intake, exercise taxonomy, volume spikes |
 | nutrition | daily macro totals and target-aware suppression |
 
+Domain breadth is not the main claim. The main claim is that each
+domain has a typed state representation, known evidence inputs,
+classifier and policy boundaries, provenance, and an auditable plan
+surface. New domains should follow that pattern rather than becoming
+more prompt text.
+
 Nutrition is daily macros-only in v1, not meal-level tracking. Body
 composition, micronutrients, clinical claims, and autonomous diet
 plans are intentionally out of scope.
@@ -304,6 +382,24 @@ freshness, credential status, and skill installation.
 - Garmin live is explicitly less reliable than intervals.icu.
 - USER_INPUT exits should include the next action. If one does not,
   that is a bug.
+
+## Boundaries
+
+The project is health-agent infrastructure, not an autonomous doctor,
+coach, dietitian, wearable platform, or cloud service.
+
+- It does not diagnose, treat, or make clinical claims.
+- It does not let the agent silently activate goals, targets, intent,
+  or final plans without the governed write path.
+- It does not ask the LLM to be the database, validator, migration
+  layer, source-of-truth, or policy engine.
+- It does not replace wearables or source APIs; it records and
+  governs the evidence they provide.
+- It does not treat missing, stale, fixture, or unreliable data as
+  equivalent to live evidence.
+- It does not solve every health-agent failure case yet. Weekly
+  review, longer-horizon planning, richer personal guidance evals,
+  and broader source-quality policy are still staged work.
 
 ## Main command groups
 
