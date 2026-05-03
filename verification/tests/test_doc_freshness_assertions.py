@@ -172,7 +172,20 @@ def test_v0_1_14_w_id_in_summary_surface_implies_in_plan_catalogue():
                 if any(
                     kw in line.lower() for kw in (
                         "deferred", "defer to", "inherited",
-                        "carry-forward", "carry forward", "v0.1.15",
+                        "carry-forward", "carry forward",
+                        # "carry-over" / "carry-overs" / "carry over"
+                        # variants appear in tactical-plan tables citing
+                        # `v0.1.14 RELEASE_PROOF §carry-overs` for
+                        # workstreams pushed to v0.1.17 (W-AH-2 etc.) —
+                        # legitimate inherited-W-id references.
+                        "carry-over", "carry over",
+                        "v0.1.15",
+                        # v0.1.16 + v0.1.17 added 2026-05-02 per scope-
+                        # restructure (foreign-user gate cycle + maint/
+                        # eval cycle); allowlist them so v0.1.16/17
+                        # sections that reference v0.1.14 carry-forward
+                        # work don't fail this test.
+                        "v0.1.16", "v0.1.17",
                         "v0.1.13", "v0.2.0", "post-",
                         "pull-forward", "pull forward",
                         "pulled forward", "pulled-forward",

@@ -93,16 +93,28 @@ class GymSessionSubmission:
         ]
 
 
-def deterministic_set_id(session_id: str, set_number: int) -> str:
-    """Idempotent set_id: same (session_id, set_number) ⇒ same set_id.
+def deterministic_set_id(
+    session_id: str, exercise_name_slug: str, set_number: int,
+) -> str:
+    """Idempotent set_id: same (session_id, exercise, set_number) ⇒ same id.
 
-    Re-running ``hai intake gym`` with identical args hits the PK and becomes
-    a no-op. Corrections must pass an explicit ``--supersedes-set-id`` plus a
-    new set_id via bulk JSON (7C.1 doesn't expose per-set correction flags
-    on the CLI; that lands later if the flow hits friction).
+    The ``exercise_name_slug`` was added at v0.1.15 W-GYM-SETID. The pre-W
+    signature ``(session_id, set_number)`` collided whenever a session
+    contained multiple exercises with overlapping set numbers (the common
+    multi-exercise case — every exercise restarts at set 1), and INSERT OR
+    IGNORE silently dropped sets 2..N. Including the slug in the PK makes
+    every (exercise, set_number) within a session uniquely addressable.
+
+    Re-running ``hai intake gym`` with identical args still hits the PK and
+    becomes a no-op (idempotent). Corrections must pass an explicit
+    ``--supersedes-set-id`` plus a new set_id via bulk JSON.
+
+    Callers derive ``exercise_name_slug`` via :func:`_norm_token` (the same
+    ``.strip().casefold()`` shape as ``_norm`` at
+    ``core/state/projectors/strength.py:66``).
     """
 
-    return f"set_{session_id}_{set_number:03d}"
+    return f"set_{session_id}_{exercise_name_slug}_{set_number:03d}"
 
 
 def parse_bulk_session_json(payload: dict) -> dict:

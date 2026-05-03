@@ -685,8 +685,7 @@ release earlier. Detail in `reporting/plans/v0_1_15/PLAN.md` §1.4
 - All v0.1.15 named-deferred P1 findings either fixed or
   re-deferred with a specific v0.1.17 / v0.2.0 destination.
 - All gate-session P2 findings fixed or deferred.
-- W-EXPLAIN-UX-2 dispositions filed against the v0.1.14 review
-  doc's carries-forward section.
+- W-EXPLAIN-UX-2 dispositions filed against the v0.1.14 review doc's carry-forward section.
 
 ### 5C.3 Effort estimate
 

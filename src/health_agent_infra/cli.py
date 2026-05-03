@@ -3049,7 +3049,10 @@ def _project_gym_submission_into_state(db_path_arg, submission) -> None:
     --base-dir <d>`` can rebuild the DB.
     """
 
-    from health_agent_infra.domains.strength.intake import deterministic_set_id
+    from health_agent_infra.domains.strength.intake import (
+        _norm_token,
+        deterministic_set_id,
+    )
     from health_agent_infra.domains.strength.taxonomy_match import (
         load_taxonomy_with_aliases,
         match_exercise_name,
@@ -3109,7 +3112,9 @@ def _project_gym_submission_into_state(db_path_arg, submission) -> None:
                 project_gym_set(
                     conn,
                     set_id=deterministic_set_id(
-                        submission.session_id, s.set_number,
+                        submission.session_id,
+                        _norm_token(s.exercise_name),
+                        s.set_number,
                     ),
                     session_id=submission.session_id,
                     set_number=s.set_number,

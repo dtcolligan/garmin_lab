@@ -1605,7 +1605,16 @@ def reproject_from_jsonl(
                     seen_sessions.add(session_id)
                     counts["gym_sessions"] += 1
 
-                set_id = f"set_{session_id}_{int(data['set_number']):03d}"
+                # v0.1.15 W-GYM-SETID: include the exercise slug in the
+                # PK so multi-exercise sessions with overlapping set_numbers
+                # don't collide. Slug derivation matches
+                # `domains.strength.intake._norm_token` (same .strip().
+                # casefold() shape used at intake time).
+                exercise_slug = str(data["exercise_name"]).strip().casefold()
+                set_id = (
+                    f"set_{session_id}_{exercise_slug}_"
+                    f"{int(data['set_number']):03d}"
+                )
                 # If the JSONL explicitly carries a non-deterministic set_id
                 # (e.g., a correction row with supersedes_set_id), honour it.
                 if data.get("set_id"):

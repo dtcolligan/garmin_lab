@@ -120,7 +120,10 @@ def test_intake_gym_per_set_writes_jsonl_and_projects_db(tmp_path: Path, capsys)
     assert sets[0]["weight_kg"] == 80.0
     assert sets[0]["reps"] == 5
     assert sets[0]["rpe"] == 7.0
-    assert sets[0]["set_id"] == "set_bench_2026_04_17_001"  # deterministic
+    # v0.1.15 W-GYM-SETID: set_id includes the exercise slug between
+    # session_id and the zero-padded set_number to prevent multi-exercise
+    # PK collisions.
+    assert sets[0]["set_id"] == "set_bench_2026_04_17_bench press_001"
 
     assert len(accepted) == 1
     assert accepted[0]["session_count"] == 1
