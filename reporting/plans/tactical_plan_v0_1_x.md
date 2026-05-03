@@ -43,7 +43,7 @@
 | **v0.1.13** | Public surface hardening + first-time-user onboarding + W-Vb/W-N-broader/W-FBC-2 closure (17 W-ids — largest in track) | shipped 2026-04-30 | shipped | v0.1.12 |
 | **v0.1.14** | Eval substrate + provenance + recovery path. 8 W-ids closed (W-PROV-1, W-EXPLAIN-UX, W-BACKUP, W-FRESH-EXT, W-AJ, W-AL, W-AN, W-DOMAIN-SYNC) + 3 partial-closed → v0.1.15 (W-AH / W-AI / W-Vb-3) + 2 deferred → v0.1.15 (W-2U-GATE / W-29) + 1 absorbed (W-AM into W-AI). | shipped 2026-05-01 | shipped | v0.1.13 (CLI surface stable + W-29-prep verdict green) |
 | **v0.1.14.1** | Hardening cycle: Garmin-live unreliability surfaced as structured capabilities signal (W-GARMIN-MANIFEST-SIGNAL). `hai capabilities --json` exposes per-choice `choice_metadata.reliability == "unreliable"` block; `_resolve_pull_source` emits stderr warning. Single workstream, purely-additive surface change, no D14 plan-audit, no external Codex IR (D15 hardening latitude). | shipped 2026-05-02 | shipped | v0.1.14 |
-| **v0.1.15** | **Foreign-user candidate package + recorded gate (combined per 2026-05-02 evening restructure).** 7 W-ids: W-GYM-SETID (new — gym set-id PK collision) + W-A (`hai intake gaps` presence + `is_partial_day`) + F-PV14-01 (CSV-fixture isolation) + W-C (`hai target nutrition` daily macro target commit, W57-gated) + W-D arm-1 (suppress nutrition classification when partial-day + no target) + W-E (`merge-human-inputs` skill update + optional `morning-ritual` skill) + W-2U-GATE (recorded foreign-user session). **Ship claim:** non-maintainer foreign user reached `synthesized` end-state on a fresh device. Maintainability + eval substrate (W-29 / W-AH-2 / W-AI-2 / W-AM-2 / W-Vb-4 / F-PV14-02 / W-B / W-D arm-2) deferred to v0.1.17. | post-v0.1.14.1 | 2026-Q2 late / Q3 early | v0.1.14 (W-PROV-1 + W-AJ + W-AL substrate landed) |
+| **v0.1.15** | **Foreign-user candidate package + recorded gate (combined per 2026-05-02 evening restructure).** 7 W-ids: W-GYM-SETID (new — gym set-id PK collision) + W-A (`hai intake gaps` presence + `is_partial_day`) + F-PV14-01 (CSV-fixture isolation) + W-C (`hai target nutrition` daily macro target commit, W57-gated; **round-4 revised: extends existing `target` table per F-PHASE0-01 Option A; no new table**) + W-D arm-1 (suppress nutrition classification when partial-day + no target) + W-E (`merge-human-inputs` skill update + optional `morning-ritual` skill) + W-2U-GATE (recorded foreign-user session). **Ship claim:** non-maintainer foreign user reached `synthesized` end-state on a fresh device. Maintainability + eval substrate (W-29 / W-AH-2 / W-AI-2 / W-AM-2 / W-Vb-4 / F-PV14-02 / W-B / W-D arm-2) deferred to v0.1.17. | post-v0.1.14.1 | 2026-Q2 late / Q3 early | v0.1.14 (W-PROV-1 + W-AJ + W-AL substrate landed) |
 | **v0.1.16** | Empirical post-gate bug fixes from v0.1.15's W-2U-GATE recorded session. P0 closed inline during v0.1.15 cycle; v0.1.16 picks up named-deferred P1 + any P2 surfaced during the recorded session. **Ship claim:** foreign-user gate-session fixes consolidated. Cycle scope is purely empirical; PLAN.md authored after v0.1.15 ships and the gate-session findings are catalogued. | post-v0.1.15 | 2026-Q3 mid | v0.1.15 (gate session recorded + P0 closed inline) |
 | **v0.1.17** | Maintainability + eval substrate consolidation (deferred from v0.1.15 round-0 over-scoping). W-29 cli.py 9217-line mechanical split + W-30 regression test + W-AH-2 scenario expansion 35 → 120+ + W-AI-2 `hai eval review` CLI + W-AM-2 4 fork-deferred escalate-tagged scenarios + W-Vb-4 persona-replay residual P7..P12 + F-PV14-02 (`hai sync purge`) + W-B (`hai intake weight` body-comp surface + table) + W-D arm-2 (partial-day end-of-day projection, gated on W-C from v0.1.15). **Ship claim:** internal correctness + maintainer-side cleanup. Parallelizable with v0.2.0 since v0.2.0 hard deps do not include v0.1.17 work. See `reporting/plans/v0_1_17/README.md`. | post-v0.1.16 | 2026-Q3 late / Q4 early | v0.1.15 (W-A + W-C in tree) + v0.1.16 (gate-session fixes consolidated) |
 | **v0.2.0** | Weekly review (W52) + deterministic factuality (W58D) + 4 doc-only adjuncts (Path A) | post-v0.1.16 + 2-4 weeks | 2026-Q4 | v0.1.16 (foreign-user gate-session fixes consolidated) + v0.1.14 (W-PROV-1 + W-AJ judge harness). **NOT** dependent on v0.1.17 — runs in parallel. |
@@ -602,7 +602,7 @@ is for agents.
 | **W-GYM-SETID** | Gym set-id PK collision fix (multi-exercise sessions) + prospective SQL migration + required fixture | 1.5-3d |
 | **W-A** | `hai intake gaps` extended with `present` block + `is_partial_day` (time-only signal) + `target_status` enum | 2-3d |
 | **F-PV14-01** | CSV-fixture pull isolation marker (default-deny without demo marker) | 1-2d |
-| **W-C** | `hai target nutrition` daily macro target commit (W57-gated) + `nutrition_target` table + migration | 3-4d |
+| **W-C** | `hai target nutrition` daily macro target commit (W57-gated) — extends existing `target` table (CHECK adds `'carbs_g'` + `'fat_g'` via migration 024; 4-row convenience handler) per round-4 F-PHASE0-01 Option A | 2-3d |
 | **W-D arm-1** | Suppress nutrition classification when partial-day + no target (`status=insufficient_data`, reason `partial_day_no_target`) | 1-2d |
 | **W-E** | `merge-human-inputs` skill update consuming W-A presence tokens; optional packaged `morning-ritual` skill | 2-4d |
 | **W-2U-GATE** | First non-maintainer foreign-machine recorded session + P0 inline + P1 close-if-cheap | 4-7d |
@@ -637,10 +637,14 @@ is for agents.
 
 ### 5B.3 Effort estimate
 
-16-25 days (substantive). D14 plan-audit budget: 2-4 rounds per the
-empirical norm. Round 1 closed at 12 findings; round 2 at 7
-(halving signature held); round 3 should drop to 2-4 to close the
-cycle.
+15-24 days (substantive; revised round-4 post-Phase-0 F-PHASE0-01
+Option A: −1d on W-C). D14 plan-audit budget: 2-4 rounds per the
+empirical norm. Round 1 closed at 12 findings; round 2 at 7;
+round 3 at 3 (halving held, closed in-place). Phase 0 then surfaced
+F-PHASE0-01 (revises-scope) — W-C `nutrition_target` table proposal
+duplicates the existing `target` table from migration 020. Round 4
+(small-surface revision ratification) fires next; single-round close
+expected.
 
 ### 5B.4 Strategic context
 

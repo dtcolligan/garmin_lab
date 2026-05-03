@@ -21,6 +21,27 @@
 > W-E (per F-PLAN-R2-04 round-2 finding). The PLAN's §2.B output
 > contract is the source of truth for implementation; this doc is
 > kept for original-finding provenance only.
+>
+> **F-AV-03 premise is SUPERSEDED by PLAN round-4 (2026-05-03
+> evening).** F-AV-03 below (lines 196-223) argues that
+> `hai target commit` is "training-target-shaped, not nutrition-
+> shaped" and that a NEW `nutrition_target` table is needed. The
+> Phase 0 internal sweep against migration `020_target.sql` and
+> live state DB evidence (`hai target list --user-id u_local_1
+> --all` returning three nutrition rows already on disk) showed
+> the premise is wrong: the existing `target` table is domain-
+> agnostic, already supports `target_type IN ('calories_kcal',
+> 'protein_g', ...)`, already W57-gates commit via
+> `cmd_target_commit`, and is already in production use for the
+> maintainer's nutrition rows. PLAN round-4 §2.D revises W-C to
+> extend the existing `target` table (CHECK adds `'carbs_g'` +
+> `'fat_g'`) and ship `hai target nutrition` as a 4-atomic-row
+> convenience over the existing table. See
+> `reporting/plans/v0_1_15/audit_findings.md` F-PHASE0-01 for
+> the full argument and `reporting/plans/v0_1_15/PLAN.md` §2.D
+> for the round-4 contract. F-AV-03's "Proposed workstream"
+> section below is preserved as original-finding provenance only;
+> the implementation contract lives in PLAN §2.D.
 
 Surfaced 2026-05-02 during a maintainer-as-user morning session
 (exam-week nutrition planning + leg/back gym session intake). The

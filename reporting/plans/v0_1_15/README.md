@@ -1,6 +1,6 @@
 # v0.1.15 cycle — workspace
 
-**Status:** **D14 closed in-place at round 3** (2026-05-03). Round-1 PLAN_COHERENT_WITH_REVISIONS (12 findings); round-2 PLAN_COHERENT_WITH_REVISIONS (7 findings); round-3 PLAN_COHERENT_WITH_REVISIONS with 3 nit-class findings closed in-place per round-3 prompt Step 4. Halving signature held: 12 → 7 → 3. **Phase 0 (D11) bug-hunt opens next** per the substantive-cycle pattern.
+**Status:** **D14 round 4 ready** (post-Phase-0 revision, 2026-05-03 evening). Round 1 PLAN_COHERENT_WITH_REVISIONS (12 findings); round 2 PLAN_COHERENT_WITH_REVISIONS (7); round 3 PLAN_COHERENT_WITH_REVISIONS (3 nits closed in-place); Phase 0 (D11) bug-hunt then surfaced **F-PHASE0-01 (revises-scope)** + 3 nits + persona matrix 13/13 clean (`audit_findings.md` + `pre_implementation_gate_decision.md`). F-PHASE0-01 Option A applied to PLAN.md §2.B/§2.D/§2.E/§4/§5 + nit fixes + cross-doc fan-out. **Round 4 codex audit prompt at `codex_plan_audit_round_4_prompt.md`.** Halving signature so far: 12 → 7 → 3 → ? (round-4 expected single-round close; small-surface revision).
 
 **Tier:** substantive — see PLAN.md §1.4 for the scope-restructure provenance and §1.4 for the cycle-tier escalation triggers.
 
@@ -8,7 +8,7 @@
 
 ## Reading order for the cycle session
 
-1. `PLAN.md` (this directory) — open scope, 7 W-ids, 16-25 days estimated.
+1. `PLAN.md` (this directory) — open scope, 7 W-ids, 15-24 days estimated (revised round 4 per F-PHASE0-01 Option A; was 16-25 at round 3).
 2. `AGENTS.md` — operating contract; pay attention to D124-135 (W-29 redestination — see PLAN.md §3) and D11 Phase 0 bug-hunt pattern.
 3. `reporting/plans/README.md` — planning-tree reading-order index.
 4. `reporting/plans/tactical_plan_v0_1_x.md` — v0.1.15 / v0.1.16 / v0.1.17 rows post-restructure.
@@ -25,6 +25,7 @@
 - **D14 round 1 (2026-05-03 morning):** Codex audit closed PLAN_COHERENT_WITH_REVISIONS, 12 findings. Maintainer applied 12/12 in PLAN round 2 + cross-doc fan-out (`tactical_plan_v0_1_x.md` §5B/§5C/§5D, `AGENTS.md` Do-Not-Do + active-repo declaration, `agent_state_visibility_findings.md` recommendation rewrite).
 - **D14 round 2 (2026-05-03 mid-day):** Codex audit closed PLAN_COHERENT_WITH_REVISIONS, 7 findings (within the empirical halving range). Maintainer applied 7/7 in PLAN round 3 + cross-doc fan-out (typed `target_status` enum, effort propagation, F-PV14-02 selective-restore correction, ship-gate completeness).
 - **D14 round 3 (2026-05-03 afternoon):** Codex audit closed PLAN_COHERENT_WITH_REVISIONS with 3 nit-class findings, recommended close-in-place. Maintainer applied 3/3 in PLAN final + minor cross-doc fan-out (tactical §5B P-tier alignment + typo + status; PLAN §4 risks rewritten to typed enum; PLAN §2.G "tagged commit" → "commit SHA"; restore citation expanded to handler + parser ranges). Halving signature: 12 → 7 → 3.
+- **Phase 0 / D11 bug-hunt (2026-05-03 evening):** internal sweep + audit-chain probe + persona matrix (13/13 clean). Surfaced **F-PHASE0-01 (revises-scope)** — W-C `nutrition_target` table proposal duplicates the existing `target` table (migration 020, in tree since v0.1.8 W50). Plus 3 nits. Maintainer chose F-PHASE0-01 Option A (extend existing table). PLAN §2.B/§2.D/§2.E/§4/§5 + cross-doc fan-out applied. **D14 round 4 fires next.**
 
 PLAN.md §1.4 + §9 record the scope-decision and audit-round provenance in detail.
 
@@ -37,7 +38,7 @@ PLAN.md §1.4 + §9 record the scope-decision and audit-round provenance in deta
 
 ## D14 plan-audit settled expectation
 
-Substantive tier with small W-id count (7) → 2-4 rounds expected per AGENTS.md empirical norm. Halving signature so far: round-1 = 12 findings; round-2 = 7; round-3 should drop to 2-4. Round-3 PLAN_COHERENT closes the cycle for D14; PLAN_COHERENT_WITH_REVISIONS at round-3 may close in-place if finding count ≤ 3 and severity ≤ acceptance-criterion-weak.
+Substantive tier with small W-id count (7) → 2-4 rounds expected per AGENTS.md empirical norm. Halving signature held end-to-end through round 3: 12 → 7 → 3, closed in-place. **Round 4 (post-Phase-0 F-PHASE0-01 ratification)** fires on a small-surface revision (§2.B/§2.D/§2.E/§4/§5 + 3 nit fixes); single-round close expected (PLAN_COHERENT or 1-2 nits close-in-place).
 
 ## Phase 0 (D11) scope
 
