@@ -5060,6 +5060,6 @@
     }
   },
   "generated_by": "core.capabilities.walker.build_manifest",
-  "hai_version": "0.1.14.1",
+  "hai_version": "0.1.15.1",
   "schema_version": "agent_cli_contract.v1"
 }

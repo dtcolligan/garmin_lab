@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import json
 import subprocess
+import sys
 
 from health_agent_infra.domains.strength.classify import STRENGTH_STATUS_VALUES
 
@@ -27,7 +28,7 @@ def _capabilities_manifest() -> dict:
     the enum surface."""
 
     result = subprocess.run(
-        ["uv", "run", "hai", "capabilities", "--json"],
+        [sys.executable, "-m", "health_agent_infra.cli", "capabilities", "--json"],
         capture_output=True,
         text=True,
         check=True,

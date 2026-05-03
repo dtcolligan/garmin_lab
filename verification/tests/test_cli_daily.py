@@ -579,13 +579,13 @@ def test_daily_re_propose_all_capabilities_surfaced(monkeypatch, tmp_path):
 
     import json
     import subprocess
+    import sys
 
     result = subprocess.run(
-        ["uv", "run", "hai", "capabilities", "--json"],
+        [sys.executable, "-m", "health_agent_infra.cli", "capabilities", "--json"],
         capture_output=True,
         text=True,
         check=True,
-        cwd="/Users/domcolligan/health_agent_infra",
     )
     manifest = json.loads(result.stdout)
     daily = next(
