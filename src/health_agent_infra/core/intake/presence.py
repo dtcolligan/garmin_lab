@@ -182,7 +182,10 @@ def compute_target_status(
     # Active-window query. f-string interpolates only the literal "?" placeholder
     # count derived from the module constant NUTRITION_MACRO_TARGET_TYPES; every
     # value (user_id, target_type values, as_of dates) is bound. Same safe-
-    # interpolation rationale as `core/target/store.py:218` / `:359`.
+    # interpolation rationale as `core/target/store.py:223`, `:275`, and `:419`
+    # (D15 IR round-3 F-IR-R3-01 citation correction; the original draft cited
+    # the pre-W-C-add_targets_atomic line numbers `:218` / `:359` which drifted
+    # when migration 025 + the new helper landed).
     active_row = conn.execute(
         f"SELECT 1 FROM target "  # nosec B608
         f"WHERE user_id=? AND domain='nutrition' "

@@ -332,3 +332,82 @@ tautologically true regardless of guard behavior.
 closes at 0-1 nits. Recommend close-in-place if round-3 finding
 count == 0 OR ≤1 nit-class. Otherwise round 4 (would mark this as
 the longest IR chain in the cycle's history).
+
+---
+
+# Round 3 disposition (post-Codex round-3 review) — IR chain close
+
+**Round 3 verdict:** SHIP_WITH_NOTES, 1 nit-class finding
+(`F-IR-R3-01` provenance-gap), close-in-place per Codex
+recommendation. AGREED + applied.
+
+**IR chain settles at 6 → 2 → 1 nit (the AGENTS.md
+`5 → 2 → 1-nit` empirical norm; round 1 was slightly above the
+substantive-cycle norm given the cycle bundled 6 W-ids).**
+
+## F-IR-R3-01 — Stale source-comment citation in presence.py
+
+**Verdict:** AGREED, applied.
+
+**Action.** Updated the rationale comment at
+`src/health_agent_infra/core/intake/presence.py:182-188`. Old
+text cited `core/target/store.py:218` / `:359` (the pre-W-C-
+`add_targets_atomic` line numbers, which drifted when W-C
+landed). New text cites `core/target/store.py:223`, `:275`,
+and `:419` — the actual on-disk nosec-precedent positions —
+plus an inline note explaining the drift cause and round-3
+attribution so a future reader sees the audit chain.
+
+**Why this slipped at round 2.** The round-2 fix corrected
+the same stale citations in the response triage doc but did
+NOT propagate to the source comment that originally inspired
+the response prose. Both surfaces drifted from the same
+F-PV14-01-fix commit; the response doc was the load-bearing
+audit surface and got attention; the source comment was a
+backwater. Pattern lesson: when correcting a citation drift,
+grep for ALL occurrences of the old line numbers, not just
+the round's named surface.
+
+## Verification (post-round-3-fix)
+
+| Gate | Status |
+|---|---|
+| `uv run pytest verification/tests/test_w_a_presence_block.py verification/tests/test_w_pv14_01_csv_isolation.py -q` | 24/24 passed (touched-file regression check) |
+| `uvx bandit -ll -r src/health_agent_infra` | 0 medium/high (unchanged) |
+
+Full-suite + mypy unchanged from round 2 close (the round-3 fix
+is a pure comment-text edit; no behavior change possible).
+
+## IR chain final state
+
+| Round | Verdict | Findings | Disposition |
+|---|---|---|---|
+| 1 | SHIP_WITH_FIXES | 6 (F-IR-01..06) | All AGREED + applied (commit 9e113b4) |
+| 2 | SHIP_WITH_FIXES | 2 (F-IR-R2-01, F-IR-R2-02) | All AGREED + applied (commit 48eb3e2) |
+| 3 | **SHIP_WITH_NOTES** | 1 (F-IR-R3-01 nit) | AGREED + applied close-in-place |
+
+**D15 IR closed.** The cycle is now ready for **Phase 3
+(W-2U-GATE recorded session against Mohil Garg)**. RELEASE_PROOF
++ REPORT authored after Phase 3 closes; PyPI publish after
+RELEASE_PROOF.
+
+## Empirical settling-shape retrospective for D15 IR
+
+The 6 → 2 → 1 chain matches the AGENTS.md `5 → 2 → 1-nit`
+substantive-cycle norm. The round-1 finding count (6) was at
+the upper end of the empirical band, traceable to the cycle
+bundling 6 W-ids in a single Phase 1+2 batch — finding density
+scales with surface area. Future cycles with similar W-id counts
+should budget round-1 = ~5-6, round-2 = ~2, round-3 = ~0-1.
+
+**Pattern note for future cycles:** the "stale citations after
+revisions" bug appeared in BOTH the D14 plan-audit chain
+(F-PLAN-R3-01..03 in round 3) AND the D15 IR chain (F-IR-R2-02
+in round 2 + F-IR-R3-01 in round 3). When a code surface
+changes, every prose surface (PLAN, response triage docs,
+source comments) that cites it needs to be re-grepped at the
+SAME revision boundary. AGENTS.md "Patterns the cycles have
+validated" already names "Provenance discipline" as a recurring
+audit-finding shape; this cycle reinforces that the citation-
+drift class is symmetric — both response docs AND source code
+comments are equally vulnerable.
