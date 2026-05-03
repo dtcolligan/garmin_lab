@@ -293,37 +293,122 @@ def test_hai_daily_csv_against_canonical_db_refused_no_sync_row(
 
 
 def test_hai_daily_csv_with_allow_fixture_flag_passes_guard(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys,
 ):
-    """F-IR-02: `hai daily --source csv --allow-fixture-into-real-state`
-    passes the F-PV14-01 guard. The downstream daily pipeline may
-    still fail for unrelated reasons (e.g., no proposals in
-    proposal_log), but the F-PV14-01 refusal must NOT fire."""
+    """F-IR-02 + F-IR-R2-01 (round 2): `hai daily --source csv
+    --allow-fixture-into-real-state` MUST step the F-PV14-01 guard
+    aside. Pre-round-2 the test was vacuous (assertion always True);
+    Codex round 2 caught the gap. Now we capture stdout and assert
+    the daily payload is NOT the F-PV14-01 refusal shape — i.e., the
+    guard didn't fire even though the resolver would have landed on
+    the canonical default DB."""
 
     _isolated_dirs(tmp_path, monkeypatch)
-    _redirect_canonical_paths(tmp_path, monkeypatch)
+    canonical_db = _redirect_canonical_paths(tmp_path, monkeypatch)
 
-    rc = cli_main([
+    cli_main([
         "daily",
         "--source", "csv",
         "--user-id", USER,
         "--as-of", AS_OF.isoformat(),
         "--allow-fixture-into-real-state",
     ])
-    # The F-PV14-01 refusal is `USER_INPUT` with overall_status="refused".
-    # Anything other than that — OK, INTERNAL, or USER_INPUT-from-a-
-    # different-cause — means the guard correctly stepped aside.
-    # We only need to assert the refusal didn't fire; the rest of the
-    # daily pipeline's success/failure is out of scope for this test.
-    assert rc != exit_codes.USER_INPUT or _last_stdout_overall_status_is_not_refused(
+    captured = capsys.readouterr()
+
+    # The F-PV14-01 refusal shape: stdout payload has
+    # `overall_status="refused"` and `stages.pull.status="refused"`
+    # with the `F-PV14-01: ...` reason. Any other shape (success,
+    # downstream INTERNAL failure, USER_INPUT for a different cause)
+    # means the guard correctly stepped aside.
+    if captured.out.strip():
+        try:
+            payload = json.loads(captured.out)
+        except json.JSONDecodeError:
+            payload = {}
+    else:
+        payload = {}
+
+    assert payload.get("overall_status") != "refused", (
+        f"--allow-fixture-into-real-state must step F-PV14-01 guard "
+        f"aside; got refusal payload: {payload}"
+    )
+    pull_stage = (payload.get("stages") or {}).get("pull") or {}
+    assert pull_stage.get("status") != "refused", (
+        f"daily pull stage must not refuse with F-PV14-01 when allow-flag "
+        f"is set; got pull stage: {pull_stage}"
+    )
+
+    # Stronger positive proof: at least one sync row landed in the
+    # canonical-redirected DB. The F-PV14-01 refusal would have
+    # blocked the sync row, so its presence proves the guard let
+    # the pull through.
+    conn = open_connection(canonical_db)
+    try:
+        rows = conn.execute(
+            "SELECT * FROM sync_run_log WHERE user_id=?", (USER,),
+        ).fetchall()
+    finally:
+        conn.close()
+    assert len(rows) >= 1, (
+        f"--allow-fixture-into-real-state should let the daily pull "
+        f"stage write a sync row; got {len(rows)} rows"
     )
 
 
-def _last_stdout_overall_status_is_not_refused() -> bool:
-    """Helper for the allow-flag test: when rc == USER_INPUT, verify
-    the cause was NOT the F-PV14-01 refusal. Always True here because
-    the test reads no stdout (other USER_INPUT paths are acceptable)."""
-    return True
+def test_hai_daily_csv_with_active_demo_marker_passes_guard(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys,
+):
+    """F-IR-R2-01 (round 2): close the daily-side coverage gap for
+    the demo-marker escape path. `hai pull` already has a
+    demo-marker test; `hai daily` should too since the shared
+    helper is called from both."""
+
+    from health_agent_infra.core.demo import session as _demo_session
+
+    _isolated_dirs(tmp_path, monkeypatch)
+    canonical_db = _redirect_canonical_paths(tmp_path, monkeypatch)
+
+    # Activate a demo marker. The is_demo_active() helper at
+    # core/demo/session.py:126 is a cheap presence check on the
+    # marker file path.
+    marker_path = tmp_path / "demo_marker.json"
+    marker_path.write_text(
+        json.dumps({"marker_id": "test", "scratch_root": str(tmp_path)}),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("HAI_DEMO_MARKER_PATH", str(marker_path))
+
+    # Sanity: confirm the monkeypatch took.
+    assert _demo_session.is_demo_active() is True, (
+        "demo marker monkeypatch failed; test setup invalid"
+    )
+
+    cli_main([
+        "daily",
+        "--source", "csv",
+        "--user-id", USER,
+        "--as-of", AS_OF.isoformat(),
+    ])
+    captured = capsys.readouterr()
+
+    # The guard must step aside when a demo marker is active.
+    if captured.out.strip():
+        try:
+            payload = json.loads(captured.out)
+        except json.JSONDecodeError:
+            payload = {}
+    else:
+        payload = {}
+
+    pull_stage = (payload.get("stages") or {}).get("pull") or {}
+    assert payload.get("overall_status") != "refused", (
+        f"active demo marker must step F-PV14-01 guard aside on hai daily; "
+        f"got refusal payload: {payload}"
+    )
+    assert pull_stage.get("status") != "refused", (
+        f"daily pull stage must not refuse with F-PV14-01 when demo marker "
+        f"is active; got pull stage: {pull_stage}"
+    )
 
 
 def test_hai_daily_csv_with_explicit_db_path_passes_guard(

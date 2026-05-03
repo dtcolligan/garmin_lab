@@ -17,6 +17,7 @@ The v0.1.15 round-0 over-scoping (16 catalogued slots; D14 round-1 cut to 7 agai
 | **W-2U-FIX-P1** | All P1 fixes named-deferred from v0.1.15's recorded session | v0.1.15 W-2U-GATE output |
 | **W-2U-FIX-P2** | All P2 fixes from the recorded session (or named further deferrals) | v0.1.15 W-2U-GATE output |
 | **W-EXPLAIN-UX-2** | Empirical foreign-user pass over `hai explain` consuming v0.1.14 review doc's `carries-forward-to-v0.1.15` section | v0.1.14 W-EXPLAIN-UX |
+| **W-FPV14-SYM** *(conditional)* | Broader F-PV14-01 symmetry rule: every CLI command consuming both `--db-path` and `--base-dir` refuses asymmetric overrides (the source-finding `post_v0_1_14/carry_over_findings.md` F-PV14-01 item 4 wider scope). Land **only if the v0.1.15 foreign-user gate surfaces a friction point with the asymmetric-override pattern.** Otherwise defer to v0.1.17 or later. Source: v0.1.15 D15 IR round 1 F-IR-02 named-defer. | v0.1.15 IR round 1 F-IR-02 disposition |
 
 **Effort estimate (anticipated):** 4-9 days. Bounded by the gate-session output cap (~10 P-class findings if the v0.1.15 candidate package is reasonably prepared). If the gate surfaces a structural-blocker P0 wave that exceeds inline-fix budget, v0.1.15 holds rather than ships, and v0.1.16 reshapes around the held cycle.
 

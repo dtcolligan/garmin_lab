@@ -19,8 +19,9 @@
 | **W-Vb-4** | Persona-replay residual P7..P12 (6 personas) | 5-7 d | v0.1.14 RELEASE_PROOF §carry-overs |
 | **W-B** | `hai intake weight` body-comp surface + `body_comp` table + migration | 3-4 d | `agent_state_visibility_findings.md` F-AV-02 (deferred from v0.1.15 round-0) |
 | **W-D arm-2** | Partial-day nutrition end-of-day projection (gated on W-C shipped in v0.1.15) | 2-3 d | `agent_state_visibility_findings.md` F-AV-04 arm 2 |
+| **W-C-EQP** *(small)* | EXPLAIN QUERY PLAN stability assertions for the W-A active-window query against the `target` table post-migration 025. Index-name existence is asserted at v0.1.15 W-C ship; the query-plan-stability check is the stronger assertion Codex round-1 IR F-IR-04 named-deferred from v0.1.15. Deferral target landed here per F-IR-R2-02 disposition. | 0.5 d | v0.1.15 IR round 1 F-IR-04 named-defer |
 
-**Total (estimated):** ~9 W-ids, **25-39 days**, substantive tier.
+**Total (estimated):** ~10 W-ids, **25-40 days**, substantive tier.
 
 ## Sequencing (provisional)
 

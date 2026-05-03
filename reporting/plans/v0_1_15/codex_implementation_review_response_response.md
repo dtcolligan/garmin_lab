@@ -11,14 +11,22 @@ close-in-place if round 2 finding count ≤ 1 and severity ≤ nit.
 
 **Verdict:** AGREED, applied.
 
-**Action.** Added two `# nosec B608` annotations to
-`core/intake/presence.py:compute_target_status` queries with the same
-constant-placeholder rationale already used in
-`core/target/store.py:218` and `:359`. Both queries f-string-interpolate
-only the literal `"?"` placeholder count derived from the module
-constant `NUTRITION_MACRO_TARGET_TYPES`; every value (user_id,
-target_type values, as_of dates) is bound. The annotation cites
-`store.py` as the precedent.
+**Action.** Added two `# nosec B608` annotations at
+`core/intake/presence.py:187` and `:202` (in
+`compute_target_status`) with the same constant-placeholder
+rationale already used in `core/target/store.py:223`, `:275`, and
+`:419`. Both queries f-string-interpolate only the literal `"?"`
+placeholder count derived from the module constant
+`NUTRITION_MACRO_TARGET_TYPES`; every value (user_id, target_type
+values, as_of dates) is bound. The annotation cites `store.py`
+as the precedent.
+
+> **Citation correction (round 2 F-IR-R2-02).** The original draft
+> of this paragraph cited `store.py:218` and `:359` as the
+> precedent and `presence.py:154,167` as the new annotations. Both
+> sets of line numbers were stale (drift between the round-1 fix
+> commit and this triage doc). Corrected to the actual on-disk
+> positions above.
 
 **Verification.** `uvx bandit -ll -r src/health_agent_infra` → 0
 medium/high findings (was 2 medium B608 in the round-1 baseline);
@@ -37,10 +45,15 @@ F-PV14-01 contamination class for the gate session.
 
 1. Extracted the F-PV14-01 guard from `cmd_pull` into a shared helper
    `_f_pv14_csv_canonical_guard(args, *, source, command_label)` at
-   `cli.py:159-204`. Returns `Optional[int]` — `None` when permitted,
-   `USER_INPUT` when refused. Same 5-clause escape paths
+   `cli.py:187-234` (and the supporting `_DailyPullRefusal` exception
+   class at `cli.py:172-184`). Returns `Optional[int]` — `None` when
+   permitted, `USER_INPUT` when refused. Same 5-clause escape paths
    (`source != csv` / `--allow-fixture-into-real-state` / active
    `hai demo` / explicit `--db-path` / `HAI_STATE_DB` env).
+
+   > **Citation correction (round 2 F-IR-R2-02).** The original
+   > draft cited the helper at `cli.py:159-204` — stale by ~30
+   > lines. Corrected to the actual on-disk position above.
 2. `cmd_pull` invokes the helper at the existing guard insertion
    point (replaced the inline guard with a call).
 3. `_daily_pull_and_project` invokes the helper before any adapter
@@ -72,8 +85,15 @@ and --base-dir must refuse asymmetric overrides") should land too.
 the canonical-DB pollution shape that the carry-over evidence actually
 exhibited. The broader symmetric-override rule is a wider scope
 extension; deferring to v0.1.16 if the foreign-user gate session
-surfaces a friction point. Named-defer captured here for the
-gate-session triage notebook.
+surfaces a friction point.
+
+> **Named-defer landed durably (round 2 F-IR-R2-02).** Per Codex
+> round-2 review: the named-defer was previously captured only in
+> this triage doc — risk of falling off the planning surface.
+> Bullet now lives at
+> `reporting/plans/v0_1_16/README.md` §scope as **W-FPV14-SYM
+> *(conditional)*** with the empirical-only-if-gate-friction
+> trigger. Future cycle author finds it.
 
 ---
 
@@ -133,7 +153,13 @@ The `EXPLAIN QUERY PLAN` assertion Codex suggested is deferred to a
 follow-up: the index-name-existence check is the load-bearing
 proof that the W-A active-window query can still hit the right
 index; query-plan-stability is a stronger assertion that costs a
-test refactor. Documented in named-defer notes.
+test refactor.
+
+> **Named-defer landed durably (round 2 F-IR-R2-02).** Per Codex
+> round-2 review: the EXPLAIN QUERY PLAN check is now a tracked
+> v0.1.17 W-id (**W-C-EQP**) at `reporting/plans/v0_1_17/README.md`
+> §scope, 0.5 d effort estimate. Future cycle author picks it up
+> at v0.1.17 open.
 
 ---
 
@@ -228,3 +254,81 @@ is 1-3 findings.
 
 Phase 3 W-2U-GATE recorded session is held until the IR chain closes
 SHIP / SHIP_WITH_NOTES.
+
+---
+
+# Round 2 disposition (post-Codex round-2 review)
+
+**Round 2 verdict:** SHIP_WITH_FIXES, 2 findings (`F-IR-R2-01`
+acceptance-weak + `F-IR-R2-02` provenance-gap). Both AGREED + applied.
+
+## F-IR-R2-01 — Daily CSV allow-flag test was vacuous
+
+**Verdict:** AGREED, applied. Real bug — Codex caught a test that
+asserted `rc != USER_INPUT or _last_stdout_overall_status_is_not_refused()`
+where the helper always returned `True`, so the assertion was
+tautologically true regardless of guard behavior.
+
+**Action.**
+
+1. Rewrote `test_hai_daily_csv_with_allow_fixture_flag_passes_guard`
+   to capture stdout via `capsys`, parse the daily payload, assert
+   `payload["overall_status"] != "refused"` AND
+   `payload["stages"]["pull"]["status"] != "refused"`. Plus a
+   stronger positive proof: at least one sync row in the canonical-
+   redirected DB confirms the pull stage actually ran.
+2. Deleted the `_last_stdout_overall_status_is_not_refused` helper.
+3. Added `test_hai_daily_csv_with_active_demo_marker_passes_guard`
+   to close the demo-marker escape-path coverage gap Codex flagged.
+   Monkeypatches `HAI_DEMO_MARKER_PATH` to a tmp marker file;
+   asserts `is_demo_active()` returns True (sanity-check the test
+   setup); invokes `hai daily --source csv` (no allow flag, no
+   explicit --db-path); asserts the F-PV14 refusal shape is NOT
+   present in the daily payload.
+
+## F-IR-R2-02 — Stale citations + non-durable named-defers
+
+**Verdict:** AGREED, applied.
+
+**Action.**
+
+1. **Citations corrected** in this triage doc (F-IR-01 + F-IR-02
+   sections above):
+   - `cli.py:159-204` → `cli.py:187-234` (`_f_pv14_csv_canonical_guard`)
+     + `cli.py:172-184` (`_DailyPullRefusal`).
+   - `core/target/store.py:218,359` → `:223, :275, :419` (3 nosec
+     precedent lines, not 2).
+   - `presence.py:154,167` → `:187, :202` (the actual nosec
+     annotations).
+   Each corrected paragraph carries a `>` quote-block citation
+   correction note so the audit chain shows where the drift was.
+
+2. **Both named-defers landed on durable planning surfaces** (Codex
+   round-2 explicitly asked for this; the deferral risked falling
+   off if it lived only in this triage doc):
+
+   - **Broader F-PV14 symmetry rule** → `reporting/plans/v0_1_16/README.md`
+     §scope as `W-FPV14-SYM (conditional)`. Trigger: only if the
+     v0.1.15 foreign-user gate surfaces a friction point with the
+     asymmetric-override pattern. Otherwise defer to v0.1.17 or
+     later.
+   - **EXPLAIN QUERY PLAN stability assertion** →
+     `reporting/plans/v0_1_17/README.md` §scope as `W-C-EQP (small)`.
+     0.5 d effort estimate. v0.1.17 author picks it up at cycle
+     open.
+
+## Verification (post-round-2-fix)
+
+| Gate | Status |
+|---|---|
+| `uv run pytest verification/tests -q` | (re-verified after applying both fixes; expect ≥2629 + new daily-allow + new daily-demo tests) |
+| `uvx mypy src/health_agent_infra` | Success: no issues found |
+| `uvx bandit -ll -r src/health_agent_infra` | 0 medium/high (unchanged) |
+| `uv run hai capabilities --markdown` diff | clean (no surface change in this fix batch) |
+
+## Closure recommendation (post-round-2-fix)
+
+**Ready for D15 IR round 3.** Empirical norm: round 3 typically
+closes at 0-1 nits. Recommend close-in-place if round-3 finding
+count == 0 OR ≤1 nit-class. Otherwise round 4 (would mark this as
+the longest IR chain in the cycle's history).
