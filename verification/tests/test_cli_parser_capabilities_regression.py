@@ -38,6 +38,7 @@ regenerate the snapshots in lockstep with the change.
 from __future__ import annotations
 
 import argparse
+import copy
 import json
 from pathlib import Path
 
@@ -60,9 +61,22 @@ _VOLATILE_FIELDS: frozenset[str] = frozenset({"hai_version"})
 
 
 def _normalise_manifest(manifest: dict) -> dict:
-    """Strip volatile fields so the comparison reflects shape, not version."""
+    """Strip volatile fields so the comparison reflects shape.
 
-    return {k: v for k, v in manifest.items() if k not in _VOLATILE_FIELDS}
+    A few parser defaults are host-derived, not CLI-contract-derived.
+    For example, ``--skills-dest`` defaults to ``~/.claude/skills`` but
+    argparse stores the expanded absolute path, which differs between
+    macOS maintainer runs and Linux CI. Pin the semantic default instead
+    of a specific user's home directory.
+    """
+
+    normalized = copy.deepcopy(manifest)
+    for command in normalized.get("commands", []):
+        for flag in command.get("flags", []):
+            default = flag.get("default")
+            if isinstance(default, str) and default.endswith("/.claude/skills"):
+                flag["default"] = "<default-claude-skills-dir>"
+    return {k: v for k, v in normalized.items() if k not in _VOLATILE_FIELDS}
 
 
 def _parser_tree(parser: argparse.ArgumentParser) -> str:
