@@ -75,4 +75,4 @@ Out of scope:
 
 ## Past Advisories
 
-None as of v0.1.8.
+No published security advisories are currently recorded.

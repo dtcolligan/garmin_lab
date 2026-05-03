@@ -52,7 +52,8 @@ class RecoveryPolicyResult:
     # is expected to copy these onto the proposal as
     # `evidence_locators`. None means "no locators required by
     # the gate" (R1 / R5 / non-spike R6 firings); empty list is
-    # never produced. See reporting/docs/source_row_provenance.md.
+    # never produced. See the W-PROV-1 design archived under
+    # reporting/docs/archive/cycle_artifacts/source_row_provenance.md.
     evidence_locators: Optional[tuple[dict[str, Any], ...]] = None
 
 

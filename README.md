@@ -1,7 +1,7 @@
 # Health Agent Infra
 
-Health Agent Infra is a locally governed runtime for personal health
-agents.
+Health Agent Infra is an agent-native, locally governed runtime for
+personal health agents.
 
 You talk to an agent. The agent invokes the local `hai` CLI. The
 runtime defines and enforces what the agent is allowed to do. It is
@@ -18,11 +18,34 @@ manifest, not a Claude-only backend.
 [![Python](https://img.shields.io/badge/python-3.11+-blue)](pyproject.toml)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
+## Two-minute on-ramp
+
+```bash
+pipx install health-agent-infra
+hai init
+hai capabilities --human
+hai doctor
+hai daily
+hai today
+```
+
+Use the pinned CDN-bypass install only in the first few minutes after
+a fresh PyPI publish:
+
+```bash
+pipx install --force --pip-args="--no-cache-dir --index-url https://pypi.org/simple/" 'health-agent-infra==0.1.15.1'
+```
+
+The intended interface is an agent, but the runtime is normal local
+software. `hai capabilities --json` is the contract the agent reads;
+`hai doctor`, `hai daily`, `hai today`, and `hai explain` are the
+first commands a human should inspect.
+
 ## Why this exists
 
 Agentic AI in health fails when the agent is asked to be everything at
-once: chat interface, memory layer, data interpreter, planner,
-database writer, validator, and auditor.
+once. The same model is asked to be chat interface, memory layer, data
+interpreter, planner, database writer, validator, and auditor.
 
 That breaks down in predictable ways:
 
@@ -117,72 +140,18 @@ For the terse release-truth map, read
 Health Agent Infra is infrastructure around a health-state database.
 The loops are the product surface it enables for an agent.
 
-### Daily loop
-
-Current and working. The agent can help plan today by pulling wearable
-data, asking for missing self-report, checking readiness, generating
-bounded domain proposals, and committing one audited daily plan.
-
-### Intake and correction loop
-
-Current and working. The agent can turn user narration into structured
-readiness, stress, nutrition, note, target, intent, and gym rows. Gym
-intake includes exercise taxonomy handling and per-set state; nutrition
-is daily macros-only by design.
-
-### Source-quality loop
-
-Current and working. The runtime tracks sync freshness, distinguishes
-fixture vs live sources, warns on stale `for_date` divergence, exposes
-credential status, and marks Garmin live as unreliable in the agent
-capabilities manifest.
-
-### Review loop
-
-Current and working. The user records whether yesterday's
-recommendation was followed and whether it helped. Review outcomes are
-stored locally and linked back to the canonical recommendation even
-when the day was re-authored.
-
-### Explanation loop
-
-Current and working. The agent can answer "why did this change?" by
-running `hai explain` over persisted proposal, planned, X-rule firing,
-daily plan, and recommendation rows. The explanation is reconstructed
-from state, not regenerated from memory.
-
-### Target and planning loop
-
-Partially current. The runtime can store governed targets and intent
-rows, including nutrition macro targets, but it does not let the agent
-silently activate user-state changes. Agent-proposed targets still
-require explicit user commit.
-
-### Recovery loop
-
-Current and working. A user can back up, restore, and export local
-state. Restore checks the package/schema head before overwriting a
-destination so a backup from one version is not silently applied to an
-incompatible runtime.
-
-### Weekly review loop
-
-Planned. The database already preserves the evidence needed for a
-weekly review: source rows, accepted daily state, proposals, X-rule
-firings, recommendations, and outcomes. v0.2.0 is planned to turn
-that substrate into a weekly review surface.
-
-### Longer-horizon planning
-
-Future. The project is deliberately building daily state, review
-memory, and evidence provenance before giving an agent broader
-planning authority.
-
-### Evaluation and regression loop
-
-Internal but active. The repo includes a pytest suite, persona harness,
-packaged deterministic eval runner, scenario fixtures, and generated
-CLI-contract checks so agent-facing behavior does not drift silently.
+| Loop | Status | What it enables |
+|---|---|---|
+| Daily planning | Current | Pull data, ask for missing context, check readiness, create bounded domain proposals, and commit one audited daily plan. |
+| Intake and correction | Current | Turn user narration into structured readiness, stress, nutrition, note, target, intent, and gym rows. |
+| Source quality | Current | Track sync freshness, distinguish fixture/live sources, surface credential status, and mark Garmin live as unreliable. |
+| Review | Current | Record whether yesterday's recommendation was followed/helpful and link outcomes through superseded plans. |
+| Explanation | Current | Reconstruct "why did this change?" from persisted proposal, planned, X-rule, plan, and recommendation rows. |
+| Targets and planning | Partial | Store governed targets and intent rows; agent-proposed rows still require explicit user commit. |
+| Backup and recovery | Current | Back up, restore, export, and refuse incompatible schema restores by default. |
+| Weekly review | Planned | Use preserved evidence, proposals, X-rule firings, recommendations, and outcomes as the substrate for v0.2.0. |
+| Longer-horizon planning | Future | Build broader planning authority only after daily state, review memory, and provenance are strong enough. |
+| Evaluation and regression | Internal | Keep agent-facing behavior stable with tests, persona harnesses, eval scenarios, and generated CLI checks. |
 
 ## How it feels to use
 
@@ -232,8 +201,7 @@ The agent talks; the runtime governs.
 The intended interface is an agent, but these are normal CLI commands.
 
 ```bash quickstart
-# First-install canonical, including the brief PyPI CDN-cache bypass:
-pipx install --force --pip-args="--no-cache-dir --index-url https://pypi.org/simple/" 'health-agent-infra==0.1.15.1'
+pipx install health-agent-infra
 # OR for a dev checkout: pip install -e .
 hai init
 hai auth intervals-icu
@@ -243,10 +211,12 @@ hai daily
 hai today
 ```
 
-After the immediate post-publish window, the plain install also works:
+Immediately after a new publish, PyPI CDN cache lag can briefly hide
+the newest wheel. Use the pinned bypass form when you need the just
+published version immediately:
 
 ```bash
-pipx install health-agent-infra
+pipx install --force --pip-args="--no-cache-dir --index-url https://pypi.org/simple/" 'health-agent-infra==0.1.15.1'
 ```
 
 `intervals_icu` is the preferred live source. Garmin Connect support is

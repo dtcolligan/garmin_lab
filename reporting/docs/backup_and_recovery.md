@@ -1,7 +1,7 @@
-# Recovery — backup, restore, and disaster scenarios
+# Backup and recovery
 
-**v0.1.14 W-BACKUP.** This is the authoritative recovery contract
-for `health-agent-infra`. Local-first means **you** are responsible
+This is the authoritative backup, restore, export, and disaster-recovery
+contract for `health-agent-infra`. Local-first means **you** are responsible
 for backups; HAI ships the canonical paths.
 
 ## Quick reference
@@ -182,6 +182,6 @@ so restore can verify compatibility.
 - `hai backup --help` — current flag reference.
 - `hai restore --help` — current flag reference.
 - `hai export --help` — current flag reference.
-- `reporting/docs/source_row_provenance.md` — v0.1.14 W-PROV-1
+- `reporting/docs/archive/cycle_artifacts/source_row_provenance.md` — v0.1.14 W-PROV-1
   source-row locator type (a separate audit-chain hardening, not
   recovery-related).

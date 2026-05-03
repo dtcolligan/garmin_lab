@@ -4,11 +4,11 @@ Current v1 documentation for Health Agent Infra. Start with
 ``current_system_state.md`` if you need the latest shipped truth;
 start with ``architecture.md`` if this is your first architecture read.
 
-The current docs should make one thing obvious: Health Agent Infra is
-not a health chatbot. It is a local governed runtime that gives a
+Health Agent Infra is an agent-native, locally governed runtime for
+personal health agents. It is not a health chatbot. It gives a
 shell-capable agent durable state, deterministic interpretation,
-bounded write paths, review memory, recovery tooling, and auditable
-explanations for personal-health decisions.
+bounded write paths, review memory, backup/recovery tooling, and
+auditable explanations for personal-health decisions.
 
 For a one-page orientation of the top-level repo layout (what each
 top-level directory is, what is active vs historical), see
@@ -27,6 +27,8 @@ itself (docs / artifacts / plans / experiments), see
   why (macros-only nutrition, no ML loop, no hosted, etc).
 - [`x_rules.md`](x_rules.md) — full X-rule catalogue with
   triggers, tiers, effects, and config keys.
+- [`glossary.md`](glossary.md) — shared vocabulary for agent-safe,
+  R-rule, X-rule, forced_action, target_status, W57, and related terms.
 - [`state_model_v1.md`](state_model_v1.md) — table-by-table state
   schema. The migrations themselves at
   `src/health_agent_infra/core/state/migrations/` are the source of
@@ -42,7 +44,7 @@ itself (docs / artifacts / plans / experiments), see
 | Understand why the product exists | [`personal_health_agent_positioning.md`](personal_health_agent_positioning.md), [`memory_model.md`](memory_model.md), [`query_taxonomy.md`](query_taxonomy.md) |
 | Operate the package from an agent | [`agent_integration.md`](agent_integration.md), [`agent_cli_contract.md`](agent_cli_contract.md) |
 | Inspect why a recommendation changed | [`explainability.md`](explainability.md), [`x_rules.md`](x_rules.md) |
-| Check safety and scope boundaries | [`non_goals.md`](non_goals.md), [`privacy.md`](privacy.md), [`recovery.md`](recovery.md) |
+| Check safety and scope boundaries | [`non_goals.md`](non_goals.md), [`privacy.md`](privacy.md), [`backup_and_recovery.md`](backup_and_recovery.md) |
 | Extend the runtime | [`how_to_add_a_domain.md`](how_to_add_a_domain.md), [`domains/README.md`](domains/README.md), [`how_to_add_a_pull_adapter.md`](how_to_add_a_pull_adapter.md) |
 
 ## Current-vs-provenance rule
@@ -62,8 +64,7 @@ and tests.
   Code / Agent SDK / open equivalents install and drive the
   package.
 - [`domains/README.md`](domains/README.md) — "how to add a new
-  domain" checklist; reference implementations are the six v1
-  domains.
+  domain" checklist plus links to the six v1 domain references.
 - [`how_to_add_a_domain.md`](how_to_add_a_domain.md) — conceptual
   walk-through for the domain-extension surface; pairs with the
   `domains/README.md` checklist.
@@ -75,9 +76,10 @@ and tests.
 
 [`archive/doctrine/`](archive/doctrine/) holds pre-rebuild
 doctrine docs (canonical_doctrine.md, chief_operational_brief,
-founder_doctrine, phase_timeline). They are retained for
-historical context only — do not cite them as current truth. See
-``archive/doctrine/README.md`` for the supersession map.
+founder_doctrine, phase_timeline). [`archive/cycle_artifacts/`](archive/cycle_artifacts/)
+holds v0.1.x cycle-specific design/review docs that were previously mixed
+into the current docs directory. Both archives are retained for historical
+context only — do not cite them as current truth.
 
 ## Where proof lives
 

@@ -273,7 +273,8 @@ def validate_proposal_dict(data: Any, *, expected_domain: Optional[str] = None) 
     # v0.1.14 W-PROV-1 — optional source-row locators. Additive,
     # backwards-compatible: proposals without `evidence_locators`
     # continue to validate. When present, every entry must satisfy
-    # the W-PROV-1 contract (reporting/docs/source_row_provenance.md).
+    # the W-PROV-1 contract archived under
+    # reporting/docs/archive/cycle_artifacts/source_row_provenance.md.
     if "evidence_locators" in data:
         from health_agent_infra.core.provenance.locator import (
             LocatorValidationError,

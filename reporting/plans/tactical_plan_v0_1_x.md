@@ -387,7 +387,8 @@ Adjacent acceptance still in scope:
 - Operator demo SLO (target, not ship-gate): new-user
   `pipx install` → `hai init` → trusted-first-value path under 5 min
   on broadband + modern hardware. Documented in
-  `reporting/docs/onboarding_slo.md` as a manual demo protocol.
+  `reporting/docs/archive/cycle_artifacts/onboarding_slo.md` as a
+  manual demo protocol.
 
 ### 4.3 Effort estimate
 
@@ -432,7 +433,7 @@ post-defer per `pre_implementation_gate_decision.md`):**
 | ~~**W-2U-GATE**~~ | **Deferred to v0.1.15** at pre-implementation gate per §1.3.1 path 2 (no foreign-user candidate on file). Sequencing intent of CP-2U-GATE-FIRST carries forward to v0.1.15. | 2-3 days → v0.1.15 |
 | **W-PROV-1** | Source-row locator type + 1-domain demo (recovery R-rule cites source rows; `hai explain` renders them; roundtrip test). Migration 023. Foundation for v0.2.0 W52. **Sequenced first post-defer.** | 3-4 days |
 | **W-EXPLAIN-UX** | `hai explain` confusion-vs-clarity review. Add P13 low-domain-knowledge persona; **maintainer-substitute reader** reviews sample output (foreign-user review carries forward to v0.1.15 W-2U-GATE per §1.3.1 path 2); structured findings doc filed. | 2 days |
-| **W-BACKUP** | `hai backup` / `hai restore` / `hai export` canonical paths + `reporting/docs/recovery.md` | 3-4 days |
+| **W-BACKUP** | `hai backup` / `hai restore` / `hai export` canonical paths + `reporting/docs/backup_and_recovery.md` | 3-4 days |
 
 **P1 addition:**
 
@@ -455,7 +456,7 @@ post-defer per `pre_implementation_gate_decision.md`):**
 
 | W-id | Title | Effort | Source |
 |---|---|---|---|
-| **W-29** | cli.py mechanical split (1 main + 1 shared + 11 handler-group, <2500 each) — gated by v0.1.13 W-29-prep verdict (green; boundary table at `reporting/docs/cli_boundary_table.md`); parser/capabilities byte-stability regression test must hold across the split | 3-4d | CP1 |
+| **W-29** | cli.py mechanical split (1 main + 1 shared + 11 handler-group, <2500 each) — gated by v0.1.13 W-29-prep verdict (green; boundary table now archived at `reporting/docs/archive/cycle_artifacts/cli_boundary_table.md`); parser/capabilities byte-stability regression test must hold across the split | 3-4d | CP1 |
 | **W-Vb-3** | Persona-replay extension to the 9 non-ship-set personas (P2/P3/P6/P7/P8/P9/P10/P11/P12). v0.1.13 W-Vb closed P1+P4+P5; long-term universe is all 12 personas in the matrix. May further partial-close (e.g., 3-at-a-time) at the v0.1.14 author's discretion; the destination cycle owns the full residual | 4-6d | v0.1.13 RELEASE_PROOF §5 + CARRY_OVER §4; F-PLAN-06 + F-PLAN-R2-02 + F-PLAN-R3-02 |
 | **W-DOMAIN-SYNC** | Scoped contract test (single truth table + expected-subset assertions; not all 8 named tables are six-domain registries — `_DOMAIN_ACTION_REGISTRY` is intentionally Phase-A-only) | 0.5d | Reconciliation L2 + Codex F-PLAN-09 |
 

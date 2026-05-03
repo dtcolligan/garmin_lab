@@ -211,20 +211,22 @@ Per-release detail lives under `reporting/plans/<version>/`.
 ### Added
 - W-PROV-1 source-row locator value type + recovery R6 demo.
   Migration 023, `core/provenance/locator.py`,
-  `reporting/docs/source_row_provenance.md`.
+  `reporting/docs/archive/cycle_artifacts/source_row_provenance.md`
+  (now archived as cycle provenance).
 - W-BACKUP `hai backup` / `hai restore` / `hai export` (3 new
   top-level CLI subcommands), `core/backup/`,
-  `reporting/docs/recovery.md`.
+  `reporting/docs/backup_and_recovery.md`.
 - W-AJ LLM-judge harness scaffold (`core/eval/judge_harness.py`).
 - W-AL calibration-eval schema (`core/eval/calibration_schema.py`),
-  `reporting/docs/calibration_eval_design.md`.
+  `reporting/docs/archive/cycle_artifacts/calibration_eval_design.md`
+  (now archived as cycle provenance).
 - W-AI 30 judge-adversarial fixtures (10 each: prompt_injection /
   source_conflict / bias_probe).
 - W-AN `hai eval run --scenario-set <set>` flag.
 - W-EXPLAIN-UX P13 (low-domain-knowledge) persona,
-  `reporting/docs/explain_ux_review_2026_05.md` with 8 findings +
-  6 v0.2.0 W52 prose obligations + carries-forward-to-v0.1.15
-  section.
+  `reporting/docs/archive/cycle_artifacts/explain_ux_review_2026_05.md`
+  with 8 findings + 6 v0.2.0 W52 prose obligations +
+  carries-forward-to-v0.1.15 section.
 - W-DOMAIN-SYNC `verification/tests/test_domain_sync_contract.py`.
 - W-FRESH-EXT extension for W-id refs across summary surfaces +
   persona-runner pre-flight cleanup hook (F-PHASE0-01 absorption).
@@ -252,10 +254,14 @@ Per-release detail lives under `reporting/plans/<version>/`.
   named-change-accepted W-AN + W-BACKUP + W-PROV-1 surfaces.
 
 ### Documentation
-- `reporting/docs/source_row_provenance.md` (new).
-- `reporting/docs/recovery.md` (new).
-- `reporting/docs/explain_ux_review_2026_05.md` (new).
-- `reporting/docs/calibration_eval_design.md` (new).
+- `reporting/docs/archive/cycle_artifacts/source_row_provenance.md`
+  (new in v0.1.14, archived post-v0.1.15).
+- `reporting/docs/backup_and_recovery.md` (new as `recovery.md`,
+  renamed post-v0.1.15).
+- `reporting/docs/archive/cycle_artifacts/explain_ux_review_2026_05.md`
+  (new in v0.1.14, archived post-v0.1.15).
+- `reporting/docs/archive/cycle_artifacts/calibration_eval_design.md`
+  (new in v0.1.14, archived post-v0.1.15).
 - `reporting/docs/agent_cli_contract.md` regenerated (59
   commands).
 
@@ -297,8 +303,9 @@ Per-release detail lives under `reporting/plans/<version>/`.
   `hai today` surface. Each step idempotent; KeyboardInterrupt
   mid-flow surfaces `USER_INPUT` exit code with actionable
   next-step prose. Operator demo SLO target ≤5 min wall-clock
-  documented in `reporting/docs/onboarding_slo.md` (target, not
-  CI gate, per F-PLAN-08).
+  documented in
+  `reporting/docs/archive/cycle_artifacts/onboarding_slo.md` (target,
+  not CI gate, per F-PLAN-08; now archived as cycle provenance).
 - **`hai capabilities --human`** (W-AB) — workflow-grouped
   one-page rendering of the CLI surface. Existing `--json` and
   `--markdown` modes unchanged.
@@ -316,7 +323,8 @@ Per-release detail lives under `reporting/plans/<version>/`.
   older than `RE_PROPOSE_ALL_FRESHNESS_THRESHOLD` (60s default).
   Token surfaces in `hai today` markdown / plain / JSON +
   `hai explain`. Option A default per
-  `reporting/docs/supersede_domain_coverage.md`; option B
+  `reporting/docs/archive/cycle_artifacts/supersede_domain_coverage.md`;
+  option B
   per-domain fingerprint primitive NOT shipped (runtime is
   domain-agnostic via `_carryover_token_for_domain()`); option C
   remains out-of-v0.1.x scope per F-PLAN-07.
@@ -358,14 +366,15 @@ Per-release detail lives under `reporting/plans/<version>/`.
   quickstart` fenced block from README; runs each command in a
   temp dir with stubbed intervals.icu fixture. Catches README
   drift within one CI build of any README change.
-- **`reporting/docs/cli_boundary_table.md`** (W-29-prep) —
+- **`reporting/docs/archive/cycle_artifacts/cli_boundary_table.md`**
+  (W-29-prep) —
   derived live from `hai capabilities --json`, names the proposed
   v0.1.14 W-29 mechanical-split handler-group assignment per
   subcommand. Three legitimate post-baseline snapshot
   regenerations recorded (45319da freeze → 03fab4f W-AA `--guided`
   → bd11be3 W-FBC-2 `--re-propose-all` help text).
-- **`reporting/docs/onboarding_slo.md`** — operator demo SLO
-  reference (manual demo protocol per F-PLAN-08).
+- **`reporting/docs/archive/cycle_artifacts/onboarding_slo.md`** —
+  operator demo SLO reference (manual demo protocol per F-PLAN-08).
 - **`reporting/docs/intervals_icu_403_triage.md`** — in-tree
   triage doc for `hai doctor --deep`.
 
@@ -498,8 +507,8 @@ Per-release detail lives under `reporting/plans/<version>/`.
   (D15). CP4 staged MCP-exposure plan (extends Wave 3). CP5
   v0.2.0 single-substantial-with-shadow shape. CP6 §6.3 framing
   edit (authored v0.1.12, applied v0.1.13).
-- **`reporting/docs/supersede_domain_coverage.md`** (W-FBC) —
-  policy decision doc.
+- **`reporting/docs/archive/cycle_artifacts/supersede_domain_coverage.md`**
+  (W-FBC) — policy decision doc.
 
 ### Changed
 
@@ -592,7 +601,7 @@ Per-release detail lives under `reporting/plans/<version>/`.
   hybrid, P12 vacation-returner.
 - **Property-based tests for the policy DSL** (W-P).
 - **Persona harness drift guards** (W-S, F-CDX-IR-06).
-- **`reporting/docs/demo_flow.md`** (W-Z).
+- **`reporting/docs/archive/cycle_artifacts/demo_flow.md`** (W-Z).
 
 ### Changed
 

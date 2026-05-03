@@ -3,7 +3,7 @@
 -- Adds an optional JSON column carrying a list of typed
 -- `source_row_locator` objects, one per evidence row cited by the
 -- recommendation's R-rule firing. Schema documented at
--- reporting/docs/source_row_provenance.md.
+-- reporting/docs/archive/cycle_artifacts/source_row_provenance.md.
 --
 -- Backwards-compatible additive. Existing rows get NULL; consumers
 -- treat NULL as "no provenance" identically to an empty list.

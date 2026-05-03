@@ -1,10 +1,10 @@
 # Architecture
 
-Health Agent Infra is an agent-native governed runtime for a multi-domain
-personal health agent. The user speaks to a shell-capable agent in natural
-language; the agent operates the local `hai` CLI. It reads a cross-domain
-state snapshot, invokes domain-specific skills to emit per-domain proposals,
-and lets deterministic synthesis reconcile them into bounded per-domain
+Health Agent Infra is an agent-native, locally governed runtime for personal
+health agents. The user speaks to a shell-capable agent in natural language;
+the agent operates the local `hai` CLI. It reads a cross-domain state snapshot,
+invokes domain-specific skills to emit per-domain proposals, and lets
+deterministic synthesis reconcile them into bounded per-domain
 recommendations. Every deterministic guarantee lives in code; every judgment
 call lives in a skill; the contract between them is typed.
 
@@ -89,8 +89,8 @@ precedence. Synthesis does not privilege one domain over another.
 ┌─────────────────────────────────────────────────────────────────────┐
 │        SYNTHESIS PHASE A — cross-domain X-rules (pre-skill)         │
 │                                                                     │
-│  Runtime: evaluates X1-X7 against snapshot + proposals; emits       │
-│           firings; applies mutations mechanically to drafts.        │
+│  Runtime: evaluates 10 Phase A X-rules against snapshot +           │
+│           proposals; emits firings; applies mutations mechanically. │
 │  Skill  : daily-plan-synthesis reads bundle + firings, composes     │
 │           rationale overlay on top of already-fixed actions.        │
 └─────────────────────────────┬───────────────────────────────────────┘
@@ -120,6 +120,20 @@ precedence. Synthesis does not privilege one domain over another.
 ## Code-vs-skill boundary
 
 The line is tight and intentionally simple. Short form:
+
+```mermaid
+flowchart LR
+    A[User conversation] --> B[Host agent]
+    B --> C[hai CLI]
+    C --> D[Python runtime]
+    D --> E[SQLite state]
+    D --> F[classified_state + policy_result]
+    F --> G[Markdown skills]
+    G --> H[DomainProposal]
+    H --> C
+    C --> I[Validated commit]
+    I --> E
+```
 
 **Code owns:**
 - Deterministic arithmetic (band classification, scoring, signal
@@ -192,52 +206,9 @@ See [``x_rules.md``](x_rules.md) for the full catalogue.
 See [``state_model_v1.md``](state_model_v1.md) for the human-readable
 table-by-table schema. Each accepted_*_state_daily table is
 deterministically derived from one or more raw + source tables by
-the projector. Migrations 001-025 are live (latest: v0.1.15):
-
-- 001 initial schema
-- 002 training-readiness column rename
-- 003 synthesis scaffolding (proposal_log, daily_plan, x_rule_firing)
-- 004 sleep + stress tables
-- 005 strength expansion + exercise_taxonomy
-- 006 nutrition macros-only (derivation_path='daily_macros';
-  micronutrient columns + food_taxonomy deferred per Phase 2.5
-  retrieval gate)
-- 007 explicit user memory (goals / preferences / constraints /
-  context notes)
-- 008 sync_run_log (per-source freshness observability)
-- 009 recommendation_log.daily_plan_id column + index
-- 010 review_outcome enrichment (completed, intensity_delta,
-  pre/post_energy_score, disagreed_firing_ids, …)
-- 011 planned_recommendation ledger (pre-X-rule aggregate, M8
-  Phase 1) — closes the audit chain at the aggregate level so
-  `planned ⊕ firings = adapted` is verifiable from rows alone
-- 012 runtime_event_log — per-invocation telemetry for `hai stats`
-- 013 proposal_log revision columns (D1 re-author semantics)
-- 014 daily_plan.superseded_by_plan_id forward-link
-- 015 manual_readiness_raw (D2 per-domain intake landing)
-- 016 review_outcome.re_linked_from_recommendation_id (D1 auto-re-link)
-- 017 running_activity — per-session structural data from the
-  intervals.icu `/activities` stream (HR zone times, interval
-  summaries, TRIMP, warmup/cooldown). Distinct from the daily rollup
-  in `accepted_running_state_daily`: activities are the source of
-  truth for session structure; the rollup is an aggregation over
-  today's activities (populated by `aggregate_activities_to_daily_rollup`
-  in `cmd_clean`)
-- 018 proposal canonical-leaf uniqueness
-- 019 intent_item — user-authored and agent-proposed intent ledger
-- 020 target — user-authored and agent-proposed wellness target ledger
-- 021 data_quality_daily — per-domain coverage/missingness ledger
-- 022 daily_plan state-fingerprint column (v0.1.11 W-E re-run
-  state-change supersession)
-- 023 source_row_locator (v0.1.14 W-PROV-1 — provenance carrier
-  for v0.2.0 W52 weekly review and W58D claim-block; foundation
-  for the recommendation_evidence_card.v1 schema)
-- 024 gym_set id with exercise slug (v0.1.15 W-GYM-SETID —
-  rewrites old-format set ids and supersession links while preserving
-  custom-id correction rows)
-- 025 target macro extension (v0.1.15 W-C — extends the existing
-  `target` table's `target_type` CHECK with `carbs_g` and `fat_g`
-  for four-row nutrition macro targets)
+the projector. Schema head is 025 as of v0.1.15. The exact migration
+ledger lives in the migration files; `state_model_v1.md` carries the
+human-readable table map and the latest notable deltas.
 
 ## Agent-native surfaces
 

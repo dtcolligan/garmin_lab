@@ -16,7 +16,7 @@ when the backend probe fails. **Tier:** hotfix.
 |---|---|---|
 | Scope | [`reporting/plans/v0_1_15_1/HOTFIX_SCOPE.md`](reporting/plans/v0_1_15_1/HOTFIX_SCOPE.md) | Maintainer ratified Option B: keyring fix + two doc items + public candidate-name scrub |
 | D14 / external IR | skipped | Hotfix latitude per AGENTS.md D15; single bug class |
-| Verification | [`reporting/plans/v0_1_15_1/RELEASE_PROOF.md`](reporting/plans/v0_1_15_1/RELEASE_PROOF.md) | Full gates recorded; no schema change; CLI contract regenerated for version line |
+| Verification | [`reporting/plans/v0_1_15_1/RELEASE_PROOF.md`](reporting/plans/v0_1_15_1/RELEASE_PROOF.md) | Full gates recorded: 2631 passed, 3 skipped; no schema change; CLI contract regenerated for version line |
 
 **Outcome:** `v0.1.15.1` is the candidate package for the post-publish
 foreign-user session. v0.1.16 remains the empirical-fix cycle for any

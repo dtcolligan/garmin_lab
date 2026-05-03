@@ -1,6 +1,8 @@
 """W-FBC-2 recovery prototype: --re-propose-all carryover-uncertainty token.
 
-Per ``reporting/docs/supersede_domain_coverage.md`` (option A default):
+Per the archived
+``reporting/docs/archive/cycle_artifacts/supersede_domain_coverage.md``
+(option A default):
 when ``--re-propose-all`` is set, ``run_synthesis`` evaluates the
 authored-at envelope of each canonical-leaf ``proposal_log`` row. Any
 domain whose envelope is older than ``now - RE_PROPOSE_ALL_FRESHNESS_THRESHOLD``

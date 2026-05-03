@@ -9,8 +9,8 @@ invocation, and asserts each step is interrupt-resumable
 
 The operator demo SLO (≤5 minutes wall-clock from `pipx install` to
 synthesized plan on broadband + modern hardware) is documented in
-`reporting/docs/onboarding_slo.md` and is target-not-gate per
-F-PLAN-08; this test is the gate.
+`reporting/docs/archive/cycle_artifacts/onboarding_slo.md` and is
+target-not-gate per F-PLAN-08; this test is the gate.
 
 Per W-AA acceptance: the deterministic gate uses stubbed input AND a
 stubbed intervals.icu fixture (replay-client shape, same as the

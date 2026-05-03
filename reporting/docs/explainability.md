@@ -30,6 +30,16 @@ planned action, the adapted action, the triggering firing, and the
 firing's one-sentence `human_explanation` (which the agent narrates
 verbatim).
 
+```mermaid
+stateDiagram-v2
+    [*] --> Proposed: DomainProposal rows
+    Proposed --> Planned: planned_recommendation
+    Planned --> Adapted: X-rule firings
+    Adapted --> Performed: review_outcome
+    Adapted --> Superseded: same-day re-author
+    Superseded --> Adapted: new canonical plan
+```
+
 ## 2. CLI surface
 
 ```
@@ -46,11 +56,11 @@ hai explain --daily-plan-id <id>                       [--operator] [--db-path <
 - `--db-path` falls through to the canonical default (`$HAI_STATE_DB`
   or `~/.local/share/health_agent_infra/state.db`).
 
-Failure modes the surface exits `2` for:
+Failure modes use the shared CLI exit taxonomy:
 
-- DB not initialized at the resolved path.
-- Selector form missing or both forms combined.
-- Plan id (or canonical id derived from date/user) not found.
+- DB not initialized at the resolved path: `USER_INPUT`.
+- Selector form missing or both forms combined: `USER_INPUT`.
+- Plan id (or canonical id derived from date/user) not found: `NOT_FOUND`.
 
 ## 3. Bundle shape
 

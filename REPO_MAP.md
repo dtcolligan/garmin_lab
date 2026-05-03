@@ -69,7 +69,7 @@ checked-in repo shape.
 - **Active docs**: `README.md`, `CHANGELOG.md`, `AGENTS.md`, `CLAUDE.md`,
   `ARCHITECTURE.md`, `AUDIT.md`, `HYPOTHESES.md`, `ROADMAP.md`,
   `SECURITY.md`, `CITATION.cff`, `CONTRIBUTING.md`, `REPO_MAP.md`,
-  everything directly under `reporting/docs/`
+  current docs directly under `reporting/docs/`
   (including `agent_cli_contract.md` — generated from `hai
   capabilities --json`; `current_system_state.md` is the current-truth
   summary),
@@ -95,6 +95,7 @@ checked-in repo shape.
   full pipeline as permanent regression infrastructure.
 - **Historical / archived (still on disk, clearly labelled)**:
   `reporting/docs/archive/doctrine/`,
+  `reporting/docs/archive/cycle_artifacts/`,
   `reporting/docs/archive/merge_human_inputs/`,
   `reporting/artifacts/archive/`, `reporting/artifacts/phase_0/`,
   `reporting/experiments/`,

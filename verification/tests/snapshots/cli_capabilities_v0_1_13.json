@@ -144,7 +144,7 @@
     {
       "agent_safe": true,
       "command": "hai backup",
-      "description": "Versioned tarball of state.db + JSONL audit logs + manifest. Read-only on local state. See reporting/docs/recovery.md for the recovery contract.",
+      "description": "Versioned tarball of state.db + JSONL audit logs + manifest. Read-only on local state. See reporting/docs/backup_and_recovery.md for the recovery contract.",
       "exit_codes": [
         "OK",
         "USER_INPUT"
@@ -587,7 +587,7 @@
           "aliases": [],
           "choices": null,
           "default": false,
-          "help": "v0.1.13 W-FBC-2 (closure of F-B-04, option A default per reporting/docs/supersede_domain_coverage.md): operator belt-and-braces signal that every domain's proposal should have been freshly authored in this synthesis cycle. Synthesis appends a per-domain `<domain>_proposal_carryover_under_re_propose_all` token to any recommendation whose proposal envelope was authored outside the freshness window (default 60s) \u2014 the audit-chain signal that the operator's intent was observably not honored for that domain. The token surfaces in `hai today` rationale prose and `hai explain` recommendation rows. Also surfaces in the daily report JSON as `re_propose_all_requested: true`.",
+          "help": "v0.1.13 W-FBC-2 (closure of F-B-04, option A default per reporting/docs/archive/cycle_artifacts/supersede_domain_coverage.md): operator belt-and-braces signal that every domain's proposal should have been freshly authored in this synthesis cycle. Synthesis appends a per-domain `<domain>_proposal_carryover_under_re_propose_all` token to any recommendation whose proposal envelope was authored outside the freshness window (default 60s) \u2014 the audit-chain signal that the operator's intent was observably not honored for that domain. The token surfaces in `hai today` rationale prose and `hai explain` recommendation rows. Also surfaces in the daily report JSON as `re_propose_all_requested: true`.",
           "name": "--re-propose-all",
           "nargs": 0,
           "positional": false,

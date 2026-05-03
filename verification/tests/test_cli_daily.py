@@ -526,8 +526,9 @@ def test_daily_re_propose_all_flag_round_trips_through_report(
 ):
     """The --re-propose-all flag must surface as
     ``re_propose_all_requested`` in the daily report JSON. Today the
-    runtime effect is partial (recovery prototype only, per
-    reporting/docs/supersede_domain_coverage.md); the report-side
+    runtime effect is partial (recovery prototype only, per the archived
+    reporting/docs/archive/cycle_artifacts/supersede_domain_coverage.md);
+    the report-side
     surface is the v0.1.12 contract that v0.1.13 W-FBC-2 will extend.
     """
     db_path = _fresh_db(tmp_path)

@@ -160,7 +160,7 @@ enough mechanical structure to formalize (HRV bands, training load,
 sleep stages, X-rules across domains) and enough judgment to make the
 skill layer pull its weight (which proposal to surface, what
 uncertainty to flag, how much rationale to write). Six v1 domains,
-ten cross-domain X-rules, 28 packaged eval scenarios, full audit chain.
+11 cross-domain X-rules, 28 packaged eval scenarios, full audit chain.
 
 The artifact I'd most value feedback on: `reporting/docs/architecture.md`
 and `reporting/docs/agent_cli_contract.md`. The first documents the

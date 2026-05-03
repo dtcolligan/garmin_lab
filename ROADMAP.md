@@ -26,8 +26,9 @@ This file is a high-level pointer; for actual scope, read those plans.
   nutrition partial-day suppression; W-E merge-human-inputs skill
   presence-block consumption). Migration head 23 → 25. The W-2U-GATE
   recorded session reframes from ship-gate to empirical-validation
-  feeding v0.1.16 per the publish-first pivot — the named foreign-user candidate installs
-  `pip install health-agent-infra==0.1.15` directly. Audit chain:
+  feeding v0.1.16 per the publish-first pivot — the named foreign-user
+  candidate now installs `health-agent-infra==0.1.15.1` after the Linux
+  keyring hotfix. Audit chain:
   D14 12→7→3→2 (4 rounds + Phase 0 revises-scope round) + D15 IR
   6→2→1 (3 rounds, SHIP_WITH_NOTES close-in-place). Substantive tier.
   Test surface: 2630 passed (+50 vs v0.1.14.1).

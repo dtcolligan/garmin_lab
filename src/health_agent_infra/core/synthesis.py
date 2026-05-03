@@ -102,7 +102,8 @@ RE_PROPOSE_ALL_FRESHNESS_THRESHOLD = timedelta(seconds=60)
 def _carryover_token_for_domain(domain: str) -> str:
     """Stable name of the carryover-uncertainty token per domain.
 
-    Pattern fixed per design (``reporting/docs/supersede_domain_coverage.md``):
+    Pattern fixed per design
+    (``reporting/docs/archive/cycle_artifacts/supersede_domain_coverage.md``):
     ``<domain>_proposal_carryover_under_re_propose_all``.
     """
 
@@ -754,7 +755,9 @@ def run_synthesis(
     honored for that domain. When the flag is False, no token fires
     regardless of envelope age (the option-A default disposition lets
     the agent decide which domains to re-propose). Per the design
-    doc at ``reporting/docs/supersede_domain_coverage.md`` (option A):
+    doc at
+    ``reporting/docs/archive/cycle_artifacts/supersede_domain_coverage.md``
+    (option A):
     the runtime does not enforce that every domain re-propose, only
     surfaces the operator-visible token when it doesn't.
     """

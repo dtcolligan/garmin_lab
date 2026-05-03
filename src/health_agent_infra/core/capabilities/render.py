@@ -68,6 +68,13 @@ JSON; this markdown is an at-a-glance overview for humans.
 | ``none`` | Text output only. |
 | ``dual`` | Supports both ``--json`` and ``--text`` explicitly. |
 
+## Agent-safe
+
+| Value | Meaning |
+|---|---|
+| yes | A shell-capable agent may invoke the command when user intent and preconditions are satisfied. The command is still governed by normal validation, exit codes, and mutation rules. |
+| no | Human/operator-only. The command touches credentials, interactive setup, restore/overwrite paths, or W57 commit/archive authority that an agent must not exercise autonomously. |
+
 ## Commands
 """
 

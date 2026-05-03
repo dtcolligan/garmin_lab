@@ -177,7 +177,7 @@ The Show HN draft and launch checklist still reflected older public
 package state and command counts. This pass labels the launch draft as a
 draft, updates the major facts, and corrects the host-agent framing.
 
-`reporting/docs/demo_flow.md` still deserves a current rewrite. It
+`reporting/docs/archive/cycle_artifacts/demo_flow.md` still deserves a current rewrite. It
 should demonstrate the product thesis: start with a clean local state,
 pull or seed data, run the daily loop, show gaps/presence, inspect
 provenance with `hai explain`, and demonstrate a W57-gated target or
@@ -257,7 +257,7 @@ or X-rule family lands. The right fix is to designate one canonical
 | Area | Files |
 |---|---|
 | Product story and root orientation | `README.md`, `ARCHITECTURE.md`, `REPO_MAP.md`, `ROADMAP.md` |
-| Reporting docs orientation | `reporting/docs/README.md`, `reporting/docs/tour.md`, `reporting/docs/architecture.md`, `reporting/docs/agent_integration.md`, `reporting/docs/personal_health_agent_positioning.md`, `reporting/docs/privacy.md`, `reporting/docs/recovery.md` |
+| Reporting docs orientation | `reporting/docs/README.md`, `reporting/docs/tour.md`, `reporting/docs/architecture.md`, `reporting/docs/agent_integration.md`, `reporting/docs/personal_health_agent_positioning.md`, `reporting/docs/privacy.md`, `reporting/docs/backup_and_recovery.md` |
 | Launch/current-state docs | `reporting/docs/launch/PUBLISH_CHECKLIST.md`, `reporting/docs/launch/show_hn_draft.md`, `verification/README.md` |
 | Planning indexes and closed cycles | `reporting/README.md`, `reporting/plans/README.md`, `reporting/plans/v0_1_15/README.md`, `reporting/plans/v0_1_15_1/RELEASE_PROOF.md`, `reporting/plans/v0_1_15_1/REPORT.md`, `reporting/plans/tactical_plan_v0_1_x.md` |
 | Agent-operable skills | `src/health_agent_infra/skills/recovery-readiness/SKILL.md`, `src/health_agent_infra/skills/reporting/SKILL.md`, `src/health_agent_infra/skills/merge-human-inputs/SKILL.md`, `src/health_agent_infra/skills/strength-intake/SKILL.md`, `src/health_agent_infra/skills/intent-router/SKILL.md` |
@@ -274,7 +274,7 @@ runtime quality.
 |---|---|---|
 | W-DOC-STRAT | Write `strategic_plan_v2.md`: concise product thesis, user, current state, failure modes, next 3 horizons, and non-goals. | v0.1.16 or post-v0.1.15 docs cycle |
 | W-DOC-TACTICAL | Split tactical plan into active next-cycle scope vs historical release ledger. | v0.1.16 |
-| W-DOC-DEMO | Rewrite `reporting/docs/demo_flow.md` around the daily loop, gaps, explainability, and W57-gated changes. | v0.1.16 |
+| W-DOC-DEMO | Create a current `reporting/docs/demo_flow.md` around the daily loop, gaps, explainability, and W57-gated changes, using the archived cycle artifact as provenance only. | v0.1.16 |
 | W-DOC-EVAL | Update eval docs for personal-guidance failure modes: sycophancy, one-sided framing, overconfidence, high-stakes boundary handling, and proposal/commit confusion. | v0.1.17 if tied to eval implementation |
 | W-DOC-EXPLAIN | Create one canonical explain/provenance doc. | v0.1.17 |
 | W-DOC-DOMAIN | Consolidate "extend a domain" documentation into one authority surface. | v0.1.17 |

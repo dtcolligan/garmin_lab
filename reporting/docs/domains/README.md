@@ -9,6 +9,17 @@ what not to change) see
 implementations are the six v1 domains (recovery, running, sleep,
 stress, strength, nutrition).
 
+## Current domain references
+
+| Domain | Reference |
+|---|---|
+| recovery | [`recovery.md`](recovery.md) |
+| running | [`running.md`](running.md) |
+| sleep | [`sleep.md`](sleep.md) |
+| stress | [`stress.md`](stress.md) |
+| strength | [`strength.md`](strength.md) |
+| nutrition | [`nutrition.md`](nutrition.md) |
+
 ## The six-part pattern
 
 ```

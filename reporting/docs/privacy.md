@@ -128,8 +128,9 @@ logs are append-only by design; to truly remove one day's
 intake/review/proposal history, edit the relevant JSONL lines yourself
 and then run `hai state reproject --base-dir <dir>` to rebuild the DB.
 The system favours auditability over forgetability; this is a
-deliberate tradeoff. A first-class single-day forget command is on the
-v0.1.13 onboarding cycle backlog.
+deliberate tradeoff. A first-class single-day forget command has not
+shipped yet; schedule it explicitly before promising that workflow to
+users.
 
 ## Migrating to a new machine
 

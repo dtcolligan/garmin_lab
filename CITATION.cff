@@ -21,8 +21,8 @@ keywords:
   - intervals.icu
   - garmin
   - claude-code
-version: "0.1.8"
-date-released: "2026-04-25"
+version: "0.1.15.1"
+date-released: "2026-05-03"
 # Once a Zenodo DOI is registered, uncomment and fill in:
 # identifiers:
 #   - type: doi
@@ -30,7 +30,7 @@ date-released: "2026-04-25"
 #     description: "Concept DOI for all versions"
 #   - type: doi
 #     value: "10.5281/zenodo.YYYYYYY"
-#     description: "DOI for v0.1.8"
+#     description: "DOI for v0.1.15.1"
 references:
   - type: article
     title: "AgentSpec: Customizable Runtime Enforcement for Agentic LLMs"

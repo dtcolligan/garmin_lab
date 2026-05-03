@@ -1,7 +1,5 @@
 # Contributing
 
-Thanks for looking at Health Agent Infra.
-
 ## Mental model
 
 The project has two surfaces. Everything you contribute lands in one of them:

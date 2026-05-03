@@ -225,9 +225,10 @@ If the domain introduces a new `accepted_<d>_state_daily` table:
 
 - Add a migration under
   [`core/state/migrations/`](../../src/health_agent_infra/core/state/migrations/).
-  Migrations are append-only and numeric-ordered (001…007). Follow
-  the idioms in `004_sleep_stress_tables.sql` and
-  `005_strength_expansion.sql`.
+  Migrations are append-only and numeric-ordered; use the latest
+  migration number plus one. Follow the current DDL idioms in the
+  existing migration files, and update
+  [`state_model_v1.md`](state_model_v1.md) when a table shape changes.
 - Add a projector module under
   [`core/state/projectors/`](../../src/health_agent_infra/core/state/projectors/).
   Model it on

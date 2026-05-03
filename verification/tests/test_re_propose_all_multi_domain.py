@@ -18,7 +18,9 @@ Coverage shape per PLAN §2.A W-FBC-2 acceptance:
     sleep / stress / strength / nutrition / recovery.
 
 The tokens are independent. v0.1.13 W-FBC-2 ships option A (default)
-per ``reporting/docs/supersede_domain_coverage.md``; the per-domain
+per the archived
+``reporting/docs/archive/cycle_artifacts/supersede_domain_coverage.md``;
+the per-domain
 fingerprint primitive (option B) is NOT shipped this cycle.
 """
 

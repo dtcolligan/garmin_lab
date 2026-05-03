@@ -7,9 +7,10 @@ head, command count, and release posture, read
 
 ## 1. What you're looking at
 
-Health Agent Infra is **agent-native infrastructure**, not a health app. The
-user speaks to a shell-capable agent in natural language; the agent operates
-the local `hai` CLI. Claude Code is the first compatibility surface, not the
+Health Agent Infra is an **agent-native, locally governed runtime for
+personal health agents**, not a health app. The user speaks to a
+shell-capable agent in natural language; the agent operates the local
+`hai` CLI. Claude Code is the first compatibility surface, not the
 architecture boundary. The package ships two things to the agent:
 
 - **A CLI called ``hai``** with deterministic subcommands for
@@ -96,8 +97,8 @@ optional ``signals.py`` / ``intake.py`` / ``taxonomy_match.py``.
 Core orchestration in ``src/health_agent_infra/core/``:
 
 - ``synthesis.py`` — ``run_synthesis`` atomic-commit orchestrator.
-- ``synthesis_policy.py`` — ten X-rule evaluators across Phase A
-  and Phase B.
+- ``synthesis_policy.py`` — 11 X-rules: 10 Phase A rules and one
+  Phase B adjustment rule.
 - ``state/snapshot.py`` — cross-domain bundle the agent reads.
 - ``state/projectors/*.py`` — one projector per domain turning raw
   evidence into ``accepted_*_state_daily`` rows.

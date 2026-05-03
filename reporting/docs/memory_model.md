@@ -231,6 +231,16 @@ The same "explicit row, explicit archive" discipline now also governs the
 intent and target ledgers added in v0.1.8: agent-proposed entries may exist,
 but activation/deactivation requires a user-gated commit path.
 
+```mermaid
+stateDiagram-v2
+    [*] --> Proposed: agent-proposed row
+    [*] --> Active: user-authored row
+    Proposed --> Active: explicit commit
+    Active --> Archived: explicit archive
+    Proposed --> Archived: explicit archive / rejection
+    Archived --> [*]
+```
+
 ### 2.2 Absent adaptive memory (deliberately)
 
 The runtime does not, and in this cycle will not:

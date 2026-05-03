@@ -1,10 +1,11 @@
 # Agent Integration
 
-How a shell-capable agent installs and uses Health Agent Infra v1.
-Claude Code is the first compatible host surface, but the durable
-contract is the local `hai` CLI plus `hai capabilities --json`. The
-human product loop is natural language; the agent translates that
-intent into validated `hai` commands.
+Health Agent Infra is an agent-native, locally governed runtime for
+personal health agents. This doc explains how a shell-capable agent
+installs and uses the v1 runtime. Claude Code is the first compatible
+host surface, but the durable contract is the local `hai` CLI plus
+`hai capabilities --json`. The human product loop is natural language;
+the agent translates that intent into validated `hai` commands.
 
 The package ships two things the agent consumes:
 
@@ -31,6 +32,13 @@ hai setup-skills                # copies skills to ~/.claude/skills/
 hai state init                  # creates the SQLite state DB + applies migrations
 ```
 
+Immediately after a new PyPI publish, a pinned CDN-bypass install may be
+needed for a few minutes:
+
+```bash
+pipx install --force --pip-args="--no-cache-dir --index-url https://pypi.org/simple/" 'health-agent-infra==0.1.15.1'
+```
+
 Verify:
 
 ```bash
@@ -52,35 +60,45 @@ scopes the CLI subcommands it may invoke — e.g., the
 
 Typical daily loop:
 
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant A as Host agent
+    participant H as hai runtime
+    participant DB as Local SQLite
+    U->>A: Plan today
+    A->>H: hai daily --as-of <date>
+    H->>DB: pull / clean / snapshot / proposal gate
+    H-->>A: awaiting_proposals or incomplete
+    A->>H: hai state snapshot + domain skills
+    A->>H: hai propose --domain <d> ...
+    A->>H: hai daily --as-of <date>
+    H->>DB: synthesis + X-rules + atomic commit
+    H-->>A: complete plan
+    A->>U: narrate plan from persisted rows
+```
+
 1. User: "Plan my day."
-2. Agent invokes ``hai pull`` and any needed ``hai intake *``
-   commands. Source resolution (v0.1.6+): explicit ``--source`` >
-   legacy ``--live`` (= garmin_live; rate-limited) > intervals.icu
-   when credentials are configured > csv fixture fallback. The
-   supported live source is intervals.icu. Since v0.1.15, CSV fixture
-   writes to the canonical state DB are refused by default unless the
-   caller explicitly opts in or uses a demo/non-canonical destination.
-3. Agent runs ``hai clean``; intake paths project their own rows, and
-   ``hai state reproject`` can rebuild from JSONL audit logs when needed.
-4. Agent reads ``hai state snapshot --as-of <date> --user-id <u>``.
-5. Per domain, agent reads the domain's readiness skill + the
-   snapshot's domain block, honours any ``policy_result.forced_action``
-   / ``capped_confidence``, composes a ``DomainProposal``, and
-   invokes ``hai propose --domain <d> --proposal-json <p>``.
-6. With all six proposals in proposal_log, agent invokes ``hai
-   synthesize --as-of <date> --user-id <u>``. The runtime applies
-   Phase A mutations to drafts, runs Phase B, and atomically commits
-   the daily_plan + x_rule_firings + N recommendations in one SQLite
-   transaction. To overlay the daily-plan-synthesis skill's
-   rationale prose on top, the agent uses the two-pass form:
-   ``hai synthesize ... --bundle-only`` reads the bundle (read-only,
-   no commit), the skill returns a drafts overlay, and a second call
-   to ``hai synthesize ... --drafts-json <path>`` finishes the
-   commit. ``hai daily`` ships the runtime-only path; the skill-
-   overlay path is opt-in.
-7. Agent uses the ``reporting`` skill to narrate the synthesised
-   plan back to the user.
-8. Next morning: agent records outcomes via ``hai review record
+2. Agent invokes ``hai daily``. The orchestrator pulls, cleans,
+   snapshots, computes gaps, and stops at the proposal gate when it
+   needs domain proposals.
+3. If the status is ``awaiting_proposals`` or ``incomplete``, the
+   agent reads the snapshot and the relevant readiness skills, honours
+   any ``policy_result.forced_action`` / ``capped_confidence``,
+   composes a ``DomainProposal``, and invokes ``hai propose --domain
+   <d> --proposal-json <p>`` for each missing domain.
+4. Agent invokes ``hai daily`` again. With the expected proposals in
+   `proposal_log`, the runtime applies Phase A mutations, runs Phase B,
+   and atomically commits the `daily_plan` + `x_rule_firings` + N
+   recommendations in one SQLite transaction.
+5. Agent uses the ``reporting`` skill to narrate the synthesised plan
+   back to the user.
+6. Lower-level debug/operator flow is still available: ``hai pull`` /
+   ``hai clean`` / ``hai state snapshot`` / ``hai synthesize``. The
+   optional synthesis skill overlay uses the two-pass form:
+   ``hai synthesize ... --bundle-only`` followed by
+   ``hai synthesize ... --drafts-json <path>``.
+7. Next morning: agent records outcomes via ``hai review record
    --outcome-json <path>``. The outcome payload is a typed JSON
    document carrying ``review_event_id``, ``recommendation_id``,
    ``user_id``, ``domain``, ``followed_recommendation`` (strict bool),

@@ -1,7 +1,7 @@
 """Source-row locator — typed pointer to a row in the evidence layer.
 
-v0.1.14 W-PROV-1. Schema and rules at
-`reporting/docs/source_row_provenance.md`.
+v0.1.14 W-PROV-1. Schema and rules are archived at
+`reporting/docs/archive/cycle_artifacts/source_row_provenance.md`.
 
 A locator names a single row (or a single column of a single row)
 in a whitelisted evidence-or-accepted-state table. Consumers
@@ -41,7 +41,7 @@ class LocatorValidationError(ValueError):
 
 @dataclass(frozen=True)
 class SourceRowLocator:
-    """Typed locator. Field semantics: see source_row_provenance.md."""
+    """Typed locator. Field semantics follow the W-PROV-1 archived design."""
 
     table: str
     pk: dict[str, Any]

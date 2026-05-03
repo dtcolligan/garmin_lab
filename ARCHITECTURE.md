@@ -1,9 +1,10 @@
 # Architecture
 
-One-page architecture. Health Agent Infra is agent-native: the user speaks
-natural language to an agent, the agent operates `hai`, and the runtime owns
-the deterministic boundaries. For the full pipeline and every code-vs-skill
-seam, see [`reporting/docs/architecture.md`](reporting/docs/architecture.md).
+One-page architecture. Health Agent Infra is an agent-native, locally
+governed runtime for personal health agents. The user speaks natural language
+to an agent, the agent operates `hai`, and the runtime owns the deterministic
+boundaries. For the full pipeline and every code-vs-skill seam, see
+[`reporting/docs/architecture.md`](reporting/docs/architecture.md).
 
 ## Single Rule
 

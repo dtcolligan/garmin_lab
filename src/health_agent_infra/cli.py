@@ -4549,7 +4549,7 @@ def cmd_state_migrate(args: argparse.Namespace) -> int:
 def cmd_backup(args: argparse.Namespace) -> int:
     """Write a versioned backup tarball of state DB + JSONL audit logs.
 
-    See ``reporting/docs/recovery.md`` for the recovery contract.
+    See ``reporting/docs/backup_and_recovery.md`` for the recovery contract.
     """
 
     from datetime import datetime, timezone
@@ -9009,7 +9009,7 @@ def build_parser() -> argparse.ArgumentParser:
         description=(
             "Versioned tarball of state.db + JSONL audit logs + "
             "manifest. Read-only on local state. See "
-            "reporting/docs/recovery.md for the recovery contract."
+            "reporting/docs/backup_and_recovery.md for the recovery contract."
         ),
     )
 
@@ -9152,7 +9152,8 @@ def build_parser() -> argparse.ArgumentParser:
         "--re-propose-all", action="store_true", dest="re_propose_all",
         help=(
             "v0.1.13 W-FBC-2 (closure of F-B-04, option A default per "
-            "reporting/docs/supersede_domain_coverage.md): operator "
+            "reporting/docs/archive/cycle_artifacts/"
+            "supersede_domain_coverage.md): operator "
             "belt-and-braces signal that every domain's proposal "
             "should have been freshly authored in this synthesis "
             "cycle. Synthesis appends a per-domain "

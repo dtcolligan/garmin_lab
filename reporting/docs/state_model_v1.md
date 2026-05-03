@@ -1,13 +1,12 @@
 # State Model v1
 
-Status: human-readable map of the v1 runtime state model. The
-**source of truth is the live SQLite schema** under
-`src/health_agent_infra/core/state/migrations/`. This document was
-written against the v0.1.8 surface and may lag as later releases
-add migrations (025 live as of v0.1.15: `024_gym_set_id_with_exercise_slug`,
-`025_target_macros_extension`). Trust the migration files for the
-authoritative shape; trust this doc for the human-readable
-narrative + invariants.
+Status: maintained human-readable map of the v1 runtime state model.
+The **source of truth for exact DDL is the live SQLite schema** under
+`src/health_agent_infra/core/state/migrations/`. Schema head is 025
+as of v0.1.15: `024_gym_set_id_with_exercise_slug` and
+`025_target_macros_extension` are the latest deltas. Trust the
+migration files for column-level authority; trust this doc for the
+human-readable narrative and invariants.
 
 ## Purpose
 

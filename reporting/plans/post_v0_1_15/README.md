@@ -8,6 +8,9 @@ proof and is not yet a v0.1.16 PLAN.
 
 - [`internal_docs_audit.md`](internal_docs_audit.md) — research-backed
   internal-docs audit, fixes applied, and remaining docs backlog.
+- [`codex_internal_docs_audit_v2_response.md`](codex_internal_docs_audit_v2_response.md) —
+  second-pass external audit response used to drive the post-v0.1.15
+  docs cleanup.
 
 ## Boundary
 
