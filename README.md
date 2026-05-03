@@ -73,11 +73,11 @@ domain-specific rationale over a bounded state surface.
 
 ## What the product does
 
-Health Agent Infra maintains a local SQLite health-state database. It
-pulls wearable data, accepts manual intake, projects everything into
-typed daily state, classifies each domain, applies deterministic policy
-rules, lets the agent propose bounded actions, and commits the final
-plan through an auditable transaction.
+Health Agent Infra wraps an agentic personal-health workflow in local,
+deterministic infrastructure. It gives the agent a governed CLI and a
+SQLite-backed state layer for wearable pulls, manual intake, typed daily
+projections, deterministic classifiers, policy rules, bounded proposals,
+and auditable commits.
 
 It also gives the agent operational surfaces that a plain chat agent
 does not have: source freshness checks, credential diagnostics,
@@ -93,7 +93,8 @@ In practice:
    nutrition, stress, and missing context.
 2. The agent reads `hai capabilities --json` to understand exactly
    which commands are safe and what each command can mutate.
-3. `hai` pulls or records evidence and maintains the local health-state
+3. `hai` performs the local state operations: pulling or recording
+   evidence, projecting typed rows, and preserving the health-state
    database.
 4. Python code interprets the data with deterministic classifiers,
    policy rules, validation, and cross-domain X-rules.
@@ -157,8 +158,8 @@ The loops are the product surface it enables for an agent.
 
 ```text
 User:  "Plan today. I slept badly and my quads are sore."
-Agent: Reads `hai capabilities`, pulls wearable data, asks for missing context.
-hai:   Updates the local health-state database and classifies six domains.
+Agent: Reads `hai capabilities`, invokes the local runtime, asks for missing context.
+hai:   Pulls wearable data, updates local state, and classifies six domains.
 Agent: Uses the skills to explain uncertainty and post bounded proposals.
 hai:   Applies deterministic cross-domain rules and commits the daily plan.
 User:  "Why did you soften the run?"
