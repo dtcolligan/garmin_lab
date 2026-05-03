@@ -43,20 +43,25 @@
 | **v0.1.13** | Public surface hardening + first-time-user onboarding + W-Vb/W-N-broader/W-FBC-2 closure (17 W-ids — largest in track) | shipped 2026-04-30 | shipped | v0.1.12 |
 | **v0.1.14** | Eval substrate + provenance + recovery path. 8 W-ids closed (W-PROV-1, W-EXPLAIN-UX, W-BACKUP, W-FRESH-EXT, W-AJ, W-AL, W-AN, W-DOMAIN-SYNC) + 3 partial-closed → v0.1.15 (W-AH / W-AI / W-Vb-3) + 2 deferred → v0.1.15 (W-2U-GATE / W-29) + 1 absorbed (W-AM into W-AI). | shipped 2026-05-01 | shipped | v0.1.13 (CLI surface stable + W-29-prep verdict green) |
 | **v0.1.14.1** | Hardening cycle: Garmin-live unreliability surfaced as structured capabilities signal (W-GARMIN-MANIFEST-SIGNAL). `hai capabilities --json` exposes per-choice `choice_metadata.reliability == "unreliable"` block; `_resolve_pull_source` emits stderr warning. Single workstream, purely-additive surface change, no D14 plan-audit, no external Codex IR (D15 hardening latitude). | shipped 2026-05-02 | shipped | v0.1.14 |
-| **v0.1.15** | Second-user candidate-package prep. W-29 cli.py mechanical split (~10k-line refactor with byte-stable manifest, gated by v0.1.13 W-29-prep verdict green) + W-AH-2 scenario expansion 35 → 120+ + W-AI-2 `hai eval review` CLI + W-AM-2 4 fork-deferred escalate-tagged scenarios (sleep / strength / stress / nutrition) + W-Vb-4 persona-replay residual (P7..P12) + post-v0.1.14 isolation/surgical-cleanup (F-PV14-01 + F-PV14-02) if accepted at PLAN open. **Ship claim:** "ready for foreign-machine onboarding test," not second-user proven. | post-v0.1.14.1 | 2026-Q3 mid/late | v0.1.14 (W-PROV-1 + W-AJ + W-AL substrate landed) |
-| **v0.1.16** | First non-maintainer foreign-machine onboarding empirical proof. W-2U-GATE recorded session (carry-forward from v0.1.14 pre-implementation gate defer + the v0.1.15 prep package) + W-EXPLAIN-UX empirical foreign-user pass consuming the v0.1.14 review doc's carries-forward-to-v0.1.15 section + P0 onboarding-fail fixes + P1 fixes or named deferrals. **Ship claim:** non-maintainer reached `synthesized` under gate. | post-v0.1.15 | 2026-Q3 late | v0.1.15 (candidate package shippable) |
-| **v0.2.0** | Weekly review (W52) + deterministic factuality (W58D) + 4 doc-only adjuncts (Path A) | post-v0.1.16 + 2-4 weeks | 2026-Q4 | v0.1.16 (foreign-user gate met) + v0.1.14 (W-PROV-1 + W-AJ judge harness) |
+| **v0.1.15** | **Foreign-user candidate package + recorded gate (combined per 2026-05-02 evening restructure).** 7 W-ids: W-GYM-SETID (new — gym set-id PK collision) + W-A (`hai intake gaps` presence + `is_partial_day`) + F-PV14-01 (CSV-fixture isolation) + W-C (`hai target nutrition` daily macro target commit, W57-gated) + W-D arm-1 (suppress nutrition classification when partial-day + no target) + W-E (`merge-human-inputs` skill update + optional `morning-ritual` skill) + W-2U-GATE (recorded foreign-user session). **Ship claim:** non-maintainer foreign user reached `synthesized` end-state on a fresh device. Maintainability + eval substrate (W-29 / W-AH-2 / W-AI-2 / W-AM-2 / W-Vb-4 / F-PV14-02 / W-B / W-D arm-2) deferred to v0.1.17. | post-v0.1.14.1 | 2026-Q2 late / Q3 early | v0.1.14 (W-PROV-1 + W-AJ + W-AL substrate landed) |
+| **v0.1.16** | Empirical post-gate bug fixes from v0.1.15's W-2U-GATE recorded session. P0 closed inline during v0.1.15 cycle; v0.1.16 picks up named-deferred P1 + any P2 surfaced during the recorded session. **Ship claim:** foreign-user gate-session fixes consolidated. Cycle scope is purely empirical; PLAN.md authored after v0.1.15 ships and the gate-session findings are catalogued. | post-v0.1.15 | 2026-Q3 mid | v0.1.15 (gate session recorded + P0 closed inline) |
+| **v0.1.17** | Maintainability + eval substrate consolidation (deferred from v0.1.15 round-0 over-scoping). W-29 cli.py 9217-line mechanical split + W-30 regression test + W-AH-2 scenario expansion 35 → 120+ + W-AI-2 `hai eval review` CLI + W-AM-2 4 fork-deferred escalate-tagged scenarios + W-Vb-4 persona-replay residual P7..P12 + F-PV14-02 (`hai sync purge`) + W-B (`hai intake weight` body-comp surface + table) + W-D arm-2 (partial-day end-of-day projection, gated on W-C from v0.1.15). **Ship claim:** internal correctness + maintainer-side cleanup. Parallelizable with v0.2.0 since v0.2.0 hard deps do not include v0.1.17 work. See `reporting/plans/v0_1_17/README.md`. | post-v0.1.16 | 2026-Q3 late / Q4 early | v0.1.15 (W-A + W-C in tree) + v0.1.16 (gate-session fixes consolidated) |
+| **v0.2.0** | Weekly review (W52) + deterministic factuality (W58D) + 4 doc-only adjuncts (Path A) | post-v0.1.16 + 2-4 weeks | 2026-Q4 | v0.1.16 (foreign-user gate-session fixes consolidated) + v0.1.14 (W-PROV-1 + W-AJ judge harness). **NOT** dependent on v0.1.17 — runs in parallel. |
 | **v0.2.1** | Insight ledger (W53) (Path A) | post-v0.2.0 + 2-3 weeks | 2026-Q4 / 2027-Q1 | v0.2.0 |
 | **v0.2.2** | LLM judge shadow-by-default (W58J + W-JUDGE-BIAS) (Path A) | post-v0.2.1 + 2-3 weeks | 2026-Q4 / 2027-Q1 | v0.2.1 |
 | **v0.2.3** | Judge promotion to blocking + W-30 capabilities-manifest schema freeze (Path A) | post-v0.2.2 + ≥50 shadow runs | 2027-Q1 | v0.2.2 (≥50 shadow runs accumulated) |
 
-**Total v0.1.x → v0.2.3 horizon:** 10-13 months from 2026-04-27 (the
-v0.1.15 / v0.1.16 split adds one cycle vs the original v0.1.15-only
-foreign-user plan; the split was chosen post-v0.1.14.1 to keep each
-cycle scoped — candidate-package prep separate from the empirical
-foreign-user gate). The 4-release Path A split for v0.2.x honors
-reconciliation C6 (one schema group per release) per CP-PATH-A
-(post-v0.1.13 OQ-B answered Path A 2026-05-01).
+**Total v0.1.x → v0.2.3 horizon:** 10-13 months from 2026-04-27. The
+2026-05-02 evening restructure combined v0.1.15 (candidate-package prep)
+and the original v0.1.16 (foreign-user gate) into a single v0.1.15
+cycle that ships the foreign-user-gate ship claim directly; the original
+"v0.1.16 = gate" became "v0.1.16 = empirical post-gate bug fixes"; the
+maintainability + eval substrate work that the round-0 plan tried to
+combine into v0.1.15 was reassigned to a new **v0.1.17** cycle. Net:
+no net change in cycle count; the rename moves the gate ship-claim one
+release earlier (v0.1.15 instead of v0.1.16). The 4-release Path A
+split for v0.2.x honors reconciliation C6 (one schema group per
+release) per CP-PATH-A (post-v0.1.13 OQ-B answered Path A 2026-05-01).
 
 **No hard schedule.** Each release ships when its acceptance
 criteria are met; the timeline is a planning aid, not a commitment.
@@ -568,113 +573,176 @@ is for agents.
 
 ---
 
-## 5B. v0.1.15 — Second-user candidate-package prep
+## 5B. v0.1.15 — Foreign-user candidate package + recorded gate (combined)
 
-> **Status.** **Authoring after v0.1.14.1 ship.** Cycle tier
-> projected: substantive (W-29 cli.py mechanical split alone is
-> ≥10 days and a governance edit; the carry-over set pushes this
-> well past hardening latitude).
+> **Status.** **D14 closed in-place at round 3 (2026-05-03).**
+> Halving signature: 12 → 7 → 3 nits closed in-place per round-3
+> prompt Step 4. Phase 0 (D11) bug-hunt opens next.
+> Detail rewritten 2026-05-03 to match the post-restructure scope
+> (originally projected as "candidate-package prep" only; restructured
+> to combine prep + recorded gate so v0.1.16 stays reserved for
+> empirical post-gate fixes only).
+> Cycle tier: substantive (W-2U-GATE release-blocker + W-C state-model
+> edit + W-GYM-SETID migration + F-PV14-01 audit-chain edit).
 >
-> **Theme.** Get the package ready for a non-maintainer to install
-> and reach `synthesized` on a foreign machine. **Ship claim:**
-> "ready for foreign-machine onboarding test," NOT second-user
-> proven. The empirical gate is v0.1.16 W-2U-GATE, not v0.1.15.
-> Splitting prep from proof keeps each cycle scoped: v0.1.15 is
-> engineering against a known foreign-machine candidate set;
-> v0.1.16 is the live recorded session + remediation.
+> **Theme.** A non-maintainer foreign user installs the package on a
+> fresh device, runs morning ritual + intake + `hai today`
+> end-to-end, talks to their host agent, and reaches `synthesized`
+> without hitting the agent-state-visibility class of bugs. **The
+> recorded session is the ship claim** (was originally projected as
+> v0.1.16's claim; pulled forward into v0.1.15 by the 2026-05-02
+> evening restructure).
 
-### 5B.1 In scope (provisional — ratify at PLAN open)
+### 5B.1 In scope
 
-| W-id | Title | Effort | Source |
-|---|---|---|---|
-| **W-29** | cli.py mechanical split (1 main + 1 shared + ~11 handler-group, <2500 lines each) — gated by v0.1.13 W-29-prep verdict (green; boundary table at `reporting/docs/cli_boundary_table.md`); parser/capabilities byte-stability regression test must hold across the split | 3-4d | v0.1.14 deferred |
-| **W-AH-2** | Scenario fixture expansion 35 → 120+ (carry-forward of v0.1.14 W-AH partial-closure into v0.1.15) | 3-4d | v0.1.14 → v0.1.15 carry-forward |
-| **W-AI-2** | `hai eval review` CLI surface for ground-truth labelling tooling (carry-forward of v0.1.14 W-AI partial-closure into v0.1.15) | 2-3d | v0.1.14 → v0.1.15 carry-forward |
-| **W-AM-2** | 4 fork-deferred escalate-tagged scenarios (sleep / strength / stress / nutrition) | 1-2d | v0.1.14 partial-close |
-| **W-Vb-4** | Persona-replay residual P7..P12 (v0.1.13 closed P1+P4+P5; v0.1.14 didn't extend; v0.1.15 closes the long-tail residual or honestly partial-closes again) | 4-6d | v0.1.13 partial → v0.1.14 partial → v0.1.15 |
-| **W-PV14-ISO** *(if accepted)* | F-PV14-01 + F-PV14-02 paired workstream — CSV-fixture refuses to project into canonical state DB without a demo marker; `hai sync purge --source --for-date` surface for surgical sync_run_log cleanup | 2-3d | `post_v0_1_14/carry_over_findings.md` |
+7 W-ids, full per-WS contract in `reporting/plans/v0_1_15/PLAN.md` §2.
+
+| W-id | Title | Effort |
+|---|---|---|
+| **W-GYM-SETID** | Gym set-id PK collision fix (multi-exercise sessions) + prospective SQL migration + required fixture | 1.5-3d |
+| **W-A** | `hai intake gaps` extended with `present` block + `is_partial_day` (time-only signal) + `target_status` enum | 2-3d |
+| **F-PV14-01** | CSV-fixture pull isolation marker (default-deny without demo marker) | 1-2d |
+| **W-C** | `hai target nutrition` daily macro target commit (W57-gated) + `nutrition_target` table + migration | 3-4d |
+| **W-D arm-1** | Suppress nutrition classification when partial-day + no target (`status=insufficient_data`, reason `partial_day_no_target`) | 1-2d |
+| **W-E** | `merge-human-inputs` skill update consuming W-A presence tokens; optional packaged `morning-ritual` skill | 2-4d |
+| **W-2U-GATE** | First non-maintainer foreign-machine recorded session + P0 inline + P1 close-if-cheap | 4-7d |
 
 ### 5B.2 Acceptance
 
-- W-29: cli.py split preserves the v0.1.14 capabilities snapshot
-  byte-for-byte; no parser-arg loss; capabilities manifest contract
-  test green.
-- W-AH-2: scenario count 120+; test surface grows commensurately.
-- W-AI-2: `hai eval review` round-trips a labelled scenario through
-  `hai capabilities --json`.
-- W-AM-2: all 4 escalate-tagged scenarios land with persona
-  expected-action pinning.
-- W-Vb-4: P7..P12 reach `synthesized` under `hai demo start
-  --persona <slug>` + `hai daily`, OR honestly partial-close with
-  named v0.1.16+ residual.
-- W-PV14-ISO (if accepted): repro test green for fixture-isolation
-  refusal; `hai sync purge` selector ≤5-row refusal test green.
+- Each WS: see `v0_1_15/PLAN.md` §2 per-WS contract.
+- Cycle ship claim: signed-off recorded session showing non-maintainer
+  reaching `synthesized` end-state on a fresh device, with at most
+  **one brief in-session question to the maintainer** (load-bearing
+  threshold inherited verbatim from v0.1.14 PLAN §2.A acceptance —
+  multiple interventions or any maintainer keyboard time = failure).
+- All P0 findings closed inline before ship. **P0 = blocks
+  `synthesized` OR corrupts/drops user state OR breaches the
+  acceptance-1 session threshold** (multiple interventions, any
+  maintainer keyboard time, or >1 in-session question — per
+  PLAN §2.G F-PLAN-R2-05 disposition; threshold breach is P0,
+  not P1).
+- All P1 (within-threshold-met-session trust-degrading: agent
+  re-asks, incorrect band classification user notices, partial
+  state corruption, mid-session doc reading) findings closed
+  inline if cheap (≤0.5d, no D14 re-run, no state-model schema
+  or capabilities-manifest touch) or named-deferred to v0.1.16.
+- All P2 (cosmetic / non-trust-affecting) findings deferred to
+  v0.1.16 unconditionally.
+- Transcript + state DB snapshot + install record archived at
+  `reporting/plans/v0_1_15/foreign_machine_session_<YYYY-MM-DD>.md`,
+  `verification/dogfood/foreign_user/state_snapshot/<YYYY-MM-DD>/`,
+  and `verification/dogfood/foreign_user/install_record_<YYYY-MM-DD>.json`
+  (commit SHA, install command, environment hash, Python version,
+  OS, shell — per F-PLAN-R2-07).
 
 ### 5B.3 Effort estimate
 
-13-22 days (substantive). D14 plan-audit expected to settle in 2-4
-rounds per the empirical norm.
+16-25 days (substantive). D14 plan-audit budget: 2-4 rounds per the
+empirical norm. Round 1 closed at 12 findings; round 2 at 7
+(halving signature held); round 3 should drop to 2-4 to close the
+cycle.
 
 ### 5B.4 Strategic context
 
-This release is the engineering precondition for v0.1.16's
-empirical foreign-user gate. v0.1.15 ships a candidate package; if
-the package can't pass the foreign-machine onboarding session in
-v0.1.16, v0.1.15 should be revisited. The split exists because
-mixing prep + proof in one cycle made the v0.1.14 plan unwieldy —
-the maintainer's pre-implementation-gate decision was that the
-foreign-user candidate hadn't been recruited, and forcing the gate
-into the prep cycle compressed both into a too-large surface.
+The 2026-05-02 evening restructure combined what were previously
+two sequential cycles (v0.1.15 candidate-package prep + v0.1.16
+foreign-user gate) into a single v0.1.15. Maintainability + eval
+substrate work that the round-0 PLAN tried to bundle into v0.1.15
+(W-29 cli.py split + W-AH-2 / W-AI-2 / W-AM-2 / W-Vb-4 + F-PV14-02
++ W-B + W-D arm-2) was reassigned to a new v0.1.17 cycle so v0.1.15
+could stay focused on the gate ship-claim. v0.1.16 stays reserved
+exclusively for empirical post-gate fixes per the maintainer's
+framing. Net: same total cycle count; gate ship-claim moves one
+release earlier. Detail in `reporting/plans/v0_1_15/PLAN.md` §1.4
+("scope-decision provenance") and `reporting/plans/v0_1_17/README.md`.
 
 ---
 
-## 5C. v0.1.16 — First non-maintainer foreign-machine onboarding
+## 5C. v0.1.16 — Empirical post-gate bug fixes
 
-> **Status.** **Will follow v0.1.15.** Cycle tier projected:
-> substantive (the empirical session typically surfaces P0/P1
-> findings that change scope mid-cycle).
+> **Status.** **Will follow v0.1.15.** Cycle scope is purely
+> empirical and authors after v0.1.15's W-2U-GATE recorded session
+> surfaces its findings.
 >
-> **Theme.** Empirically prove that a non-maintainer can install
-> the v0.1.15 candidate package on an unprepared machine and reach
-> `synthesized` for a real day. **Ship claim:** non-maintainer
-> reached `synthesized` under gate. This is the empirical answer
-> to the "single-user assumptions failing" question in
-> `risks_and_open_questions.md`.
+> **Theme.** Pick up the post-gate findings v0.1.15 named-deferred
+> (P1) plus any P2 surfaced during the recorded session. **Ship
+> claim:** gate-session findings consolidated.
 
-### 5C.1 In scope
+### 5C.1 In scope (provisional — final scope follows the gate session)
 
 | W-id | Title | Effort | Source |
 |---|---|---|---|
-| **W-2U-GATE** | Recorded foreign-machine onboarding session (carry-forward from v0.1.14 pre-implementation gate defer + v0.1.15 prep) — install on unprepared machine; record screen + transcript; capture every blocker; categorise P0 (blocks-synthesize) / P1 (UX-rough) / P2 (cosmetic) | 2-3d | v0.1.14 deferred → v0.1.15-prep → v0.1.16 |
-| **W-EXPLAIN-UX-2** | Empirical foreign-user pass over `hai explain` consuming the v0.1.14 review doc's `carries-forward-to-v0.1.15` section (each prose-obligation item either confirmed-still-confusing or confirmed-resolved against the live foreign-user transcript) | 1-2d | v0.1.14 W-EXPLAIN-UX |
-| **W-2U-FIX-P0** | All P0 onboarding-fail fixes (blocks-synthesize-class) | 3-5d | v0.1.16 W-2U-GATE output |
-| **W-2U-FIX-P1** | P1 fixes OR named deferrals to v0.1.17 / v0.2.0 | 1-2d | v0.1.16 W-2U-GATE output |
+| **W-2U-FIX-P1** | All P1 fixes named-deferred from v0.1.15's recorded session | 2-5d | v0.1.15 W-2U-GATE output |
+| **W-2U-FIX-P2** | All P2 fixes from the recorded session (or named further deferrals) | 1-2d | v0.1.15 W-2U-GATE output |
+| **W-EXPLAIN-UX-2** | Empirical foreign-user pass over `hai explain` consuming the v0.1.14 review doc's `carries-forward-to-v0.1.15` section (each prose-obligation item either confirmed-still-confusing or confirmed-resolved against the live foreign-user transcript captured in v0.1.15) | 1-2d | v0.1.14 W-EXPLAIN-UX |
 
 ### 5C.2 Acceptance
 
-- W-2U-GATE: signed-off recorded session showing non-maintainer
-  reaching `synthesized` under gate. Transcript filed at
-  `reporting/plans/v0_1_16/foreign_machine_session_<YYYY-MM-DD>.md`.
-- W-EXPLAIN-UX-2: each carries-forward-to-v0.1.15 item from
-  v0.1.14's review doc has an empirical disposition (resolved /
-  still-confusing / deferred).
-- All P0 findings fixed-this-cycle.
-- All P1 findings either fixed-this-cycle OR named-deferred to a
-  specific v0.1.17 / v0.2.0 destination.
+- All v0.1.15 named-deferred P1 findings either fixed or
+  re-deferred with a specific v0.1.17 / v0.2.0 destination.
+- All gate-session P2 findings fixed or deferred.
+- W-EXPLAIN-UX-2 dispositions filed against the v0.1.14 review
+  doc's carries-forward section.
 
 ### 5C.3 Effort estimate
 
-7-12 days (substantive). The cycle's actual length depends heavily
-on how many P0 findings the recorded session surfaces; the budget
-above assumes a reasonably-prepared v0.1.15 candidate package.
+4-9 days (substantive, but bounded — empirical gate-session output
+typically caps at ~10 P-class findings if the v0.1.15 candidate
+package is reasonably prepared).
 
 ### 5C.4 Strategic context
 
-v0.1.16 is the bridge to v0.2.0 W-2U-GATE-2 (the *second* foreign
-machine session, sequenced as a doc-only adjunct in v0.2.0). The
-single-user-assumptions risk in `risks_and_open_questions.md` only
-empirically resolves once v0.1.16 ships green and v0.2.0
-W-2U-GATE-2 confirms the pattern reproduces.
+v0.1.16's scope is determined by what the foreign-user gate
+surfaces in v0.1.15 — it cannot be pre-scoped beyond "empirical
+fixes." If v0.1.15's gate session surfaces a structural blocker
+(P0 wave that exceeds inline-fix budget), v0.1.15 would re-scope
+or hold rather than ship; v0.1.16 only opens with v0.1.15 closed.
+
+---
+
+## 5D. v0.1.17 — Maintainability + eval substrate consolidation
+
+> **Status.** **Will follow v0.1.16.** Workspace at
+> `reporting/plans/v0_1_17/README.md` is open; PLAN.md authors when
+> the cycle opens.
+>
+> **Theme.** Land the deferred maintainability + eval-substrate work
+> that the v0.1.15 round-0 PLAN tried to bundle into the foreign-user
+> gate cycle. **Ship claim:** internal correctness + maintainer-side
+> cleanup. Parallelizable with v0.2.0 since v0.2.0's hard
+> dependencies do not include this cycle.
+
+### 5D.1 In scope (provisional — to be finalised in PLAN.md)
+
+| W-id | Title | Effort | Source |
+|---|---|---|---|
+| **W-29** | cli.py 9217-line mechanical split (byte-stable manifest) | 4-6d | v0.1.14 RELEASE_PROOF §carry-overs; redestinated v0.1.15 → v0.1.17 on 2026-05-02 evening |
+| **W-30** | Capabilities-manifest schema freeze prep (regression test only; freeze itself is v0.2.3) | 0.5d | AGENTS.md D124-135 |
+| **F-PV14-02** | `hai sync purge` surgical-cleanup CLI | 1.5d | `post_v0_1_14/carry_over_findings.md` F-PV14-02 |
+| **W-AH-2** | Scenario fixture expansion 35 → 120+ | 4-6d | v0.1.14 RELEASE_PROOF §carry-overs |
+| **W-AI-2** | `hai eval review` CLI surface | 3-4d | v0.1.14 RELEASE_PROOF §carry-overs |
+| **W-AM-2** | 4 fork-deferred escalate-tagged scenarios (sleep / strength / stress / nutrition) | 2-3d | v0.1.14 RELEASE_PROOF §carry-overs |
+| **W-Vb-4** | Persona-replay residual P7..P12 (6 personas) | 5-7d | v0.1.14 RELEASE_PROOF §carry-overs |
+| **W-B** | `hai intake weight` body-comp surface + `body_comp` table + migration | 3-4d | `agent_state_visibility_findings.md` F-AV-02 (deferred from v0.1.15 round-0) |
+| **W-D arm-2** | Partial-day nutrition end-of-day projection (gated on W-C shipped in v0.1.15) | 2-3d | `agent_state_visibility_findings.md` F-AV-04 arm 2 |
+
+### 5D.2 Effort estimate
+
+25-39 days (substantive). Larger than v0.1.15 because it bundles
+the deferred mechanical refactor + eval-substrate expansion +
+nice-to-have intake surfaces.
+
+### 5D.3 Strategic context
+
+v0.1.17 exists because the round-0 v0.1.15 PLAN tried to combine
+maintainability + foreign-user gate + daily-loop hardening in one
+cycle, which would have created exactly the W-29 ↔ W-A/W-C/W-D
+merge friction the `agent_state_visibility_findings.md` recommendation
+warned of. The 2026-05-02 evening self-audit cut the maintainability
++ eval work to v0.1.17 so the gate cycle stays focused. v0.2.0 does
+NOT depend on v0.1.17 (per row 49 — v0.2.0 hard deps are v0.1.16
++ v0.1.14 substrate only), so v0.1.17 can run parallel to or
+defer past v0.2.0 if the maintainer prefers.
 
 ---
 

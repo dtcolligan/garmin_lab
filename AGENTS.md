@@ -16,6 +16,16 @@ skills consumed by the agent at runtime. The maintainer's daily development
 loop is Claude Code over this project's own `hai` CLI; the project is its
 own dogfood.
 
+**Active repo path.** This contract applies to checkouts at
+`/Users/domcolligan/health_agent_infra/`. A stale checkout exists
+at `/Users/domcolligan/Documents/health_agent_infra/` (months
+behind, head at commit `2811669 Phase H: implement conversational
+intake`); ignore it unless explicitly working on historical
+provenance. Every session should `pwd` and `git log -1` before
+reading or writing planning/source files. (Origin: 2026-05-02
+evening; see `reporting/plans/v0_1_15/PLAN.md` §4 item 8 +
+codex_plan_audit_response F-PLAN-12.)
+
 Authoritative orientation:
 
 - `README.md` - product story, install, CLI surface
@@ -121,11 +131,14 @@ write a cycle proposal in `reporting/plans/`; do not act unilaterally.
   was validation/diff/auditability, not re-implementation.
 - **W47 is cut.** Keep release-proof/changelog discipline, but do not add a
   working-tree-sensitive changelog test.
-- **W29 / W30 scheduled.** cli.py split scheduled for **v0.1.15**
+- **W29 / W30 scheduled.** cli.py split scheduled for **v0.1.17**
   (deferred from v0.1.14 at the 2026-05-01 pre-implementation gate;
   v0.1.13 W-29-prep boundary-audit verdict was green and the
   parser/capabilities regression test landed, so the mechanical
-  split itself is the v0.1.15 deliverable). Capabilities-manifest
+  split itself is the deliverable; redestination v0.1.15 → v0.1.17
+  on 2026-05-02 evening per the v0.1.15 scope-restructure round-0
+  self-audit — see `reporting/plans/v0_1_15/PLAN.md` §1.4 and
+  `reporting/plans/v0_1_17/README.md`). Capabilities-manifest
   schema freeze scheduled for **v0.2.3** after all v0.2.x schema
   additions land (**W52 + W58D claim-block (v0.2.0), W53 (v0.2.1),
   W58J (v0.2.2)**). (Origin: v0.1.12 CP1 + CP2, paired acceptance;
@@ -133,7 +146,10 @@ write a cycle proposal in `reporting/plans/`; do not act unilaterally.
   CP-W30-SPLIT, OQ-B answered Path A 2026-05-01; W58D claim-block
   added to v0.2.0 schema-group list per v0.1.14 D14 round 1
   F-PLAN-10; v0.1.14 → v0.1.15 W-29 destination updated 2026-05-02
-  post-v0.1.14.1 ship.)
+  mid-day post-v0.1.14.1 ship; v0.1.15 → v0.1.17 W-29 destination
+  updated 2026-05-02 evening per scope-restructure self-audit, so
+  v0.1.15 can ship the foreign-user gate without W-29 merge friction
+  with W-A/W-C/W-D CLI extensions.)
 - **Garmin Connect is not the default live source.** Login is rate-limited
   and unreliable. Default to intervals.icu when configured. As of
   v0.1.14.1 (W-GARMIN-MANIFEST-SIGNAL), this is also a *structured*
@@ -408,10 +424,14 @@ CI runs `verification/tests/`. The suite includes docs and skill/CLI drift check
 - Do not add a wearable source until the per-domain evidence contract is
   broadened.
 - Do not split `cli.py` or freeze the capabilities manifest schema before
-  their scheduled cycles (v0.1.15 / v0.2.3). (Origin: v0.1.12 CP1 + CP2;
+  their scheduled cycles (v0.1.17 / v0.2.3). (Origin: v0.1.12 CP1 + CP2;
   v0.2.x destination updated by post-v0.1.13 CP-W30-SPLIT; v0.1.14 →
-  v0.1.15 cli.py-split destination updated 2026-05-02 post-v0.1.14.1
-  ship to reflect the v0.1.14 pre-implementation defer.)
+  v0.1.15 cli.py-split destination updated 2026-05-02 mid-day
+  post-v0.1.14.1 ship; v0.1.15 → v0.1.17 destination redestinated
+  2026-05-02 evening per the v0.1.15 scope-restructure self-audit
+  to keep the foreign-user gate cycle free of cli.py merge friction
+  with W-A/W-C/W-D CLI extensions — see `reporting/plans/v0_1_15/PLAN.md`
+  §1.4 and `reporting/plans/v0_1_17/README.md`.)
 - Do not add micronutrient or food-taxonomy features.
 - Do not treat raw SQLite reads as the normal inspection surface; use
   `hai today`, `hai explain`, and `hai doctor`.
